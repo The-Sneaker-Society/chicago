@@ -16,10 +16,12 @@ const resolvers = {
   Mutation: {
     createMember: async (parent, args, ctx, info) => {
       const { firstName, lastName, email } = args.data;
-
       const member = new Member({ firstName, lastName, email });
       await member.save();
       return member;
+    },
+    updateMember: async (parent, args, ctx, info) => {
+      const { firstName, lastName, email } = args.data;
     },
   },
 };

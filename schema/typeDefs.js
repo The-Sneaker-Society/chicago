@@ -6,6 +6,8 @@ const typeDefs = gql`
     firstName: String!
     lastName: String!
     email: String!
+    createdAt: String
+    updatedAt: String
   }
 
   type Query {
@@ -20,8 +22,15 @@ const typeDefs = gql`
     email: String!
   }
 
+  input UpdateMemberInput {
+    firstName: String
+    lastName: String
+    email: String
+  }
+
   type Mutation {
     createMember(data: MemberInput!): Member!
+    updateMember(data: UpdateMemberInput!): Member!
   }
 `;
 
