@@ -13,6 +13,16 @@ const typeDefs = gql`
     helloMe: String
     getAllMembers: [Member!]
   }
+
+  input MemberInput {
+    firstName: String!
+    lastName: String!
+    email: String!
+  }
+
+  type Mutation {
+    createMember(data: MemberInput!): Member!
+  }
 `;
 
 export default typeDefs;
