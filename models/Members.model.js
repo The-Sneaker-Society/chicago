@@ -8,9 +8,13 @@ const MemberSchema = new mongoose.Schema({
   lastName: {
     type: String,
     required: true,
-  }
+  },
+  email: {
+    type: String,
+    required: true,
+  },
 });
 
 const Member = mongoose.model("members", MemberSchema);
 
-module.exports = Member
+module.exports = Member;
