@@ -2,24 +2,26 @@ import { ApolloServer, gql } from "apollo-server-express";
 import { ApolloServerPluginDrainHttpServer } from "apollo-server-core";
 import express from "express";
 import http from "http";
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import typeDefs from "./graphql/typeDefs";
+import resolvers from "./graphql/resolvers";
 
-const typeDefs = gql`
-  type Query {
-    hello: String!
-  }
-`;
-
-const resolvers = {
-  Query: {
-    hello: () => {
-      return "Hello world";
-    },
-  },
-};
+dotenv.config({ path: "./config.env" });
 
 async function startApolloServer(typeDefs, resolvers) {
   const app = express();
   const httpServer = http.createServer(app);
+
+  await mongoose
+    .connect(process.env.ATLAS_URI, {
+      dbName: "sneaker-society",
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    })
+    .then(() => {
+      console.log("Connected to DB....");
+    });
 
   const server = new ApolloServer({
     typeDefs,
