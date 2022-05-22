@@ -14,7 +14,8 @@ const typeDefs = gql`
     email: String!
     firstName: String
     lastName: String!
-    memberId: String!
+    memberId: ID!
+    member: Member!
   }
 
   input CreateMemberInput {

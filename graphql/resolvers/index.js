@@ -12,4 +12,7 @@ module.exports = {
   Member: {
     ...memberResolvers.Member,
   },
+  Client: {
+      ...clientResolvers.Client
+  }
 };
