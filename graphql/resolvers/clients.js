@@ -2,14 +2,13 @@ import { UserInputError } from "apollo-server-core";
 import Member from "../../models/Member.model";
 import Client from "../../models/Client.model";
 
-
 const Mutation = {
   creatClient: async (parent, args, ctx, info) => {
     try {
       const { email, firstName, lastName, memberId } = args.data;
 
       const member = await Member.findById(memberId);
-      //   console.log(member)
+
 
       if (member) {
         const client = new Client({ email, firstName, lastName, memberId });

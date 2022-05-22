@@ -9,4 +9,7 @@ module.exports = {
     ...memberResolvers.Mutation,
     ...clientResolvers.Mutation,
   },
+  Member: {
+    ...memberResolvers.Member,
+  },
 };

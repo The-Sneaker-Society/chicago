@@ -33,6 +33,7 @@ const typeDefs = gql`
   type Query {
     hello: String!
     members: [Member!]!
+    clients: [Client!]!
   }
 
   type Mutation {

@@ -16,7 +16,7 @@ const ClientSchema = new mongoose.Schema({
   },
   memberId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Member",
+    ref: "Members",
     required: true,
   },
 },{

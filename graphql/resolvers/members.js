@@ -1,5 +1,5 @@
 import { UserInputError } from "apollo-server-core";
-import Member from "../../models/Member.model";
+import MemberModel from "../../models/Member.model";
 import ClientModel from "../../models/Client.model";
 
 const Query = {
@@ -8,10 +8,16 @@ const Query = {
   },
   async members() {
     try {
-      const members = await Member.find().populate("clients");
-
-      console.log(members);
+      const members = await MemberModel.find();
       return members;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+  async clients() {
+    try {
+      const clients = await ClientModel.find();
+      return clients;
     } catch (e) {
       throw new Error(e);
     }
@@ -22,7 +28,7 @@ const Mutation = {
   async createMember(parent, args, ctx, info) {
     const { email, firstName, lastName } = args.data;
 
-    const member = Member.findOne({ email: email });
+    const member = MemberModel.findOne({ email: email });
 
     // if (member) {
     //   throw new UserInputError("Email is taken.", {
@@ -32,7 +38,7 @@ const Mutation = {
     //   });
     // }
 
-    const newMember = new Member({
+    const newMember = new MemberModel({
       email,
       firstName,
       lastName,
@@ -44,4 +50,17 @@ const Mutation = {
   },
 };
 
-export default { Query, Mutation };
+const Member = {
+  async clients(parent, args, ctx, info) {
+    try {
+      const clients = await ClientModel.find();
+
+      return clients.filter(
+        (client) => client.memberId.toString() === parent.id
+      );
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+};
+export default { Query, Mutation, Member };
