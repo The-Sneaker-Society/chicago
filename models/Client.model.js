@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const MemberSchema = new mongoose.Schema(
+const ClientSchema = new mongoose.Schema(
   {
     firstName: {
       type: String,
@@ -13,16 +13,16 @@ const MemberSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
-      unique: true
+      unique: true,
     },
-    clients: {
-        type: Array,
-        require: true
-    }
+    members: {
+      type: Array,
+      required: true,
+    },
   },
   { timestamps: true }
 );
 
-const Member = mongoose.model("members", MemberSchema);
+const Client = mongoose.model("clients", ClientSchema);
 
-module.exports = Member;
+module.exports = Client;
