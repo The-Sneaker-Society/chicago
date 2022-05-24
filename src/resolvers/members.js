@@ -1,6 +1,6 @@
 import { UserInputError } from "apollo-server-core";
-import MemberModel from "../../models/Member.model";
-import ClientModel from "../../models/Client.model";
+import MemberModel from "../models/Member.model";
+import ClientModel from "../models/Client.model";
 
 const Query = {
   hello: () => {
