@@ -23,11 +23,11 @@ const fields = {
 /* 
 @todo
 
-- Authentication on Member side and Client side firebase authentication - *one time code*
+- Authentication on Member side and Client side firebase authentication - *one time code* B
 
-- photo upload service/functionality
+- photo upload service/functionality AY
 
-- email service
+- email service AY
 
 - methods to update status
 
