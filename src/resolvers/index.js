@@ -1,10 +1,10 @@
 import memberResolvers from "./members";
 import clientResolvers from "./clients";
+import Query from "./Query";
 
 module.exports = {
-  Query: {
-    ...memberResolvers.Query,
-  },
+  Query,
+  // @todo update imports
   Mutation: {
     ...memberResolvers.Mutation,
     ...clientResolvers.Mutation,
@@ -13,6 +13,6 @@ module.exports = {
     ...memberResolvers.Member,
   },
   Client: {
-      ...clientResolvers.Client
-  }
+    ...clientResolvers.Client,
+  },
 };
