@@ -1,6 +1,17 @@
 import { gql } from "apollo-server-core";
 
 const typeDefs = gql`
+  type Contract {
+    id: ID!
+    client: Client!
+    member: Member!
+    eta: String!
+    stage: String!
+    price: String!
+    notes: String!
+    reported: Boolean!
+  }
+
   type Member {
     id: ID!
     email: String!
@@ -35,6 +46,7 @@ const typeDefs = gql`
     hello: String!
     members: [Member!]!
     clients: [Client!]!
+    contracts: [Contract!]!
   }
 
   type Mutation {
