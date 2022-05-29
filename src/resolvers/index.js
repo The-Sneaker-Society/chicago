@@ -1,5 +1,6 @@
 import memberResolvers from "./members";
 import clientResolvers from "./clients";
+import contractResolvers from './contracts'
 import Query from "./Query";
 
 module.exports = {
@@ -15,4 +16,7 @@ module.exports = {
   Client: {
     ...clientResolvers.Client,
   },
+  Contract: {
+    ...contractResolvers.Contract
+  }
 };
