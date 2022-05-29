@@ -1,17 +1,22 @@
 import { ApolloServer, gql } from "apollo-server-express";
 import { ApolloServerPluginDrainHttpServer } from "apollo-server-core";
 import express from "express";
+import cors from "cors";
 import http from "http";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import typeDefs from "./typeDefs";
 import resolvers from "./resolvers";
+import { uploadImage } from "./utils/ImageUpload";
 
 dotenv.config({ path: "./config.env" });
 
 async function startApolloServer(typeDefs, resolvers) {
   const app = express();
+  app.use(cors());
   const httpServer = http.createServer(app);
+
+  app.get("/photo", uploadImage);
 
   await mongoose
     .connect(process.env.ATLAS_URI, {

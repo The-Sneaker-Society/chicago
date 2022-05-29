@@ -18,6 +18,12 @@ const typeDefs = gql`
     member: Member!
   }
 
+  type File {
+    fileName: String!
+    mimetype: String!
+    encoding: String!
+  }
+
   input CreateMemberInput {
     email: String!
     firstName: String!
@@ -41,6 +47,8 @@ const typeDefs = gql`
     createMember(data: CreateMemberInput!): Member!
     creatClient(data: CreateClientInput!): Client!
   }
+
+
 `;
 
 export default typeDefs;
