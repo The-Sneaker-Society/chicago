@@ -40,7 +40,7 @@ const Client = {
       if (!member) {
         throw new Error("Member not found");
       }
-
+      // test
       return member;
     } catch (e) {
       throw new Error(e);
