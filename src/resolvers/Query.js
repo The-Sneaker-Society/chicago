@@ -2,6 +2,7 @@ import { UserInputError } from "apollo-server-core";
 import MemberModel from "../models/Member.model";
 import ClientModel from "../models/Client.model";
 import ContractModel from "../models/Contract.model";
+import UserModel from "../models/User.model";
 
 const Query = {
   hello: () => {
@@ -27,6 +28,14 @@ const Query = {
     try {
       const contracts = await ContractModel.find();
       return contracts;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+  async users() {
+    try {
+      const users = await UserModel.find();
+      return users;
     } catch (e) {
       throw new Error(e);
     }

@@ -12,6 +12,12 @@ const typeDefs = gql`
     reported: Boolean!
   }
 
+  type User {
+    id: ID!
+    firebaseID: ID!
+    userName: String!
+  }
+
   type Member {
     id: ID!
     email: String!
@@ -47,6 +53,7 @@ const typeDefs = gql`
     members: [Member!]!
     clients: [Client!]!
     contracts: [Contract!]!
+    users: [User!]!
   }
 
   type Mutation {
