@@ -32,8 +32,9 @@ const Query = {
       throw new Error(e);
     }
   },
-  async users() {
+  async users(parent, args, ctx, info) {
     try {
+      console.log(ctx)
       const users = await UserModel.find();
       return users;
     } catch (e) {
