@@ -14,7 +14,7 @@ import { S3 } from "aws-sdk";
 async function startApolloServer() {
   const app = express();
   app.use(cors());
-// test
+  // test
   const s3 = new S3();
 
   const upload = multer({
@@ -65,7 +65,7 @@ async function startApolloServer() {
 
   await server.start();
   server.applyMiddleware({ app });
-  await new Promise((resolve) => httpServer.listen({ port: 4000 }, resolve));
+  httpServer.listen({ port: process.env.PORT || 4000 });
   console.log(`🚀 Server ready at ${server.graphqlPath}`);
 }
 
