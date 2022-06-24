@@ -8,15 +8,54 @@ import dotenv from "dotenv";
 import typeDefs from "./typeDefs";
 import resolvers from "./resolvers";
 import { uploadImage } from "./utils/ImageUpload";
+import multer from "multer";
+import multerS3 from "multer-s3";
+import { S3 } from "aws-sdk";
 
 dotenv.config({ path: "./config.env" });
 
 async function startApolloServer(typeDefs, resolvers) {
   const app = express();
   app.use(cors());
-  const httpServer = http.createServer(app);
 
-  app.get("/photo", uploadImage);
+  const s3 = new S3();
+
+  const upload = multer({
+    storage: multerS3({
+      s3: s3,
+      bucket: process.env.AWS_BUCKET_NAME,
+      metadata: function (req, file, cb) {
+        cb(null, { fieldName: file.fieldname });
+      },
+      key: function (req, file, cb) {
+        cb(null, Date.now().toString());
+      },
+    }),
+    limits: { fileSize: 52428800 },
+  });
+
+  app.post("/upload", upload.array("files", 3), function (req, res, next) {
+    res.send({
+      message: "Uploaded!",
+      urls: req.files.map(function (file) {
+        return {
+          url: file.location,
+          name: file.key,
+          type: file.mimetype,
+          size: file.size,
+        };
+      }),
+    });
+  });
+  // const upload = multer({ dest: "uploads/" });
+  // app.post("/photo", upload.single("file"), uploadImage);
+
+  // const upload = multer({ dest: "uploads/" });
+
+  // const multiUpload = upload.fields([{ name: "shoes", maxCount: 2 }]);
+  // app.post("/photo", multiUpload, uploadImage);
+
+  const httpServer = http.createServer(app);
 
   await mongoose
     .connect(process.env.ATLAS_URI, {
