@@ -8,7 +8,6 @@ const Mutation = {
     try {
       const { memberId, eta, client, stage, price, notes, photos, reported } =
         args.data;
-      // console.log(typeof args.data.memberId);
 
       // Find member
       const foundMember = await MemberModel.findById(memberId);
@@ -16,6 +15,7 @@ const Mutation = {
       // // Find Client
       const foundClient = await ClientModel.findById(client);
 
+      // create Contract Instance
       const newContract = new ContractModel({
         client: foundClient,
         member: foundMember,
@@ -24,7 +24,7 @@ const Mutation = {
         price: "",
         notes: "",
         reported: false,
-        photos: [],
+        photos: photos,
       });
 
       // Create contract

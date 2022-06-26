@@ -1,6 +1,6 @@
 import { s3Uploadv2 } from "./s3Service";
 import nodemailer from "nodemailer";
-import fs from "fs";
+import fs, { readFile } from "fs";
 export const uploadImage = async (req, res) => {
   try {
     const htmlFilestream = fs.createReadStream("src/emails/new_contract.html");
@@ -27,16 +27,19 @@ export const uploadImage = async (req, res) => {
       // attachments: test,
     };
 
-    transporter.sendMail(mailOptions, function (error, info) {
-      if (error) {
-        console.log(error);
-      } else {
-        console.log("Email sent: " + info.response);
-      }
-    });
+    // transporter.sendMail(mailOptions, function (error, info) {
+    //   if (error) {
+    //     console.log(error);
+    //   } else {
+    //     console.log("Email sent: " + info.response);
+    //   }
+    // });
 
-    console.log(req.files);
-    return res.send("done");
+    // console.log(req.files);
+    const locations = req.files.map((file) => {
+      return file.location;
+    });
+    return res.send(locations);
   } catch (e) {
     throw e;
   }

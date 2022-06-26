@@ -17,19 +17,19 @@ async function startApolloServer() {
   // test
   const s3 = new S3();
 
-  // const upload = multer({
-  //   storage: multerS3({
-  //     s3: s3,
-  //     bucket: process.env.AWS_BUCKET_NAME,
-  //     metadata: function (req, file, cb) {
-  //       cb(null, { fieldName: file.fieldname });
-  //     },
-  //     key: function (req, file, cb) {
-  //       cb(null, Date.now().toString());
-  //     },
-  //   }),
-  //   limits: { fileSize: 52428800 },
-  // });
+  const upload = multer({
+    storage: multerS3({
+      s3: s3,
+      bucket: process.env.AWS_BUCKET_NAME,
+      metadata: function (req, file, cb) {
+        cb(null, { fieldName: file.fieldname });
+      },
+      key: function (req, file, cb) {
+        cb(null, Date.now().toString());
+      },
+    }),
+    limits: { fileSize: 52428800 },
+  });
 
   // app.post("/upload", upload.array("files", 3), function (req, res, next) {
   //   res.send({
@@ -48,7 +48,7 @@ async function startApolloServer() {
   // const upload = multer({ dest: "uploads/" });
   // app.post("/photo", upload.single("file"), uploadImage);
 
-  const upload = multer({ dest: "uploads/" });
+  // const upload = multer({ dest: "uploads/" });
   app.post("/upload", upload.array("files", 5), uploadImage);
 
   const httpServer = http.createServer(app);
