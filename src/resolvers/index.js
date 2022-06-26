@@ -1,6 +1,6 @@
 import memberResolvers from "./members";
 import clientResolvers from "./clients";
-import contractResolvers from './contracts'
+import contractResolvers from "./contracts";
 import Query from "./Query";
 
 module.exports = {
@@ -9,6 +9,7 @@ module.exports = {
   Mutation: {
     ...memberResolvers.Mutation,
     ...clientResolvers.Mutation,
+    ...contractResolvers.Mutation,
   },
   Member: {
     ...memberResolvers.Member,
@@ -17,6 +18,6 @@ module.exports = {
     ...clientResolvers.Client,
   },
   Contract: {
-    ...contractResolvers.Contract
-  }
+    ...contractResolvers.Contract,
+  },
 };

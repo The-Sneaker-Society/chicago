@@ -49,6 +49,17 @@ const typeDefs = gql`
     memberId: String!
   }
 
+  input CreateContractInput {
+    client: String!
+    memberId: String!
+    eta: String!
+    stage: String!
+    price: String!
+    notes: String!
+    photos: [String!]
+    reported: Boolean!
+  }
+
   type Query {
     hello: String!
     members: [Member!]!
@@ -60,6 +71,7 @@ const typeDefs = gql`
   type Mutation {
     createMember(data: CreateMemberInput!): Member!
     creatClient(data: CreateClientInput!): Client!
+    createContract(data: CreateContractInput!): Contract!
   }
 `;
 

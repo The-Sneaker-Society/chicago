@@ -7,9 +7,12 @@ const Mutation = {
     try {
       const { email, firstName, lastName, memberId } = args.data;
 
+      // Finde if member exists
       const member = await MemberModel.findById(memberId);
 
+      // if member exists
       if (member) {
+        // Create client
         const client = new ClientModel({
           email,
           firstName,
@@ -19,8 +22,10 @@ const Mutation = {
 
         await client.save();
 
+        // add Client to member
         member.clients.push(memberId);
 
+        // Update member
         await member.save();
         return member.populate("clients");
       } else {

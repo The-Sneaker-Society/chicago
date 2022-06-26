@@ -1,7 +1,40 @@
 import MemberModel from "../models/Member.model";
 import ClientModel from "../models/Client.model";
+import mongoose from "mongoose";
+import ContractModel from "../models/Contract.model";
 
-const Mutation = {};
+const Mutation = {
+  async createContract(parent, args, ctx, info) {
+    try {
+      const { memberId, eta, client, stage, price, notes, photos, reported } =
+        args.data;
+      // console.log(typeof args.data.memberId);
+
+      // Find member
+      const foundMember = await MemberModel.findById(memberId);
+
+      // // Find Client
+      const foundClient = await ClientModel.findById(client);
+
+      const newContract = new ContractModel({
+        client: foundClient,
+        member: foundMember,
+        eta: "",
+        stage: "",
+        price: "",
+        notes: "",
+        reported: false,
+        photos: [],
+      });
+
+      // Create contract
+      const res = await newContract.save();
+      return { ...res._doc, id: res._id };
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+};
 
 const Contract = {
   async member(parent, args, ctx, info) {
@@ -22,4 +55,4 @@ const Contract = {
   },
 };
 
-export default { Contract };
+export default { Contract, Mutation };

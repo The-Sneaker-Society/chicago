@@ -14,27 +14,27 @@ const ContractSchema = new mongoose.Schema(
     },
     eta: {
       type: String,
-      required: true,
+      // required: true,
     },
     stage: {
       type: String,
-      required: true,
+      // required: true,
     },
     price: {
       type: String,
-      required: true,
+      // required: true,
     },
     notes: {
       type: String,
-      required: true,
+      // required: true,
     },
     reported: {
       type: Boolean,
-      required: true,
+      // required: true,
     },
     photos: {
       type: Array,
-      required: true,
+      // required: true,
     },
   },
   {
