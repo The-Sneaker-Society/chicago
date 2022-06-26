@@ -54,6 +54,7 @@ const typeDefs = gql`
     members: [Member!]!
     clients: [Client!]!
     contracts: [Contract!]!
+    memberById(id: ID!): Member!
   }
 
   type Mutation {
