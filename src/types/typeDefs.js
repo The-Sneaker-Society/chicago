@@ -9,6 +9,7 @@ const typeDefs = gql`
     stage: String!
     price: String!
     notes: String!
+    photos: [String!]
     reported: Boolean!
   }
 
@@ -59,8 +60,6 @@ const typeDefs = gql`
     createMember(data: CreateMemberInput!): Member!
     creatClient(data: CreateClientInput!): Client!
   }
-
-
 `;
 
 export default typeDefs;

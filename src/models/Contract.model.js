@@ -32,6 +32,10 @@ const ContractSchema = new mongoose.Schema(
       type: Boolean,
       required: true,
     },
+    photos: {
+      type: Array,
+      required: true,
+    },
   },
   {
     timestamps: true,
