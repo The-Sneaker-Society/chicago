@@ -1,6 +1,5 @@
 import MemberModel from "../models/Member.model";
 import ClientModel from "../models/Client.model";
-import mongoose from "mongoose";
 import ContractModel from "../models/Contract.model";
 
 const Mutation = {
@@ -19,16 +18,17 @@ const Mutation = {
       const newContract = new ContractModel({
         client: foundClient,
         member: foundMember,
-        eta: "",
-        stage: "",
-        price: "",
-        notes: "",
+        eta,
+        stage,
+        price,
+        notes,
         reported: false,
         photos: photos,
       });
 
       // Create contract
       const res = await newContract.save();
+
       return { ...res._doc, id: res._id };
     } catch (e) {
       throw new Error(e);

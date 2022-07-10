@@ -19,6 +19,10 @@ const Query = {
     try {
       // console.log(args.id);
       const member = await MemberModel.findById(args.id.toString());
+
+      if (!member) {
+        throw new Error("Member not found")
+      }
       return member;
     } catch (e) {
       throw new Error(e);
