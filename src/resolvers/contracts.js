@@ -1,6 +1,7 @@
 import MemberModel from "../models/Member.model";
 import ClientModel from "../models/Client.model";
 import ContractModel from "../models/Contract.model";
+import { sendEmail } from "../utils/sendEmail";
 
 const Mutation = {
   async createContract(parent, args, ctx, info) {
@@ -26,15 +27,18 @@ const Mutation = {
         photos: photos,
       });
 
-
       // Create contract
       const res = await newContract.save();
 
       // Add contract to Member and Client
-      foundMember.contracts.push(res._id)
-      foundClient.contracts.push(res._id)
-      await foundClient.save()
-      await foundMember.save()
+      foundMember.contracts.push(res._id);
+      foundClient.contracts.push(res._id);
+      await foundClient.save();
+      await foundMember.save();
+
+      // Send Emails
+      const { firstName, lastName, email } = foundMember;
+      await sendEmail(firstName, lastName, res._id, email);
 
       // Return contract
       return { ...res._doc, id: res._id };
