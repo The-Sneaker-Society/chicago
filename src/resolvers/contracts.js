@@ -26,9 +26,17 @@ const Mutation = {
         photos: photos,
       });
 
+
       // Create contract
       const res = await newContract.save();
 
+      // Add contract to Member and Client
+      foundMember.contracts.push(res._id)
+      foundClient.contracts.push(res._id)
+      await foundClient.save()
+      await foundMember.save()
+
+      // Return contract
       return { ...res._doc, id: res._id };
     } catch (e) {
       throw new Error(e);

@@ -19,6 +19,7 @@ const typeDefs = gql`
     firstName: String!
     lastName: String!
     clients: [Client!]!
+    contracts: [Contract!]!
   }
 
   type Client {
@@ -28,6 +29,7 @@ const typeDefs = gql`
     lastName: String!
     memberId: ID!
     member: Member!
+    contracts: [Contract!]!
   }
 
   type File {

@@ -22,9 +22,16 @@ const MemberSchema = new mongoose.Schema(
         required: true,
       },
     ],
+    contracts: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Contracts",
+      },
+    ],
   },
   {
     collection: "members",
+    timestamps: true,
   }
 );
 

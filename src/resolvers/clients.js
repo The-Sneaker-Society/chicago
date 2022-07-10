@@ -1,6 +1,7 @@
 import { UserInputError } from "apollo-server-core";
 import MemberModel from "../models/Member.model";
 import ClientModel from "../models/Client.model";
+import ContractModel from "../models/Contract.model";
 
 const Mutation = {
   creatClient: async (parent, args, ctx, info) => {
@@ -47,6 +48,18 @@ const Client = {
       }
 
       return member;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+  async contracts(parent, args, ctx, info) {
+    try {
+      const contracts = await ContractModel.find();
+      console.log(contracts);
+      // return clients.filter(
+      //   (client) => client.contrac.toString() === parent.id
+      // );
+      return contracts;
     } catch (e) {
       throw new Error(e);
     }
