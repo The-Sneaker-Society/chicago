@@ -1,6 +1,7 @@
 import { gql } from "apollo-server-core";
 
 const typeDefs = gql`
+
   type Contract {
     id: ID!
     client: Client!
@@ -11,6 +12,8 @@ const typeDefs = gql`
     notes: String!
     photos: [String!]
     reported: Boolean!
+    createdAt: String!
+    updatedAt: String!
   }
 
   type Member {
@@ -20,6 +23,8 @@ const typeDefs = gql`
     lastName: String!
     clients: [Client!]!
     contracts: [Contract!]!
+    createdAt: String!
+    updatedAt: String!
   }
 
   type Client {
@@ -30,6 +35,8 @@ const typeDefs = gql`
     memberId: ID!
     member: Member!
     contracts: [Contract!]!
+    createdAt: String!
+    updatedAt: String!
   }
 
   type File {

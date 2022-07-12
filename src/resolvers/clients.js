@@ -21,14 +21,15 @@ const Mutation = {
           memberId,
         });
 
-        await client.save();
+        const res = await client.save();
 
         // add Client to member
-        member.clients.push(memberId);
+        member.clients.push(res._id);
 
         // Update member
         await member.save();
-        return member.populate("clients");
+        // return member.populate("clients");
+        return { ...res._doc, id: res._id };
       } else {
         throw new UserInputError("member does not exist.");
       }
@@ -55,7 +56,7 @@ const Client = {
   async contracts(parent, args, ctx, info) {
     try {
       const contracts = await ContractModel.find();
-      console.log(contracts);
+      // console.log(contracts);
       // return clients.filter(
       //   (client) => client.contrac.toString() === parent.id
       // );

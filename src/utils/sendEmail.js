@@ -10,7 +10,7 @@ export const sendEmail = async (firstName, lastName, contractId, email) => {
     const template = Handlebars.compile(source);
     const replacements = {
       userName: `${firstName} ${lastName}`,
-      link: `https://www.google.com/${contractId}`,
+      link: `${process.env.APP_URL}/dashboard`,
     };
     const htmlToSend = template(replacements);
 

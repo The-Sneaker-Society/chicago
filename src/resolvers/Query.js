@@ -20,6 +20,7 @@ const Query = {
       // console.log(args.id);
       const member = await MemberModel.findById(args.id.toString());
 
+      // console.log(member.createdAt)
       if (!member) {
         throw new Error("Member not found")
       }
