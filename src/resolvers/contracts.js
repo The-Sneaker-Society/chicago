@@ -38,7 +38,29 @@ const Mutation = {
 
       // Send Emails
       const { firstName, lastName, email } = foundMember;
-      await sendEmail(firstName, lastName, res._id, email);
+
+      // Send email to Member
+      await sendEmail(
+        "New Contract!",
+        email,
+        {
+          userName: `${firstName} ${lastName}`,
+          link: `${process.env.APP_URL}/dashboard`,
+        },
+        "src/emails/new_contract.html"
+      );
+
+      // send email to Client
+      await sendEmail(
+        "Thank You",
+        foundClient.email,
+        {
+          userName: `${foundClient.firstName}`,
+          memberName: `${firstName}`,
+        },
+        "src/emails/new_contract_client.html"
+      );
+
 
       // Return contract
       return { ...res._doc, id: res._id };

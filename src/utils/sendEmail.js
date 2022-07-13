@@ -3,15 +3,20 @@ import nodemailer from "nodemailer";
 import fs, { readFile } from "fs";
 import Handlebars from "handlebars";
 
-export const sendEmail = async (firstName, lastName, contractId, email) => {
+export const sendEmail = async (
+  subject,
+  recipiant,
+  replacements,
+  pathToEmailFile
+) => {
   try {
-    const filePath = "src/emails/new_contract.html";
-    const source = fs.readFileSync(filePath, "utf-8").toString();
+    // const filePath = "src/emails/new_contract.html";
+    const source = fs.readFileSync(pathToEmailFile, "utf-8").toString();
     const template = Handlebars.compile(source);
-    const replacements = {
-      userName: `${firstName} ${lastName}`,
-      link: `${process.env.APP_URL}/dashboard`,
-    };
+    // const replacements = {
+    //   userName: `${firstName} ${lastName}`,
+    //   link: `${process.env.APP_URL}/dashboard`,
+    // };
     const htmlToSend = template(replacements);
 
     const transporter = nodemailer.createTransport({
@@ -25,8 +30,8 @@ export const sendEmail = async (firstName, lastName, contractId, email) => {
     const mailOptions = {
       from: "alanis.yates@thesneakerssociety.com",
       //   to: "alanis.yates@thesneakerssociety.com",
-      to: email,
-      subject: "New Contract!",
+      to: recipiant,
+      subject: subject,
       //   text: "YOOOOOOO THIS WORKED",
       html: htmlToSend,
       // attachments: test,
