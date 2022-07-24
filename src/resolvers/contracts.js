@@ -30,6 +30,17 @@ const Mutation = {
       // Create contract
       const res = await newContract.save();
 
+      const isAlreadyClient =
+        foundClient.members.filter((member) => {
+          console.log(member);
+          return member.toString() === memberId;
+        }).length > 0;
+
+      if (!isAlreadyClient) {
+        foundClient.members.push(memberId);
+        foundMember.clients.push(foundClient.id.toString());
+      }
+
       // Add contract to Member and Client
       foundMember.contracts.push(res._id);
       foundClient.contracts.push(res._id);
@@ -60,7 +71,6 @@ const Mutation = {
         },
         "src/emails/new_contract_client.html"
       );
-
 
       // Return contract
       return { ...res._doc, id: res._id };

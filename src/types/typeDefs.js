@@ -31,8 +31,7 @@ const typeDefs = gql`
     email: String!
     firstName: String
     lastName: String!
-    memberId: ID!
-    member: Member!
+    members: [Member!]!
     contracts: [Contract!]!
     createdAt: String!
     updatedAt: String!

@@ -18,7 +18,7 @@ const Mutation = {
           email,
           firstName,
           lastName,
-          memberId,
+          members: memberId,
         });
 
         const res = await client.save();
@@ -40,15 +40,13 @@ const Mutation = {
 };
 
 const Client = {
-  async member(parent, args, ctx, ifo) {
+  async members(parent, args, ctx, ifo) {
     try {
-      const member = await MemberModel.findById(parent.memberId);
+      const members = await MemberModel.find();
 
-      if (!member) {
-        throw new Error("Member not found");
-      }
-
-      return member;
+      return members.filter((member) => {
+        return member.clients.includes(parent.id);
+      });
     } catch (e) {
       throw new Error(e);
     }
@@ -56,10 +54,6 @@ const Client = {
   async contracts(parent, args, ctx, info) {
     try {
       const contracts = await ContractModel.find();
-      // console.log(contracts);
-      // return clients.filter(
-      //   (client) => client.contrac.toString() === parent.id
-      // );
       return contracts;
     } catch (e) {
       throw new Error(e);

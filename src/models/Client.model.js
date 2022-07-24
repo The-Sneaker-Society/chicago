@@ -15,11 +15,13 @@ const ClientSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    memberId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Members",
-      required: true,
-    },
+    members: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Members",
+        required: true,
+      },
+    ],
     contracts: [
       {
         type: mongoose.Schema.Types.ObjectId,

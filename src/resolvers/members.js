@@ -35,9 +35,7 @@ const Member = {
     try {
       const clients = await ClientModel.find();
 
-      return clients.filter(
-        (client) => client.memberId.toString() === parent.id
-      );
+      return clients.filter((client) => client.members.includes(parent.id));
     } catch (e) {
       throw new Error(e);
     }
@@ -46,10 +44,7 @@ const Member = {
   async contracts(parent, args, ctx, info) {
     try {
       const contracts = await ContractModel.find();
-      // return clients.filter(
-      //   (client) => client.contrac.toString() === parent.id
-      // );
-      return contracts
+      return contracts;
     } catch (e) {
       throw new Error(e);
     }
