@@ -22,7 +22,7 @@ const Query = {
 
       // console.log(member.createdAt)
       if (!member) {
-        throw new Error("Member not found")
+        throw new Error("Member not found");
       }
       return member;
     } catch (e) {
@@ -33,6 +33,18 @@ const Query = {
     try {
       const clients = await ClientModel.find();
       return clients;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+  async clientByEmail(parent, args, ctx, info) {
+    try {
+      const client = await ClientModel.findOne({ email: args.email });
+      if (!client) {
+        throw new Error("Client Not Found");
+      }
+
+      return client;
     } catch (e) {
       throw new Error(e);
     }

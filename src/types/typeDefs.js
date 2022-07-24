@@ -1,7 +1,6 @@
 import { gql } from "apollo-server-core";
 
 const typeDefs = gql`
-
   type Contract {
     id: ID!
     client: Client!
@@ -75,6 +74,7 @@ const typeDefs = gql`
     clients: [Client!]!
     contracts: [Contract!]!
     memberById(id: ID!): Member!
+    clientByEmail(email: String!): Client!
   }
 
   type Mutation {
