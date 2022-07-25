@@ -44,7 +44,9 @@ const Member = {
   async contracts(parent, args, ctx, info) {
     try {
       const contracts = await ContractModel.find();
-      return contracts;
+      return contracts.filter(
+        (contract) => contract.member.toString() === parent.id
+      );
     } catch (e) {
       throw new Error(e);
     }
