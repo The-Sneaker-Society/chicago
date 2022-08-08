@@ -7,8 +7,11 @@ const Query = {
   hello: () => {
     return "Hello world";
   },
-  async members() {
+  async members(parent, args, { id }, info) {
     try {
+      if (id !== "GrauazvsoranVCMxA3BOanAE7GO2") {
+        throw new Error("Wrong Id");
+      }
       const members = await MemberModel.find();
       return members;
     } catch (e) {

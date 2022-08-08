@@ -10,6 +10,10 @@ import { uploadImage } from "./utils/ImageUpload";
 import multer from "multer";
 import multerS3 from "multer-s3";
 import { S3 } from "aws-sdk";
+import { fireAuth } from "./firebaseUtils/test";
+// const admin = require("firebase-admin");
+
+// admin.initializeApp();
 
 async function startApolloServer() {
   const app = express();
@@ -60,6 +64,15 @@ async function startApolloServer() {
     resolvers,
     csrfPrevention: true,
     plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
+    context: async ({ req }) => {
+      try {
+        const token = req.headers.authorization || "";
+        const user = await fireAuth(token);
+        return user;
+      } catch (e) {
+        throw e;
+      }
+    },
   });
 
   await server.start();
