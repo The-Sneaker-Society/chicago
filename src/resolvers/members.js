@@ -22,6 +22,7 @@ const Mutation = {
       email,
       firstName,
       lastName,
+      isActive: true,
     });
 
     const res = await newMember.save();

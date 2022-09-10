@@ -20,6 +20,7 @@ const typeDefs = gql`
     email: String!
     firstName: String!
     lastName: String!
+    isActive: Boolean!
     clients: [Client!]!
     contracts: [Contract!]!
     createdAt: String!
