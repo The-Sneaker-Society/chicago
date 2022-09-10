@@ -20,7 +20,7 @@ const Mutation = {
         client: foundClient,
         member: foundMember,
         eta,
-        stage,
+        stage: "NOT_STARTED",
         price,
         notes,
         reported: false,

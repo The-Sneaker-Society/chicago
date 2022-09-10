@@ -1,12 +1,18 @@
 import { gql } from "apollo-server-core";
 
 const typeDefs = gql`
+  enum StageType {
+    NOT_STARTED
+    STARTED
+    FINISHED
+  }
+
   type Contract {
     id: ID!
     client: Client!
     member: Member!
     eta: String!
-    stage: String!
+    stage: StageType!
     price: String!
     notes: String!
     photos: [String!]
