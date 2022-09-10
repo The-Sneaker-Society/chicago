@@ -9,9 +9,6 @@ const Query = {
   },
   async members(parent, args, { id }, info) {
     try {
-      if (id !== "GrauazvsoranVCMxA3BOanAE7GO2") {
-        throw new Error("Wrong Id");
-      }
       const members = await MemberModel.find();
       return members;
     } catch (e) {

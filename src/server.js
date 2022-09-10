@@ -64,15 +64,15 @@ async function startApolloServer() {
     resolvers,
     csrfPrevention: true,
     plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
-    context: async ({ req }) => {
-      try {
-        const token = req.headers.authorization || "";
-        const user = await fireAuth(token);
-        return user;
-      } catch (e) {
-        throw e;
-      }
-    },
+    // context: async ({ req }) => {
+    //   try {
+    //     const token = req.headers.authorization || "";
+    //     const user = await fireAuth(token);
+    //     return user;
+    //   } catch (e) {
+    //     throw e;
+    //   }
+    // },
   });
 
   await server.start();
