@@ -102,6 +102,21 @@ const Query = {
       throw new Error(e);
     }
   },
+  async contractById(parent, args, ctx, info) {
+    try {
+      // console.log(args.id);
+      const contract = await ContractModel.findById(args.id.toString());
+
+      // console.log(member.createdAt)
+      if (!contract) {
+        throw new Error("contract not found");
+      }
+
+      return contract;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
 };
 
 export { Query as default };

@@ -86,10 +86,10 @@ const typeDefs = gql`
     members: [Member!]!
     clients: [Client!]!
     contracts: [Contract!]!
+    contractById(id: ID): Contract!
     memberById(id: ID!): Member!
     memberStatsById(id: ID!): Stats!
     clientByEmail(email: String!): Client!
-
   }
 
   type Mutation {
