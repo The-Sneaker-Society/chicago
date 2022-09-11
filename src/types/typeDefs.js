@@ -44,6 +44,13 @@ const typeDefs = gql`
     updatedAt: String!
   }
 
+  type Stats {
+    id: ID!
+    notStarted: Int!
+    started: Int!
+    finished: Int!
+  }
+
   type File {
     fileName: String!
     mimetype: String!
@@ -80,7 +87,9 @@ const typeDefs = gql`
     clients: [Client!]!
     contracts: [Contract!]!
     memberById(id: ID!): Member!
+    memberStatsById(id: ID!): Stats!
     clientByEmail(email: String!): Client!
+
   }
 
   type Mutation {
