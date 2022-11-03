@@ -18,10 +18,8 @@ const Query = {
   },
   async memberById(parent, args, ctx, info) {
     try {
-      // console.log(args.id);
       const member = await MemberModel.findById(args.id.toString());
 
-      // console.log(member.createdAt)
       if (!member) {
         throw new Error("Member not found");
       }
@@ -41,8 +39,6 @@ const Query = {
         _id: { $in: member.contracts },
       });
 
-      console.log(contracts);
-
       // Do stat calcs
       const notStarted = contracts.filter(
         (contract) => contract.stage === "NOT_STARTED"
@@ -56,10 +52,9 @@ const Query = {
         (contract) => contract.stage === "FINISHED"
       );
 
-      // // console.log(member.createdAt)
-      // if (!member) {
-      //   throw new Error("Member not found");
-      // }
+      if (!member) {
+        throw new Error("Member not found");
+      }
 
       // return member;
       const stats = {

@@ -26,6 +26,5 @@ export const s3Uploadv2 = async (file) => {
   };
 
   const result = await s3.upload(param).promise();
-  console.log(result);
   return result;
 };
