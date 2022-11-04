@@ -13,10 +13,10 @@ export const sendEmail = async (
     // const filePath = "src/emails/new_contract.html";
     const source = fs.readFileSync(pathToEmailFile, "utf-8").toString();
     const template = Handlebars.compile(source);
-    // const replacements = {
-    //   userName: `${firstName} ${lastName}`,
-    //   link: `${process.env.APP_URL}/dashboard`,
-    // };
+    const replacements = {
+      userName: `${firstName} ${lastName}`,
+      link: `${process.env.APP_URL}/dashboard`,
+    };
     const htmlToSend = template(replacements);
 
     const transporter = nodemailer.createTransport({
