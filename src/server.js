@@ -59,7 +59,7 @@ async function startApolloServer() {
 
   const httpServer = http.createServer(app);
 
-  connectDb();
+  // connectDb();
 
   const server = new ApolloServer({
     typeDefs,
