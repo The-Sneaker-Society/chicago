@@ -8,8 +8,9 @@ const Query = {
   hello: () => {
     return "Hello world";
   },
-  async members(parent, args, { id }, info) {
+  async members(parent, args, { id, user }, info) {
     try {
+      console.log(user);
       const members = await MemberModel.find();
       return members;
     } catch (e) {

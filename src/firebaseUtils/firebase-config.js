@@ -1,13 +1,19 @@
-// import { initializeApp } from "firebase/app";
+const admin = require("firebase-admin");
 
-// const firebaseConfig = {
-//     apiKey: "AIzaSyD0hRrAj70bXNU1FC_99600jXynzPuID6E",
-//     authDomain: "sneaker-society.firebaseapp.com",
-//     projectId: "sneaker-society",
-//     storageBucket: "sneaker-society.appspot.com",
-//     messagingSenderId: "903067817008",
-//     appId: "1:903067817008:web:2d69e610120d76f4ca89f5",
-//     measurementId: "G-5DF9HGJTMY"
-// };
+const serviceAccount = require("./serviceAccount.json");
+const p_id = "sneaker-society";
+const clientEmail =
+  "firebase-adminsdk-3v528@sneaker-society.iam.gserviceaccount.com";
+const key =
+  "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQClbIH7u2Cfllt6\nL8/yNZ0oJWG1nvspXKBfIZusEKaymQ/GQgQ5B2rbPdJViyP6rWItFB8M8vVc1eed\nb+U+USuGRRj88k/qHz5pHseFTGiR54CsCQLt8IJG7AtrjURt3DYIbxyZqEOtLlT5\n+tWeiTn1EfaYtRr83Up8KTNuOvHcN+PmEuitVUVozcV2llEdquAXYL3DHoknUWwu\nE5JqfnK70DKdKRFXVIWZTeNvd83IY5oBKu2VskLKn4sgj1SAe/QePxTvmQJcO9w3\nMPIgrbiS7OT5pbvvljypgfP3ah3+BgJDP9taSPb2A8hqIFWcg0KGdOBvWlhYVuZo\npJ733rZ/AgMBAAECggEAUR2L/2w6TQblhFy9kv9HONBbwTtb3URWP0+zjgP8Ocdk\nPMtSVsSUWT1PTjMUSW+LnJ8pOqhIOGWLVV/xAUW8GfL39dC77wmzCMjW/T4iaKkk\nJzekABjXSP+l+e8jhttcg3Y4iABCb0Ew2gNtjHetu8Y7LVZhDW1VgNyTI5Iz1s+m\nzIoOhJDi0XVAqUziCaiDEkrvhHYEdOpS6VTePHU8IngnbV/YTsoiG/bG4ZYJytOc\nmz7IwCHKc/YWpGuEfa3q6szRt0oU2lc8hLbLnbZq/fT13L0AB2LyQXZRrPbbz9MQ\nVNxh+5Y+TIJpe0BEIK6ZlCXwJ00KHvvaXoVSZtrUQQKBgQDdba6C/cuEQDRHJRYm\nC6fnVZE7n5kqI0X7T8uB9OyVoCziliUOF7Lzvrlq5nXMxUSzzpPbPi3Kuy2/Qk0F\njm/NcoSS2cOr+gx+Z5lNpuy6+cPHYt6RFRqXrXCJve9PZC8Mixu6X5IZUk9hZGqd\nlMru40PdLLOp4zi/Wl7sB6JnZQKBgQC/QF4QTLLtr8S/pvsjj9s7E6eZd+sDCAFv\n0crXB1q7t1uaKgI/KjLdc6Z7yFC/C65bqNgrx0c0Zdtf9GtoC5VrPNeIXJsu9rSB\nd79HhchQWPxY6EPInKRatH7ganuxbGjl+pK1Rv8OTn4/qAOZ0KLlTOfx4mDzURAv\nYqbxO3VCEwKBgDXUQCRgBmW0JgFVprjBBKRcTN4twlJYGN8rWtHQ9OK6+a5ryb5P\nTJWsu+6c7+5D1pvPkGowB3nNXyWrvIWpRsyvFkOM5OCd/QONs9sIxWv+4/VIt8qV\nUs2kwEL8BX1LYZSvDKKWMTIurFWEz9ZXIa5JWWofP94A+v6pvYGrqXNxAoGALY/r\nGNz83405RSNFv0IdS2SyT+h2r4EvvnDvbuzMm93hz8dkQ6IM/h74MZMWUX0565I8\n9akC+KOvcJutHttrnGGhQ1Y0jiqt9A4QHrzrbODWNWQYCenvacCIXXRgxXL7Rpa8\nbr1cNA9VGlsviGxg8lmxBDoXOMA+J9vLw7qTg8sCgYEAkUXh2TabuQDTJReEmDs5\n3pVVvc8qpGBe/15QH1HrSvbBJxjgpuyh+dlMvYyORL0iUA6CeSdkxgYYmdu50/51\nyVLRgQaY6OreanJ9jKQe596HEofJAR9z2Zr0py2Ohagi2fzV4ivKNFPtppox8VHu\nSt0QSnRE2iCRaQ8KYLl/pzI=\n-----END PRIVATE KEY-----\n";
 
-// export const app = initializeApp(firebaseConfig);
+admin.initializeApp({
+  credential: admin.credential.cert({
+    projectId: p_id,
+    clientEmail: clientEmail,
+    privateKey: key,
+  }),
+  databaseURL: `https://snaker-society.firebaseio.com/`,
+});
+
+module.exports = admin;

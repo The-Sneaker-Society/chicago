@@ -10,10 +10,8 @@ import { uploadImage } from "./utils/ImageUpload";
 import multer from "multer";
 import multerS3 from "multer-s3";
 import { S3 } from "aws-sdk";
-import { fireAuth } from "./firebaseUtils/test";
-// const admin = require("firebase-admin");
-
-// admin.initializeApp();
+import { authFirebase } from "./firebaseUtils/authFire";
+import { GraphQLError } from "graphql";
 
 async function startApolloServer() {
   const app = express();
@@ -49,6 +47,10 @@ async function startApolloServer() {
   //   });
   // });
 
+  app.get("/", (req, res) => {
+    res.send("hello world");
+  });
+
   // const upload = multer({ dest: "uploads/" });
   // app.post("/photo", upload.single("file"), uploadImage);
 
@@ -64,11 +66,23 @@ async function startApolloServer() {
     resolvers,
     csrfPrevention: true,
     plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
-    // context: async ({ req }) => {
+    // context: async ({ req, res }) => {
     //   try {
-    //     const token = req.headers.authorization || "";
-    //     const user = await fireAuth(token);
-    //     return user;
+    //     // const token = req.headers.authorization || "";
+    //     const token =
+    //       "eyJhbGciOiJSUzI1NiIsImtpZCI6ImY4MDljZmYxMTZlNWJhNzQwNzQ1YmZlZGE1OGUxNmU4MmYzZmQ4MDUiLCJ0eXAiOiJKV1QifQ.eyJuYW1lIjoiQWxhbmlzIFlhdGVzIiwicGljdHVyZSI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hL0FMbTV3dTNicm9zcTZKN3NPZE5xR2o2cjZQcmFRX1Q2YUNYdEllZ0paNks4PXM5Ni1jIiwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL3NuZWFrZXItc29jaWV0eSIsImF1ZCI6InNuZWFrZXItc29jaWV0eSIsImF1dGhfdGltZSI6MTY2ODk4ODk3MCwidXNlcl9pZCI6ImNOTmhlQ1VWakxNR05PTUVMZUdZWlhqdVl4bDIiLCJzdWIiOiJjTk5oZUNVVmpMTUdOT01FTGVHWVpYanVZeGwyIiwiaWF0IjoxNjY4OTg4OTcwLCJleHAiOjE2Njg5OTI1NzAsImVtYWlsIjoiYWxhbmlzLnlhdGVzQHRoZXNuZWFrZXJzc29jaWV0eS5jb20iLCJlbWFpbF92ZXJpZmllZCI6dHJ1ZSwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJnb29nbGUuY29tIjpbIjEwODY2NDY4Njc3MjA3NDQwNTAzMCJdLCJlbWFpbCI6WyJhbGFuaXMueWF0ZXNAdGhlc25lYWtlcnNzb2NpZXR5LmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6Imdvb2dsZS5jb20ifX0.SOOY_JXIFWqDdyGJ5baB8-7d8Y6a4ENt-OiHkwwLBw-39iSC25GudDmpKwDtoS5b_LVxg0RUF9Tq25mQIm7VGZChzZN19SZpWPbehgeIE4zM53rqfi1d98Uatu7PFWYRwgvMxlb6iEdU-FuyrEU162JFFjkkfmkbGbspVDKurGGQzdBqX9x5QRmY86BSAvKiG4YCVJsRwEDtmdb19XYtLvnF_LbLEOjILe1TKcfA0mfDH1H9-WPDs--u3O2JsSppNZONox8eAt7-Jbz0x8p-93VeECIl6kEHtGiiBVI2EwFrYzf-qkEaIWnX3kXWoNpi3x0TVlNqunNMdNZZDLbT4Q";
+    //     const user = await authFirebase(token);
+
+    //     if (!user) {
+    //       throw new GraphQLError("User Not Authenticated", {
+    //         extensions: {
+    //           code: "UNAUTENICATED",
+    //           http: { status: 401 },
+    //         },
+    //       });
+    //     }
+
+    //     return { user };
     //   } catch (e) {
     //     throw e;
     //   }

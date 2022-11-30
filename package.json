@@ -8,8 +8,12 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "./node_modules/.bin/babel-node src/server.js",
-    "dev": "nodemon --exec babel-node src/server.js"
+    "startto": "./node_modules/.bin/babel-node src/server.js",
+    "dev": "nodemon --exec babel-node src/server.js",
+    "start": "nodemon --exec babel-node src/server.js",
+    "clean": "rm -rf build && mkdir build",
+    "build-babel": "babel -d ./build src/server.js -s",
+    "build": "npm run clean && npm run build-babel"
   },
   "repository": {
     "type": "git",

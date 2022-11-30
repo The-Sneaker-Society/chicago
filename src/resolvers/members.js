@@ -10,13 +10,13 @@ const Mutation = {
 
     const member = MemberModel.findOne({ email: email });
 
-    // if (member) {
-    //   throw new UserInputError("Email is taken.", {
-    //     errors: {
-    //       email: "This email is taken.",
-    //     },
-    //   });
-    // }
+    if (member) {
+      throw new UserInputError("Email is taken.", {
+        errors: {
+          email: "This email is taken.",
+        },
+      });
+    }
 
     const newMember = new MemberModel({
       email,
