@@ -2,8 +2,25 @@ import { UserInputError } from "apollo-server-core";
 import MemberModel from "../models/Member.model";
 import ClientModel from "../models/Client.model";
 import ContractModel from "../models/Contract.model";
+import EmailModel from "../models/Email.model";
 
 const Mutation = {
+  createEmail: async (parent, args, ctx, info) => {
+    try {
+      const { email } = args.data;
+      if (email) {
+        const newEmailAddition = new EmailModel({
+          email: email,
+        });
+
+        const res = await newEmailAddition.save();
+
+        return { ...res._doc, id: res._id };
+      }
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
   creatClient: async (parent, args, ctx, info) => {
     try {
       const { email, firstName, lastName, memberId } = args.data;
@@ -54,7 +71,9 @@ const Client = {
   async contracts(parent, args, ctx, info) {
     try {
       const contracts = await ContractModel.find();
-      return contracts.filter((contract) => contract.client.toString() === parent.id);
+      return contracts.filter(
+        (contract) => contract.client.toString() === parent.id
+      );
       // return contracts;
     } catch (e) {
       throw new Error(e);

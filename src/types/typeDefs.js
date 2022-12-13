@@ -57,6 +57,15 @@ const typeDefs = gql`
     encoding: String!
   }
 
+  type EmailSignUp {
+    id: ID!
+    email: String!
+  }
+
+  input CreateEmailInput {
+    email: String!
+  }
+
   input CreateMemberInput {
     email: String!
     firstName: String!
@@ -82,6 +91,7 @@ const typeDefs = gql`
   }
 
   type Query {
+    emails: [EmailSignUp]!
     hello: String!
     members: [Member!]!
     clients: [Client!]!
@@ -93,6 +103,7 @@ const typeDefs = gql`
   }
 
   type Mutation {
+    createEmail(data: CreateEmailInput!): EmailSignUp!
     createMember(data: CreateMemberInput!): Member!
     creatClient(data: CreateClientInput!): Client!
     createContract(data: CreateContractInput!): Contract!

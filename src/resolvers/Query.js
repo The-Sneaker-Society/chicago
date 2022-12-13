@@ -2,11 +2,19 @@ import { UserInputError } from "apollo-server-core";
 import MemberModel from "../models/Member.model";
 import ClientModel from "../models/Client.model";
 import ContractModel from "../models/Contract.model";
-import mongoose from "mongoose";
+import EmailModel from "../models/Email.model";
 
 const Query = {
   hello: () => {
     return "Hello world";
+  },
+  async emails(parent, args, ctx, info) {
+    try {
+      const emails = await EmailModel.find();
+      return emails;
+    } catch {
+      throw new Error(e);
+    }
   },
   async members(parent, args, { id, user }, info) {
     try {
