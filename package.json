@@ -52,6 +52,7 @@
     "multer-s3": "^2.10.0",
     "node-cron": "^3.0.2",
     "node-fetch": "^2.6.7",
-    "nodemailer": "^6.7.5"
+    "nodemailer": "^6.7.5",
+    "stripe": "^11.4.0"
   }
 }
