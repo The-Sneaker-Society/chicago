@@ -12,11 +12,15 @@ import multerS3 from 'multer-s3';
 import { S3 } from 'aws-sdk';
 import { authFirebase } from './firebaseUtils/authFire';
 import { GraphQLError } from 'graphql';
-import {
-  createProduct,
-  getProducts,
-  testStripTransaction,
-} from './stripe/testStripe';
+// import {
+//   getProducts,
+//   testStripTransaction,
+//   createExpressUser,
+//   getAccount,
+//   createSession,
+//   acceptTOS,
+// } from './stripe/utilsStripe';
+import { createProduct } from './stripe/products/productUtlis';
 
 async function startApolloServer() {
   const app = express();
@@ -57,8 +61,14 @@ async function startApolloServer() {
   });
   app.get('/stripe', async (req, res) => {
     // const test = testStripTransaction();
-    const prodList = await getProducts();
-    res.send(prodList);
+    // const test = await createExpressUser();
+    // const test = await acceptTOS();
+    // const test = await getAccount();
+    // const test = await createSession();
+    const test = await createProduct();
+    // const test = await getProducts();
+
+    res.send(test);
   });
 
   // const upload = multer({ dest: "uploads/" });

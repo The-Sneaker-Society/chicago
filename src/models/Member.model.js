@@ -19,6 +19,12 @@ const MemberSchema = new mongoose.Schema(
       type: Boolean,
       required: true,
     },
+    products: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Products",
+      },
+    ],
     clients: [
       {
         type: mongoose.Schema.Types.ObjectId,

@@ -1,4 +1,4 @@
-import { gql } from "apollo-server-core";
+import { gql } from 'apollo-server-core';
 
 const typeDefs = gql`
   enum StageType {
@@ -19,6 +19,15 @@ const typeDefs = gql`
     reported: Boolean!
     createdAt: String!
     updatedAt: String!
+  }
+
+  type Product {
+    id: ID!
+    stripeProductId: String!
+    member: Member!
+    price: Int!
+    description: String!
+    name: String!
   }
 
   type Member {
@@ -83,6 +92,13 @@ const typeDefs = gql`
     memberId: String!
   }
 
+  input CreateProductInput {
+    memberId: String!
+    price: Int!
+    description: String!
+    name: String!
+  }
+
   input CreateContractInput {
     client: String!
     memberId: String!
@@ -92,6 +108,10 @@ const typeDefs = gql`
     notes: String!
     photos: [String!]
     reported: Boolean!
+  }
+
+  input DeleteProductInput {
+    id: ID!
   }
 
   type Query {
@@ -104,13 +124,24 @@ const typeDefs = gql`
     memberById(id: ID!): Member!
     memberStatsById(id: ID!): Stats!
     clientByEmail(email: String!): Client!
+    products: [Product]!
   }
 
   type Mutation {
-    createEmail(data: CreateEmailInput!): EmailSignUp!
+    #  member
     createMember(data: CreateMemberInput!): Member!
     createClient(data: CreateClientInput!): Client!
+
+    # client
+    createEmail(data: CreateEmailInput!): EmailSignUp!
+    creatClient(data: CreateClientInput!): Client!
+
+    # contract
     createContract(data: CreateContractInput!): Contract!
+
+    # products
+    createProduct(data: CreateProductInput!): Product!
+    deleteProduct(id: ID): Product!
   }
 `;
 

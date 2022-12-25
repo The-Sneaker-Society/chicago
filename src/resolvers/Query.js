@@ -3,6 +3,7 @@ import MemberModel from "../models/Member.model";
 import ClientModel from "../models/Client.model";
 import ContractModel from "../models/Contract.model";
 import EmailModel from "../models/Email.model";
+import ProductModel from "../models/Product.model";
 
 const Query = {
   hello: () => {
@@ -102,6 +103,14 @@ const Query = {
     try {
       const contracts = await ContractModel.find();
       return contracts;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+  async products() {
+    try {
+      const products = await ProductModel.find();
+      return products;
     } catch (e) {
       throw new Error(e);
     }
