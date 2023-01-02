@@ -95,7 +95,7 @@ export const createExpressUser = async () => {
     // });
 
     const accountLink = await stripe.accountLinks.create({
-      account: "acct_1MIbYaIDjgBWdsvC",
+      account: "acct_1MK9AvIiAVgUPtW1",
       refresh_url: "https://example.com/reauth",
       return_url: "https://example.com/return",
       type: "account_onboarding",
@@ -108,6 +108,7 @@ export const createExpressUser = async () => {
     // });
     // console.log({ account });
     return accountLink;
+    // return account;
   } catch (e) {
     throw e;
   }

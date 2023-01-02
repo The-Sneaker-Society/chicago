@@ -61,11 +61,11 @@ async function startApolloServer() {
   });
   app.get('/stripe', async (req, res) => {
     // const test = testStripTransaction();
-    // const test = await createExpressUser();
+    const test = await createExpressUser();
     // const test = await acceptTOS();
     // const test = await getAccount();
     // const test = await createSession();
-    const test = await createProduct();
+    // const test = await createProduct();
     // const test = await getProducts();
 
     res.send(test);
