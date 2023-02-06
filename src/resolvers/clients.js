@@ -3,6 +3,7 @@ import MemberModel from "../models/Member.model";
 import ClientModel from "../models/Client.model";
 import ContractModel from "../models/Contract.model";
 import EmailModel from "../models/Email.model";
+import { GraphQLError } from "graphql";
 
 const Mutation = {
   createEmail: async (parent, args, ctx, info) => {
@@ -18,7 +19,11 @@ const Mutation = {
         return { ...res._doc, id: res._id };
       }
     } catch (e) {
-      throw new Error(e);
+      if (e.code === 11000) {
+        throw new GraphQLError("Email already in use");
+      }
+
+      throw new GraphQLError("unable to register email");
     }
   },
   creatClient: async (parent, args, ctx, info) => {
