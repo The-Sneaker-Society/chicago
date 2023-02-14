@@ -1,0 +1,85 @@
+/* Base styles */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+.header {
+    background-color: black;
+}
+
+.presentation-table {
+    width: 100%;
+    height: 100%;
+    text-align: center;
+}
+
+.content-table {
+    margin: 0 auto;
+    width: 90%;
+    max-width: 600px;
+    border: solid;
+}
+
+/* Header styles */
+.header img {
+    width: 100%;
+    max-width: 300px;
+    height: auto;
+}
+
+/* Body styles */
+.body {
+    padding: 30px;
+}
+
+.text {
+    text-align: left;
+}
+
+.text h1 {
+    font-size: 24px;
+}
+
+.text p {
+    font-size: 16px;
+
+}
+
+/* Footer styles */
+.startingFooter {
+    border-top: 1px solid #ddd;
+    color: white;
+}
+
+.footer {
+    padding: 20px;
+    background-color: black;
+}
+
+.left-text {
+    text-align: left;
+    font-size: 14px;
+}
+
+/* Media queries */
+@media only screen and (min-width: 280px) and (max-width: 767px) {
+    .content-table {
+        width: 100%;
+    }
+
+    .text h1 {
+        font-size: 20px;
+    }
+
+    .text p {
+        font-size: 14px;
+    }
+
+    .left-text {
+        font-size: 12px;
+    }
+}
+
+/* pictures for emails and email campaigns */
