@@ -1,0 +1,108 @@
+html body {
+    margin: 0px;
+    padding: 0px;
+    width: 100%;
+    height: 100%;
+}
+
+.container {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.container img {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    height: auto;
+}
+
+.image {
+    background-color: black;
+    height: 20rem;
+}
+
+.top-image {
+    padding-top: 2rem;
+}
+
+.text {
+    text-align: center;
+    margin-bottom: 4rem;
+    padding-top: 2rem;
+}
+
+.text h1 {
+    font-family: 'Inter Light 300', sans-serif;
+    font-weight: 700;
+    font-size: 3re2;
+    line-height: 1.14;
+}
+
+.text p {
+    color: #777777;
+    font-family: 'Inter ExtraLight 100', sans-serif;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.bottom-image {
+    width: 100%;
+}
+
+.footer {
+    text-align: center;
+    font-size: 14px;
+    margin: 0;
+}
+
+.footer h2 {
+    font-family: 'Inter Light 300', sans-serif;
+    font-weight: 700;
+    font-size: 28px;
+}
+
+.footer p {
+    font-family: 'Inter ExtraLight 200', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    color: #777777;
+}
+
+.footer i {
+    padding: 0 0 1rem 1rem;
+    font-size: 1.5rem;
+}
+
+/* media queries for responsive design */
+
+@media screen and (max-width: 600px) {
+    .container {
+        max-width: 100%;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .image {
+        height: 15rem;
+    }
+
+    .text h1 {
+        font-size: 24px;
+    }
+
+    .text p {
+        font-size: 14px;
+    }
+
+    .footer h2 {
+        font-size: 24px;
+    }
+
+    .footer p {
+        font-size: 14px;
+    }
+}
