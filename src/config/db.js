@@ -12,6 +12,7 @@ const connectDb = () => {
       dbName: "sneaker-society",
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      autoIndex: true,
     },
     (err) => {
       if (err) {
