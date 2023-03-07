@@ -9,9 +9,11 @@ const EmailSchema = new mongoose.Schema({
   subscribed: {
     type: Boolean,
     required: true,
+    default: true,
   },
   recieved: {
     type: Array,
+    default: [],
   },
 });
 
