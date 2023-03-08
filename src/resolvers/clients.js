@@ -8,9 +8,10 @@ import { GraphQLError } from "graphql";
 const Mutation = {
   createEmail: async (parent, args, ctx, info) => {
     try {
-      const { email } = args.data;
+      const { email, name } = args.data;
       if (email) {
         const newEmailAddition = new EmailModel({
+          name: name,
           email: email,
         });
 
