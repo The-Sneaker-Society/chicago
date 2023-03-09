@@ -19,7 +19,11 @@ const Mutation = {
         return { ...res._doc, id: res._id };
       }
     } catch (e) {
-      throw new Error(e);
+      if (e.code === 11000) {
+        throw Error("Email already exist, check you email!");
+      } else {
+        throw new Error(e);
+      }
     }
   },
   creatClient: async (parent, args, ctx, info) => {
