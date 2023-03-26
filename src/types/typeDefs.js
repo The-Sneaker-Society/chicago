@@ -73,6 +73,7 @@ const typeDefs = gql`
     firstName: String!
     lastName: String!
   }
+
   input CreateClientInput {
     email: String!
     firstName: String!
@@ -106,7 +107,7 @@ const typeDefs = gql`
   type Mutation {
     createEmail(data: CreateEmailInput!): EmailSignUp!
     createMember(data: CreateMemberInput!): Member!
-    creatClient(data: CreateClientInput!): Client!
+    createClient(data: CreateClientInput!): Client!
     createContract(data: CreateContractInput!): Contract!
   }
 `;

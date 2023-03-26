@@ -26,7 +26,7 @@ const Mutation = {
       }
     }
   },
-  creatClient: async (parent, args, ctx, info) => {
+  createClient: async (parent, args, ctx, info) => {
     try {
       const { email, firstName, lastName, memberId } = args.data;
 
