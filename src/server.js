@@ -66,6 +66,12 @@ async function startApolloServer() {
     resolvers,
     csrfPrevention: true,
     plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
+    formatError: (error) => {
+      if (error.message.startsWith("Database error: ")) {
+        return new Error("Internal server error");
+      }
+      return error;
+    },
     // context: async ({ req, res }) => {
     //   try {
     //     // const token = req.headers.authorization || "";
