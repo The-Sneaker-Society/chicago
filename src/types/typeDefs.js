@@ -57,6 +57,12 @@ const typeDefs = gql`
     encoding: String!
   }
 
+  type Message {
+    user: String!
+    text: String!
+    timeStamp: String!
+  }
+
   type EmailSignUp {
     id: ID!
     email: String!
@@ -102,6 +108,8 @@ const typeDefs = gql`
     memberById(id: ID!): Member!
     memberStatsById(id: ID!): Stats!
     clientByEmail(email: String!): Client!
+    currentNumber: Int
+    newMessage: Message!
   }
 
   type Mutation {
@@ -109,6 +117,10 @@ const typeDefs = gql`
     createMember(data: CreateMemberInput!): Member!
     createClient(data: CreateClientInput!): Client!
     createContract(data: CreateContractInput!): Contract!
+  }
+
+  type Subscription {
+    numberIncremented: Int
   }
 `;
 
