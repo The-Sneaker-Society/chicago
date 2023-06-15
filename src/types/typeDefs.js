@@ -60,11 +60,13 @@ const typeDefs = gql`
   type EmailSignUp {
     id: ID!
     email: String!
-    name: String!
+    firstName: String!
+    lastName: String!
   }
 
   input CreateEmailInput {
-    name: String!
+    firstName: String!
+    lastName: String!
     email: String!
   }
 
