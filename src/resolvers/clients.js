@@ -63,6 +63,7 @@ const Mutation = {
 
 const Client = {
   async members(parent, args, ctx, ifo) {
+    // console.log(parent);
     try {
       const members = await MemberModel.find();
 

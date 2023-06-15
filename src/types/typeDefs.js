@@ -1,10 +1,43 @@
 import { gql } from "apollo-server-core";
 
 const typeDefs = gql`
+  type Chat {
+    id: ID!
+    name: String!
+    member: Member!
+    client: Client!
+    messages: [Message!]!
+  }
+
+  interface Participant {
+    id: ID!
+  }
+
+  type Message {
+    id: ID!
+    chatId: String!
+    content: String!
+    senderId: String!
+    createdAt: String!
+    senderType: MessageSenderType!
+  }
+
+  input CreateMessageInput {
+    chatId: String!
+    content: String!
+    senderId: String!
+    senderType: MessageSenderType!
+  }
+
   enum StageType {
     NOT_STARTED
     STARTED
     FINISHED
+  }
+
+  enum MessageSenderType {
+    USER
+    MEMBER
   }
 
   type Contract {
@@ -57,12 +90,6 @@ const typeDefs = gql`
     encoding: String!
   }
 
-  type Message {
-    user: String!
-    text: String!
-    timeStamp: String!
-  }
-
   type EmailSignUp {
     id: ID!
     email: String!
@@ -98,6 +125,16 @@ const typeDefs = gql`
     reported: Boolean!
   }
 
+  input CreateChatInput {
+    name: String!
+    memberId: String!
+    clientId: String!
+  }
+
+  input ChatSubscriptionInput {
+    chatId: ID!
+  }
+
   type Query {
     emails: [EmailSignUp]!
     hello: String!
@@ -110,6 +147,8 @@ const typeDefs = gql`
     clientByEmail(email: String!): Client!
     currentNumber: Int
     newMessage: Message!
+    messages: [Message!]!
+    getChatById(chatId: ID!): Chat!
   }
 
   type Mutation {
@@ -117,10 +156,13 @@ const typeDefs = gql`
     createMember(data: CreateMemberInput!): Member!
     createClient(data: CreateClientInput!): Client!
     createContract(data: CreateContractInput!): Contract!
+    createMessage(data: CreateMessageInput): Message!
+    createChat(data: CreateChatInput): Chat!
   }
 
   type Subscription {
     numberIncremented: Int
+    subscribeToChat(data: ChatSubscriptionInput): Message!
   }
 `;
 

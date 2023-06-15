@@ -1,8 +1,8 @@
 import memberResolvers from "./members";
 import clientResolvers from "./clients";
 import contractResolvers from "./contracts";
-import Subscription from "./subscriptions";
 import chatResolvers from "./chat";
+import ServiceResolver from "./services";
 import Query from "./Query";
 
 module.exports = {
@@ -15,6 +15,7 @@ module.exports = {
     ...memberResolvers.Mutation,
     ...clientResolvers.Mutation,
     ...contractResolvers.Mutation,
+    ...chatResolvers.Mutation,
   },
   Member: {
     ...memberResolvers.Member,
@@ -24,6 +25,9 @@ module.exports = {
   },
   Contract: {
     ...contractResolvers.Contract,
+  },
+  Chat: {
+    ...chatResolvers.Chat,
   },
   Subscription: {
     ...chatResolvers.Subscription,

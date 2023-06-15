@@ -13,18 +13,6 @@ import { WebSocketServer } from "ws";
 import { useServer } from "graphql-ws/lib/use/ws";
 import { PubSub } from "graphql-subscriptions";
 
-// const pubsub = new PubSub();
-
-// let currentNumber = 0;
-// function incrementNumber() {
-//   currentNumber++;
-//   pubsub.publish("NUMBER_INCREMENTED", { numberIncremented: currentNumber });
-//   setTimeout(incrementNumber, 1000);
-// }
-
-// // Start incrementing
-// incrementNumber();
-
 async function startApolloServer() {
   const app = express();
   app.use(cors());

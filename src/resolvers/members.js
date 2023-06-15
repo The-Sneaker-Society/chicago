@@ -7,9 +7,7 @@ import ContractModel from "../models/Contract.model";
 const Mutation = {
   async createMember(parent, args, ctx, info) {
     const { email, firstName, lastName } = args.data;
-
-    const member = MemberModel.findOne({ email: email });
-
+    const member = await MemberModel.findOne({ email: email });
     if (member) {
       throw new UserInputError("Email is taken.", {
         errors: {
