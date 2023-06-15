@@ -7,10 +7,11 @@ import EmailModel from "../models/Email.model";
 const Mutation = {
   createEmail: async (parent, args, ctx, info) => {
     try {
-      const { email, name } = args.data;
+      const { email, firstName, lastName } = args.data;
       if (email) {
         const newEmailAddition = new EmailModel({
-          name: name,
+          firstName,
+          lastName,
           email: email,
         });
 
