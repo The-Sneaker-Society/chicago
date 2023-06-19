@@ -1,7 +1,7 @@
 // import { s3Uploadv2 } from "./s3Service";
-import nodemailer from "nodemailer";
-import fs, { readFile } from "fs";
-import Handlebars from "handlebars";
+import nodemailer from 'nodemailer';
+import fs, { readFile } from 'fs';
+import Handlebars from 'handlebars';
 
 export const sendEmail = async (
   subject,
@@ -11,12 +11,12 @@ export const sendEmail = async (
 ) => {
   try {
     // const filePath = "src/emails/new_contract.html";
-    const source = fs.readFileSync(pathToEmailFile, "utf-8").toString();
+    const source = fs.readFileSync(pathToEmailFile, 'utf-8').toString();
     const template = Handlebars.compile(source);
-    const replacements = {
-      userName: `${firstName} ${lastName}`,
-      link: `${process.env.APP_URL}/dashboard`,
-    };
+    // const replacements = {
+    //   userName: `${firstName} ${lastName}`,
+    //   link: `${process.env.APP_URL}/dashboard`,
+    // };
     const htmlToSend = template(replacements);
 
     const transporter = nodemailer.createTransport({
@@ -28,7 +28,7 @@ export const sendEmail = async (
     });
 
     const mailOptions = {
-      from: "alanis.yates@thesneakerssociety.com",
+      from: 'alanis.yates@thesneakerssociety.com',
       //   to: "alanis.yates@thesneakerssociety.com",
       to: recipiant,
       subject: subject,
@@ -41,7 +41,7 @@ export const sendEmail = async (
       if (error) {
         console.log(error);
       } else {
-        console.log("Email sent: " + info.response);
+        console.log('Email sent: ' + info.response);
       }
     });
   } catch (e) {
