@@ -1,17 +1,20 @@
-import { ApolloServer, gql } from "apollo-server-express";
-import { ApolloServerPluginDrainHttpServer } from "apollo-server-core";
-import express from "express";
-import cors from "cors";
-import http from "http";
-import typeDefs from "./types/typeDefs";
-import resolvers from "./resolvers";
-import connectDb from "./config/db";
-import { uploadImage } from "./utils/ImageUpload";
-import multer from "multer";
-import multerS3 from "multer-s3";
-import { S3 } from "aws-sdk";
-import { authFirebase } from "./firebaseUtils/authFire";
-import { GraphQLError } from "graphql";
+import { ApolloServer, gql } from 'apollo-server-express';
+import { ApolloServerPluginDrainHttpServer } from 'apollo-server-core';
+import express from 'express';
+import cors from 'cors';
+import http from 'http';
+import typeDefs from './types/typeDefs';
+import resolvers from './resolvers';
+import connectDb from './config/db';
+import { uploadImage } from './utils/ImageUpload';
+import multer from 'multer';
+import multerS3 from 'multer-s3';
+import { S3 } from 'aws-sdk';
+import { authFirebase } from './firebaseUtils/authFire';
+import { GraphQLError } from 'graphql';
+import myCronJob from './cron-jobs/cronLogger';
+import { sendEmail } from './utils/sendEmail';
+import emailCron from './cron-jobs/cronLogger';
 
 async function startApolloServer() {
   const app = express();
@@ -47,8 +50,8 @@ async function startApolloServer() {
   //   });
   // });
 
-  app.get("/", (req, res) => {
-    res.send("hello world");
+  app.get('/', (req, res) => {
+    res.send('hello world');
   });
 
   // const upload = multer({ dest: "uploads/" });
@@ -67,8 +70,8 @@ async function startApolloServer() {
     csrfPrevention: true,
     plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
     formatError: (error) => {
-      if (error.message.startsWith("Database error: ")) {
-        return new Error("Internal server error");
+      if (error.message.startsWith('Database error: ')) {
+        return new Error('Internal server error');
       }
       return error;
     },
@@ -103,3 +106,5 @@ async function startApolloServer() {
 
 // Start the server
 startApolloServer();
+
+emailCron.start();
