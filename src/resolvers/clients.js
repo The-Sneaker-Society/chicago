@@ -8,10 +8,11 @@ import { GraphQLError } from "graphql";
 const Mutation = {
   createEmail: async (parent, args, ctx, info) => {
     try {
-      const { email, name } = args.data;
+      const { email, firstName, lastName } = args.data;
       if (email) {
         const newEmailAddition = new EmailModel({
-          name: name,
+          firstName,
+          lastName,
           email: email,
         });
 
@@ -21,13 +22,13 @@ const Mutation = {
       }
     } catch (e) {
       if (e.code === 11000) {
-        throw new GraphQLError("Email already in use");
+        throw Error("Email already exist, check you email!");
+      } else {
+        throw new Error(e);
       }
-
-      throw new GraphQLError("unable to register email");
     }
   },
-  creatClient: async (parent, args, ctx, info) => {
+  createClient: async (parent, args, ctx, info) => {
     try {
       const { email, firstName, lastName, memberId } = args.data;
 
