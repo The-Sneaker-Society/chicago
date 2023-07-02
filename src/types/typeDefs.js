@@ -129,6 +129,31 @@ const typeDefs = gql`
     updateService(data: UpdateServiceInput!): Service!
     deleteService(data: DeleteServiceInput!): Service!
   }
+
+  type User {
+    id: ID!
+    firstName: String!
+    lastName: String!
+    dob: String!
+    email: String!
+    password: String!
+    address: String!
+  }
+
+  type Query {
+    users: [User!]!
+  }
+
+  type Mutation {
+    signup(
+      firstName: String!
+      lastName: String!
+      dob: String!
+      email: String!
+      password: String!
+      address: String!
+    ): User!
+  }
 `;
 
 export default typeDefs;
