@@ -63,6 +63,14 @@ const typeDefs = gql`
     firstName: String!
     lastName: String!
   }
+  
+  type Service {
+    id: ID!
+    name: [String]!
+    photoUrl: String!
+    price: Float!
+    description: String!
+  }
 
   input CreateEmailInput {
     firstName: String!
@@ -94,6 +102,14 @@ const typeDefs = gql`
     reported: Boolean!
   }
 
+  input CreateServiceInput {
+    name: String!
+    photoUrl: [String]!
+    price: Float!
+    description: String!
+   }
+
+
   type Query {
     emails: [EmailSignUp]!
     hello: String!
@@ -104,6 +120,7 @@ const typeDefs = gql`
     memberById(id: ID!): Member!
     memberStatsById(id: ID!): Stats!
     clientByEmail(email: String!): Client!
+    services: [!Service]!
   }
 
   type Mutation {
@@ -111,6 +128,34 @@ const typeDefs = gql`
     createMember(data: CreateMemberInput!): Member!
     createClient(data: CreateClientInput!): Client!
     createContract(data: CreateContractInput!): Contract!
+    createService(data: CreateServiceInput!): Service!
+    updateService(data: UpdateServiceInput!): Service!
+    deleteService(data: DeleteServiceInput!): Service!
+  }
+
+  type User {
+    id: ID!
+    firstName: String!
+    lastName: String!
+    dob: String!
+    email: String!
+    password: String!
+    address: String!
+  }
+
+  type Query {
+    users: [User!]!
+  }
+
+  type Mutation {
+    signup(
+      firstName: String!
+      lastName: String!
+      dob: String!
+      email: String!
+      password: String!
+      address: String!
+    ): User!
   }
 `;
 
