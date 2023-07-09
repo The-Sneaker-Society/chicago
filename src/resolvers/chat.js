@@ -1,9 +1,9 @@
-import { PubSub } from "graphql-subscriptions";
-import MessageModel from "../models/Messages.model";
-import ChatModel from "../models/Chat.model";
-import { UserInputError } from "apollo-server-core";
-import MemberModel from "../models/Member.model";
-import ClientModel from "../models/Client.model";
+import { PubSub } from 'graphql-subscriptions';
+import MessageModel from '../models/Messages.model';
+import ChatModel from '../models/Chat.model';
+import { UserInputError } from 'apollo-server-core';
+import MemberModel from '../models/Member.model';
+import ClientModel from '../models/Client.model';
 
 const pubsub = new PubSub();
 
@@ -16,7 +16,7 @@ const Query = {
     const dateString = new Date(date);
 
     return {
-      user: "Alanis Yates",
+      user: 'Alanis Yates',
       text: `Message + num:${currentNumber}`,
       timeStamp: dateString.toDateString(),
     };
@@ -96,7 +96,7 @@ const Mutation = {
 
         return res;
       } else {
-        throw new UserInputError(" Chat does not exist");
+        throw new UserInputError(' Chat does not exist');
       }
     } catch (e) {
       throw e;
@@ -133,7 +133,7 @@ const Chat = {
 
 const Subscription = {
   numberIncremented: {
-    subscribe: () => pubsub.asyncIterator(["NUMBER_INCREMENTED"]),
+    subscribe: () => pubsub.asyncIterator(['NUMBER_INCREMENTED']),
   },
   subscribeToChat: {
     subscribe: (partent, args, ctx, ibfo) => {

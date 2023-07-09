@@ -1,9 +1,8 @@
-import memberResolvers from "./members";
-import clientResolvers from "./clients";
-import contractResolvers from "./contracts";
-import chatResolvers from "./chat";
-import ServiceResolver from "./services";
-import Query from "./Query";
+import memberResolvers from './members';
+import clientResolvers from './clients';
+import contractResolvers from './contracts';
+import chatResolvers from './chat';
+import Query from './Query';
 
 module.exports = {
   Query: {

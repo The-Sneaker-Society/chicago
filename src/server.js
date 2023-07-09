@@ -1,24 +1,60 @@
-import { ApolloServer, gql } from "apollo-server-express";
-import { ApolloServerPluginDrainHttpServer } from "apollo-server-core";
-import express from "express";
-import cors from "cors";
-import http from "http";
-import typeDefs from "./types/typeDefs";
-import resolvers from "./resolvers";
-import connectDb from "./config/db";
+import { ApolloServer, gql } from 'apollo-server-express';
+import { ApolloServerPluginDrainHttpServer } from 'apollo-server-core';
+import express from 'express';
+import cors from 'cors';
+import http from 'http';
+import typeDefs from './types/typeDefs';
+import resolvers from './resolvers';
+import connectDb from './config/db';
 
-import { authFirebase } from "./firebaseUtils/authFire";
-import { makeExecutableSchema } from "@graphql-tools/schema";
-import { WebSocketServer } from "ws";
-import { useServer } from "graphql-ws/lib/use/ws";
-import { PubSub } from "graphql-subscriptions";
+import { authFirebase } from './firebaseUtils/authFire';
+import { makeExecutableSchema } from '@graphql-tools/schema';
+import { WebSocketServer } from 'ws';
+import { useServer } from 'graphql-ws/lib/use/ws';
+import { PubSub } from 'graphql-subscriptions';
+import { error } from 'console';
 
 async function startApolloServer() {
   const app = express();
   app.use(cors());
+  app.use(express.json());
 
-  app.get("/", (req, res) => {
-    res.send("hello world");
+  app.get('/', (req, res) => {
+    res.send('hello world');
+  });
+
+  app.post('/userReg', async (req, res) => {
+    try {
+      // const { firstName, lastName, email, password } = req.body;
+
+      // // Validation on the data
+      // if (password.length < 10) {
+      //   throw error('pass too short');
+      // }
+
+      // // Check if email is alreay in DB
+      // const isAlreadyUser = await checkUserEmail(email);
+
+      // if (isAlreadyUser) {
+      //   throw error('Email already Exists pls check your email for pass reset');
+      // }
+
+      // // third part api calls
+      // const petGovId = await addPetToGovDB(firstName)
+
+      // // Save to DB
+      // await savenewPetToDB(firstName,lastName, email, password)
+
+      // throw error('this did not wor :(');
+
+      console.log(req.body);
+      res.json({ success: true });
+
+      // res.send(req.body);
+    } catch (error) {
+      console.error('Error registering user:', error);
+      res.status(500).send('An error occurred while registering the user');
+    }
   });
 
   const httpServer = http.createServer(app);
@@ -29,7 +65,7 @@ async function startApolloServer() {
 
   const wsServer = new WebSocketServer({
     server: httpServer,
-    path: "/graphql",
+    path: '/graphql',
   });
 
   const serverCleanup = useServer({ schema }, wsServer);
@@ -50,8 +86,8 @@ async function startApolloServer() {
       },
     ],
     formatError: (error) => {
-      if (error.message.startsWith("Database error: ")) {
-        return new Error("Internal server error");
+      if (error.message.startsWith('Database error: ')) {
+        return new Error('Internal server error');
       }
       return error;
     },
