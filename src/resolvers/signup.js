@@ -5,7 +5,7 @@ const resolvers = {
   Mutation: {
     signup: async (_, args) => {
       const { firstName, lastName, dob, email, password, address } = args;
-      const user = new User({
+      const user = new user({
         firstName,
         lastName,
         dob,
