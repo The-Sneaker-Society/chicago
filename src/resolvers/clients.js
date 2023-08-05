@@ -79,6 +79,31 @@ const Mutation = {
       throw new Error(e);
     }
   },
+  updateClient: async (parent, args, ctx, info) => {
+    try {
+      const { id, ...updateData } = args.data;
+
+      // Find the client to update
+      const client = await ClientModel.findById(id);
+
+      // If the client does not exist, throw an error
+      if (!client) {
+        throw new UserInputError('Client not found.');
+      }
+
+      // Update the client with the provided data
+      Object.assign(client, updateData);
+
+      // Save the updated client
+      await client.save();
+
+      // Return a response indicating the update was successful
+      return true;
+    } catch (e) {
+      // Handle any errors and return a response indicating the update was not successful
+      throw e;
+    }
+  },
 };
 
 const Client = {

@@ -103,6 +103,19 @@ const typeDefs = gql`
     firebaseId: String!
   }
 
+  input UpdateClientInput {
+    id: String!
+    email: String
+    firstName: String
+    lastName: String
+    phoneNumber: String
+    addressLineOne: String
+    addressLineTwo: String
+    zipcode: String
+    state: String
+    isActive: Boolean
+  }
+
   input CreateContractInput {
     client: String!
     memberId: String!
@@ -131,6 +144,7 @@ const typeDefs = gql`
     createMember(data: CreateMemberInput!): Member!
     createClient(data: CreateClientInput!): Client!
     createContract(data: CreateContractInput!): Contract!
+    updateClient(data: UpdateClientInput!): Boolean!
   }
 `;
 
