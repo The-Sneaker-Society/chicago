@@ -1,4 +1,4 @@
-import { gql } from "apollo-server-core";
+import { gql } from 'apollo-server-core';
 
 const typeDefs = gql`
   enum StageType {
@@ -36,10 +36,17 @@ const typeDefs = gql`
   type Client {
     id: ID!
     email: String!
-    firstName: String
+    firebaseId: String!
+    firstName: String!
     lastName: String!
+    phoneNumber: String
+    addressLineOne: String
+    addressLineTwo: String
+    zipcode: String
+    state: String
+    isActive: Boolean!
     members: [Member!]!
-    contracts: [Contract!]!
+    contracts: [Contract!]
     createdAt: String!
     updatedAt: String!
   }
@@ -81,6 +88,19 @@ const typeDefs = gql`
     firstName: String!
     lastName: String!
     memberId: String!
+  }
+
+  input CreateClientInput {
+    email: String!
+    firstName: String!
+    lastName: String!
+    phoneNumber: String
+    addressLineOne: String
+    addressLineTwo: String
+    zipcode: String
+    state: String
+    memberId: String!
+    firebaseId: String!
   }
 
   input CreateContractInput {

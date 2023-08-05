@@ -1,8 +1,8 @@
-import { UserInputError } from "apollo-server-core";
-import MemberModel from "../models/Member.model";
-import ClientModel from "../models/Client.model";
-import ContractModel from "../models/Contract.model";
-import EmailModel from "../models/Email.model";
+import { UserInputError } from 'apollo-server-core';
+import MemberModel from '../models/Member.model';
+import ClientModel from '../models/Client.model';
+import ContractModel from '../models/Contract.model';
+import EmailModel from '../models/Email.model';
 
 const Mutation = {
   createEmail: async (parent, args, ctx, info) => {
@@ -21,7 +21,7 @@ const Mutation = {
       }
     } catch (e) {
       if (e.code === 11000) {
-        throw Error("Email already exist, check you email!");
+        throw Error('Email already exist, check you email!');
       } else {
         throw new Error(e);
       }
@@ -29,32 +29,51 @@ const Mutation = {
   },
   createClient: async (parent, args, ctx, info) => {
     try {
-      const { email, firstName, lastName, memberId } = args.data;
+      const {
+        email,
+        firstName,
+        lastName,
+        phoneNumber,
+        addressLineOne,
+        addressLineTwo,
+        zipcode,
+        state,
+        memberId,
+        firebaseId,
+      } = args.data;
 
-      // Finde if member exists
+      // Find if member exists
       const member = await MemberModel.findById(memberId);
 
-      // if member exists
+      // If member exists
       if (member) {
         // Create client
         const client = new ClientModel({
           email,
           firstName,
           lastName,
-          members: memberId,
+          phoneNumber,
+          addressLineOne,
+          addressLineTwo,
+          zipcode,
+          state,
+          isActive: true,
+          members: [memberId],
+          firebaseId,
         });
 
         const res = await client.save();
 
-        // add Client to member
+        // Add Client to member
         member.clients.push(res._id);
 
         // Update member
         await member.save();
-        // return member.populate("clients");
-        return { ...res._doc, id: res._id };
+
+        // Return the created client with all fields
+        return res;
       } else {
-        throw new UserInputError("member does not exist.");
+        throw new UserInputError('Member does not exist.');
       }
     } catch (e) {
       throw new Error(e);
