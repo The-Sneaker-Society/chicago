@@ -1,13 +1,13 @@
-import { UserInputError } from "apollo-server-core";
-import MemberModel from "../models/Member.model";
-import ClientModel from "../models/Client.model";
-import ContractModel from "../models/Contract.model";
-import EmailModel from "../models/Email.model";
-import ProductModel from "../models/Product.model";
+import { UserInputError } from 'apollo-server-core';
+import MemberModel from '../models/Member.model';
+import ClientModel from '../models/Client.model';
+import ContractModel from '../models/Contract.model';
+import EmailModel from '../models/Email.model';
+import ProductModel from '../models/Product.model';
 
 const Query = {
   hello: () => {
-    return "Hello world";
+    return 'Hello world';
   },
   async emails(parent, args, ctx, info) {
     try {
@@ -31,7 +31,7 @@ const Query = {
       const member = await MemberModel.findById(args.id.toString());
 
       if (!member) {
-        throw new Error("Member not found");
+        throw new Error('Member not found');
       }
 
       return member;
@@ -51,19 +51,19 @@ const Query = {
 
       // Do stat calcs
       const notStarted = contracts.filter(
-        (contract) => contract.stage === "NOT_STARTED"
+        (contract) => contract.stage === 'NOT_STARTED'
       );
 
       const started = contracts.filter(
-        (contract) => contract.stage === "STARTED"
+        (contract) => contract.stage === 'STARTED'
       );
 
       const finished = contracts.filter(
-        (contract) => contract.stage === "FINISHED"
+        (contract) => contract.stage === 'FINISHED'
       );
 
       if (!member) {
-        throw new Error("Member not found");
+        throw new Error('Member not found');
       }
 
       // return member;
@@ -91,7 +91,7 @@ const Query = {
     try {
       const client = await ClientModel.findOne({ email: args.email });
       if (!client) {
-        throw new Error("Client Not Found");
+        throw new Error('Client Not Found');
       }
 
       return client;
@@ -122,7 +122,7 @@ const Query = {
 
       // console.log(member.createdAt)
       if (!contract) {
-        throw new Error("contract not found");
+        throw new Error('contract not found');
       }
 
       return contract;

@@ -45,10 +45,17 @@ const typeDefs = gql`
   type Client {
     id: ID!
     email: String!
-    firstName: String
+    firebaseId: String!
+    firstName: String!
     lastName: String!
+    phoneNumber: String
+    addressLineOne: String
+    addressLineTwo: String
+    zipcode: String
+    state: String
+    isActive: Boolean!
     members: [Member!]!
-    contracts: [Contract!]!
+    contracts: [Contract!]
     createdAt: String!
     updatedAt: String!
   }
@@ -99,6 +106,32 @@ const typeDefs = gql`
     name: String!
   }
 
+  input CreateClientInput {
+    email: String!
+    firstName: String!
+    lastName: String!
+    phoneNumber: String
+    addressLineOne: String
+    addressLineTwo: String
+    zipcode: String
+    state: String
+    memberId: String!
+    firebaseId: String!
+  }
+
+  input UpdateClientInput {
+    id: String!
+    email: String
+    firstName: String
+    lastName: String
+    phoneNumber: String
+    addressLineOne: String
+    addressLineTwo: String
+    zipcode: String
+    state: String
+    isActive: Boolean
+  }
+
   input CreateContractInput {
     client: String!
     memberId: String!
@@ -135,6 +168,7 @@ const typeDefs = gql`
     # client
     createEmail(data: CreateEmailInput!): EmailSignUp!
     creatClient(data: CreateClientInput!): Client!
+    updateClient(data: UpdateClientInput!): Boolean!
 
     # contract
     createContract(data: CreateContractInput!): Contract!
