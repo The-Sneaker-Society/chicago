@@ -13,7 +13,8 @@
     "start": "nodemon --exec babel-node src/server.js",
     "clean": "rm -rf build && mkdir build",
     "build-babel": "babel -d ./build src/server.js -s",
-    "build": "npm run clean && npm run build-babel"
+    "build": "npm run clean && npm run build-babel",
+    "start:dev": "npm run dev"
   },
   "repository": {
     "type": "git",
