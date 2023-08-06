@@ -67,6 +67,10 @@ const typeDefs = gql`
     finished: Int!
   }
 
+  type StripeSubscriptionStatus {
+    status: String!
+  }
+
   type File {
     fileName: String!
     mimetype: String!
@@ -158,6 +162,7 @@ const typeDefs = gql`
     memberStatsById(id: ID!): Stats!
     clientByEmail(email: String!): Client!
     products: [Product]!
+    stripe: StripeSubscriptionStatus!
   }
 
   type Mutation {

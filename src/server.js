@@ -124,4 +124,4 @@ async function startApolloServer() {
 // Start the server
 startApolloServer();
 
-emailCron.start();
+// emailCron.start();

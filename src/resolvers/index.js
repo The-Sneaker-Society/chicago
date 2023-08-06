@@ -1,11 +1,15 @@
-import memberResolvers from "./members";
-import clientResolvers from "./clients";
-import contractResolvers from "./contracts";
-import productResolvers from "./products";
-import Query from "./Query";
+import memberResolvers from './members';
+import clientResolvers from './clients';
+import contractResolvers from './contracts';
+import productResolvers from './products';
+import stripeSubscriptionService from './stripe';
+import Query from './Query';
 
 module.exports = {
-  Query,
+  Query: {
+    ...Query,
+    ...stripeSubscriptionService.Query,
+  },
   // @todo update imports
   Mutation: {
     ...memberResolvers.Mutation,
