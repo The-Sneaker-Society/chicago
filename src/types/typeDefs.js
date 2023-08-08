@@ -154,6 +154,30 @@ const typeDefs = gql`
       address: String!
     ): User!
   }
+
+  type Mutation {
+    changePassword(
+      currentPassword: String!
+      newPassword: String!
+      confirmPassword: String!
+    ) : ChangePasswordResponse!
+  }
+
+  type ChangePasswordResponse {
+    sucess: Boolean!
+    message: String!
+  }
+
+  type Mutation {
+    profileUpdate(
+      firstName: String!
+      lastName: String!
+      phone: String!
+      address1: String!
+      address2: String!
+      email: String!
+    )
+  }
 `;
 
 export default typeDefs;
