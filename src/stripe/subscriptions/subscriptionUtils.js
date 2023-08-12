@@ -7,7 +7,6 @@ const { STRIPE_API_KEY } = process.env;
 const stripe = new Stripe(STRIPE_API_KEY);
 export const getMemberSubscription = async () => {
   try {
-    console.log('gello');
     const { subscriptions } = await stripe.customers.retrieve(
       'cus_OOyBkQham29oRv',
       {
@@ -31,7 +30,7 @@ export const getMemberSubscription = async () => {
     // TODO Do a lookup of sub id in our db to return the correct status or type
     console.log({ subscriptions, subData, subStuff });
 
-    return 'hello';
+    return subData[0].active;
   } catch (error) {
     throw error;
   }
