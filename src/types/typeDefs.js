@@ -40,6 +40,7 @@ const typeDefs = gql`
     contracts: [Contract!]!
     createdAt: String!
     updatedAt: String!
+    stripeId: String!
   }
 
   type Client {
@@ -151,6 +152,15 @@ const typeDefs = gql`
     id: ID!
   }
 
+  type PaymentLink {
+    url: String!
+  }
+
+  input CreatePaymentLinkInput {
+    productId: String!
+    stripeId: String!
+  }
+
   type Query {
     emails: [EmailSignUp]!
     hello: String!
@@ -180,6 +190,7 @@ const typeDefs = gql`
 
     # products
     createProduct(data: CreateProductInput!): Product!
+    createPaymentLink(data: CreatePaymentLinkInput!): PaymentLink
     deleteProduct(id: ID): Product!
   }
 `;

@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const MemberSchema = new mongoose.Schema(
   {
@@ -15,6 +15,9 @@ const MemberSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    stripeId: {
+      type: String,
+    },
     isActive: {
       type: Boolean,
       required: true,
@@ -22,27 +25,27 @@ const MemberSchema = new mongoose.Schema(
     products: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Products",
+        ref: 'Products',
       },
     ],
     clients: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Client",
+        ref: 'Client',
         required: true,
       },
     ],
     contracts: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Contracts",
+        ref: 'Contracts',
       },
     ],
   },
   {
-    collection: "members",
+    collection: 'members',
     timestamps: true,
   }
 );
 
-module.exports = mongoose.model("Member", MemberSchema);
+module.exports = mongoose.model('Member', MemberSchema);
