@@ -1,9 +1,13 @@
 import Stripe from 'stripe';
-const stripe = new Stripe(
-  'sk_test_51MEhewEtfRIDf54VFCVLh45XFX6AKm4I4zxoWmswNLmaJEacdUPzWuLgUAVMipvZOS5R80ZK0kNuQSck3aHn3JwE00Ep73AOVu'
-);
+import dotenv from 'dotenv';
+dotenv.config({ path: 'config.env' });
+
+const { STRIPE_API_KEY } = process.env;
+
+const stripe = new Stripe(STRIPE_API_KEY);
 export const getMemberSubscription = async () => {
   try {
+    console.log('gello');
     const { subscriptions } = await stripe.customers.retrieve(
       'cus_OOyBkQham29oRv',
       {
