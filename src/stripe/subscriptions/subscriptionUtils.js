@@ -1,10 +1,5 @@
-import Stripe from 'stripe';
-import dotenv from 'dotenv';
-dotenv.config({ path: 'config.env' });
+import { stripe } from '../config';
 
-const { STRIPE_API_KEY } = process.env;
-
-const stripe = new Stripe(STRIPE_API_KEY);
 export const getMemberSubscription = async () => {
   try {
     const { subscriptions } = await stripe.customers.retrieve(

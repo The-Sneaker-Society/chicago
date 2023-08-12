@@ -1,14 +1,12 @@
-import Stripe from "stripe";
-const stripe = new Stripe(
-  "sk_test_51MEhewEtfRIDf54VFCVLh45XFX6AKm4I4zxoWmswNLmaJEacdUPzWuLgUAVMipvZOS5R80ZK0kNuQSck3aHn3JwE00Ep73AOVu"
-);
+import { stripe } from '../config';
+
 /* 
 Get all products by memberId
 */
 const getMemberProducts = async () => {
   try {
     // pull he productArray from the member DB.
-    return "done";
+    return 'done';
   } catch (e) {
     throw e;
   }
@@ -19,7 +17,7 @@ Update product by id
 */
 const updateProductById = async () => {
   try {
-    return "done";
+    return 'done';
   } catch (e) {
     throw e;
   }
@@ -30,7 +28,7 @@ Delete product by id
 */
 const deleteProductById = async () => {
   try {
-    return "done";
+    return 'done';
   } catch (e) {
     throw e;
   }
@@ -45,14 +43,14 @@ export const createProduct = async () => {
 
     // create product with stripe
     const product = await stripe.products.create({
-      name: "Sole Whitening",
-      description: "Whiten your soles with top quality products!",
+      name: 'Sole Whitening',
+      description: 'Whiten your soles with top quality products!',
       default_price_data: {
-        currency: "usd",
+        currency: 'usd',
         unit_amount: 3000,
       },
       metadata: {
-        createdBy: "this is a mongo db useer id",
+        createdBy: 'this is a mongo db useer id',
       },
     });
 
