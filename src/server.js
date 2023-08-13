@@ -16,6 +16,7 @@ import myCronJob from './cron-jobs/cronLogger';
 import { sendEmail } from './utils/sendEmail';
 import emailCron from './cron-jobs/cronLogger';
 
+// hello
 async function startApolloServer() {
   const app = express();
   app.use(cors());
