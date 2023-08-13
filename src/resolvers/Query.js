@@ -16,9 +16,9 @@ const Query = {
       throw new Error(e);
     }
   },
-  async members(parent, args, { id, user }, info) {
+  async members(parent, args, ctx, info) {
     try {
-      console.log(user);
+      console.log(ctx);
       const members = await MemberModel.find();
       return members;
     } catch (e) {
