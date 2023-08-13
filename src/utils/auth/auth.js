@@ -17,7 +17,12 @@ export const authorizeUser = async ({ req }) => {
       if (!dbUser) {
         throw new AuthenticationError('Member not found');
       }
-      return { dbUser };
+
+      const userData = {
+        id: dbUser[0]._id,
+        stripeId: dbUser[0].stripeId,
+      };
+      return userData;
     } catch (error) {
       throw new AuthenticationError('Invalid Auth Token');
     }

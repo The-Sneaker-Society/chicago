@@ -13,7 +13,6 @@ const Mutation = {
    * @param {string} args.data.description - Description of the product.
    * @param {number} args.data.price - Price of the product.
    * @param {string} args.data.name - Name of the product.
-   * @param {string} args.data.memberId - ID of the member associated with the product.
    * @param {Object} ctx - The context object.
    * @param {Object} info - Additional information about the operation.
    * @returns {Object} - The created product.
@@ -21,14 +20,15 @@ const Mutation = {
    */
   async createProduct(parent, args, ctx, info) {
     try {
-      const { description, price, name, memberId } = args.data;
+      const { id } = ctx;
+      const { description, price, name } = args.data;
 
-      const foundMember = await MemberModel.findById(memberId);
+      const foundMember = await MemberModel.findById(id);
 
       const stripeProduct = await stripeService.createProduct(
         name,
         description,
-        memberId,
+        id,
         price,
         foundMember.stripeId
       );
@@ -54,7 +54,8 @@ const Mutation = {
 
   async createPaymentLink(parent, args, ctx, info) {
     try {
-      const { productId, stripeId } = args.data;
+      const { stripeId } = ctx;
+      const { productId } = args.data;
 
       // const foundProduct = await ProductModel.findById(productId);
 

@@ -105,7 +105,6 @@ const typeDefs = gql`
   }
 
   input CreateProductInput {
-    memberId: String!
     price: Int!
     description: String!
     name: String!
@@ -158,7 +157,6 @@ const typeDefs = gql`
 
   input CreatePaymentLinkInput {
     productId: String!
-    stripeId: String!
   }
 
   type Query {
