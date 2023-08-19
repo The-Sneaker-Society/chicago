@@ -156,19 +156,6 @@ const typeDefs = gql`
   }
 
   type Mutation {
-    changePassword(
-      currentPassword: String!
-      newPassword: String!
-      confirmPassword: String!
-    ) : ChangePasswordResponse!
-  }
-
-  type ChangePasswordResponse {
-    sucess: Boolean!
-    message: String!
-  }
-
-  type Mutation {
     profileUpdate(
       firstName: String!
       lastName: String!
