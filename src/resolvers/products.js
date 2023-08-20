@@ -57,14 +57,6 @@ const Mutation = {
       const { stripeId } = ctx;
       const { productId } = args.data;
 
-      // const foundProduct = await ProductModel.findById(productId);
-
-      // if (!foundProduct) {
-      //   throw new Error('Product Does not exist');
-      // }
-
-      // const {default_price} = await stripe.
-
       const url = await stripeService.createPaymentLinkForProduct(
         stripeId,
         productId
