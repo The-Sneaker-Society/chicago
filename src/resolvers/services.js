@@ -1,7 +1,6 @@
 import { UserInputError } from "apollo-server-core";
 import MemberModel from "../models/Member.model";
 import ServiceModel from "../models/Service.model";
-//adding comment to push new PR
 
 const Query = {
   async services(parent, args, ctx, info) {

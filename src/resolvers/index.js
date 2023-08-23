@@ -3,7 +3,6 @@ import clientResolvers from "./clients";
 import contractResolvers from "./contracts";
 import ServiceResolver from "./services";
 import Query from "./Query";
-//adding comment to push new PR
 
 module.exports = {
   Query,

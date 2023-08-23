@@ -1,5 +1,5 @@
 import { gql } from "apollo-server-core";
-//adding comment to push new PR Services
+
 const typeDefs = gql`
   enum StageType {
     NOT_STARTED
