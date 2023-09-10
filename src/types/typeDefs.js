@@ -153,18 +153,20 @@ const typeDefs = gql`
       password: String!
       address: String!
     ): User!
+    profileUpdate(data: UpdateMemberInput!): Member!
   }
 
-  type Mutation {
-    profileUpdate(
-      firstName: String!
-      lastName: String!
-      phone: String!
-      address1: String!
-      address2: String!
-      email: String!
-    )
+  input UpdateMemberInput {
+    email: String!
+    firstName: String!
+    lastName: String!
+    phone: String!
+    address1: String!
+    address2: String!
+    zipcode: String!
+    state: String!
   }
+  
 `;
 
 export default typeDefs;

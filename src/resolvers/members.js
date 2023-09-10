@@ -6,7 +6,8 @@ import ContractModel from "../models/Contract.model";
 
 const Mutation = {
   async createMember(parent, args, ctx, info) {
-    const { email, firstName, lastName, address1, address2 } = args.data;
+    const { email, firstName, lastName, address1, address2, zipcode, state } =
+      args.data;
 
     const member = MemberModel.findOne({ email: email });
 
@@ -24,6 +25,8 @@ const Mutation = {
       lastName,
       address1,
       address2,
+      zipcode,
+      state,
       isActive: true,
     });
 
