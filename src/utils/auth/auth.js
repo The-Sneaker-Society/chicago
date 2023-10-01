@@ -13,13 +13,12 @@ export const authorizeUser = async ({ req }) => {
 
       // look up user in db
       const dbUser = await MemberModel.find({ firebaseId: user.uid });
-
-      if (!dbUser) {
+      if (dbUser.length === 0) {
         throw new AuthenticationError('Member not found');
       }
       return { dbUser };
     } catch (error) {
-      throw new AuthenticationError('Invalid Auth Token');
+      throw error;
     }
   } else {
     throw new AuthenticationError('Authorization header not present');
