@@ -16,7 +16,7 @@ export const authorizeUser = async ({ req }) => {
       if (dbUser.length === 0) {
         throw new AuthenticationError('Member not found');
       }
-      return { dbUser };
+      return dbUser[0];
     } catch (error) {
       throw error;
     }

@@ -52,6 +52,19 @@ const Mutation = {
 
     return { ...res._doc, id: res._id };
   },
+  async updateMember(parent, args, ctx, info) {
+    try {
+      await MemberModel.findByIdAndUpdate(
+        ctx.id,
+        { ...args.data },
+        { new: true }
+      );
+    } catch (error) {
+      throw error;
+    }
+
+    return true;
+  },
 };
 
 const Member = {

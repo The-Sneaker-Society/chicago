@@ -35,6 +35,18 @@ const memberTypeDefs = gql`
     state: String
   }
 
+  input UpdateMemberInput {
+    subscriptionId: String
+    email: String
+    firstName: String
+    lastName: String
+    phoneNumber: String
+    addressLineOne: String
+    addressLineTwo: String
+    zipcode: String
+    state: String
+  }
+
   # Queries
   type Query {
     members: [Member!]!
@@ -44,6 +56,7 @@ const memberTypeDefs = gql`
   # Mutations
   type Mutation {
     createMember(data: CreateMemberInput!): Member!
+    updateMember(data: UpdateMemberInput!): Boolean!
   }
 `;
 
