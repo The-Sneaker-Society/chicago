@@ -6,7 +6,6 @@ import ContractModel from '../models/Contract.model';
 const Query = {
   async members(parent, args, ctx, info) {
     try {
-      console.log(ctx);
       const members = await MemberModel.find();
       return members;
     } catch (e) {
