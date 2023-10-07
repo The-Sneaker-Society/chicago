@@ -1,15 +1,15 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const ContractSchema = new mongoose.Schema(
   {
     client: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Clients",
+      ref: 'Clients',
       required: true,
     },
     member: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Members",
+      ref: 'Members',
       required: true,
     },
     eta: {
@@ -42,4 +42,4 @@ const ContractSchema = new mongoose.Schema(
   }
 );
 
-export default mongoose.model("Contracts", ContractSchema, "contracts");
+export default mongoose.model('Contracts', ContractSchema, 'contracts');
