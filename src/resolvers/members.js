@@ -1,8 +1,32 @@
-import { UserInputError } from "apollo-server-core";
-import MemberModel from "../models/Member.model";
-import ClientModel from "../models/Client.model";
-import contracts from "./contracts";
-import ContractModel from "../models/Contract.model";
+import { UserInputError } from 'apollo-server-core';
+import MemberModel from '../models/Member.model';
+import ClientModel from '../models/Client.model';
+import ContractModel from '../models/Contract.model';
+
+const Query = {
+  async members(parent, args, ctx, info) {
+    try {
+      console.log(ctx);
+      const members = await MemberModel.find();
+      return members;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+  async memberById(parent, args, ctx, info) {
+    try {
+      const member = await MemberModel.findById(args.id.toString());
+
+      if (!member) {
+        throw new Error('Member not found');
+      }
+
+      return member;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+};
 
 const Mutation = {
   async createMember(parent, args, ctx, info) {
@@ -11,9 +35,9 @@ const Mutation = {
     const member = MemberModel.findOne({ email: email });
 
     if (member) {
-      throw new UserInputError("Email is taken.", {
+      throw new UserInputError('Email is taken.', {
         errors: {
-          email: "This email is taken.",
+          email: 'This email is taken.',
         },
       });
     }
@@ -53,4 +77,4 @@ const Member = {
     }
   },
 };
-export default { Mutation, Member };
+export default { Query, Mutation, Member };

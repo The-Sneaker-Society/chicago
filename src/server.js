@@ -3,7 +3,7 @@ import { ApolloServerPluginDrainHttpServer } from 'apollo-server-core';
 import express from 'express';
 import cors from 'cors';
 import http from 'http';
-import typeDefs from './types/typeDefs';
+import typeDefs from './models/schema/index';
 import resolvers from './resolvers';
 import connectDb from './config/db';
 import { authorizeUser } from './utils/auth/auth';
@@ -31,7 +31,7 @@ async function startApolloServer() {
       }
       return error;
     },
-    context: authorizeUser,
+    // context: authorizeUser,
   });
 
   await server.start();
@@ -42,5 +42,3 @@ async function startApolloServer() {
 
 // Start the server
 startApolloServer();
-
-emailCron.start();

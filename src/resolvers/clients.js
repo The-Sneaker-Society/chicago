@@ -4,29 +4,52 @@ import ClientModel from '../models/Client.model';
 import ContractModel from '../models/Contract.model';
 import EmailModel from '../models/Email.model';
 
-const Mutation = {
-  createEmail: async (parent, args, ctx, info) => {
+const Query = {
+  async clients() {
     try {
-      const { email, firstName, lastName } = args.data;
-      if (email) {
-        const newEmailAddition = new EmailModel({
-          firstName,
-          lastName,
-          email: email,
-        });
-
-        const res = await newEmailAddition.save();
-
-        return { ...res._doc, id: res._id };
-      }
+      const clients = await ClientModel.find();
+      return clients;
     } catch (e) {
-      if (e.code === 11000) {
-        throw Error('Email already exist, check you email!');
-      } else {
-        throw new Error(e);
-      }
+      throw new Error(e);
     }
   },
+  async clientByEmail(parent, args, ctx, info) {
+    try {
+      const client = await ClientModel.findOne({ email: args.email });
+      if (!client) {
+        throw new Error('Client Not Found');
+      }
+
+      return client;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+};
+
+const Mutation = {
+  // createEmail: async (parent, args, ctx, info) => {
+  //   try {
+  //     const { email, firstName, lastName } = args.data;
+  //     if (email) {
+  //       const newEmailAddition = new EmailModel({
+  //         firstName,
+  //         lastName,
+  //         email: email,
+  //       });
+
+  //       const res = await newEmailAddition.save();
+
+  //       return { ...res._doc, id: res._id };
+  //     }
+  //   } catch (e) {
+  //     if (e.code === 11000) {
+  //       throw Error('Email already exist, check you email!');
+  //     } else {
+  //       throw new Error(e);
+  //     }
+  //   }
+  // },
   createClient: async (parent, args, ctx, info) => {
     try {
       const {
@@ -131,4 +154,4 @@ const Client = {
   },
 };
 
-export default { Mutation, Client };
+export default { Query, Mutation, Client };
