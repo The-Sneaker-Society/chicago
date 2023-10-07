@@ -21,6 +21,7 @@ const memberTypeDefs = gql`
     subscriptionId: ID
     createdAt: String!
     updatedAt: String!
+    deletedAt: String
   }
 
   input CreateMemberInput {
@@ -57,6 +58,7 @@ const memberTypeDefs = gql`
   type Mutation {
     createMember(data: CreateMemberInput!): Member!
     updateMember(data: UpdateMemberInput!): Boolean!
+    deleteMember: Boolean!
   }
 `;
 

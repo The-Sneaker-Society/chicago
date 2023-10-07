@@ -59,11 +59,22 @@ const Mutation = {
         { ...args.data },
         { new: true }
       );
+      return true;
     } catch (error) {
       throw error;
     }
-
-    return true;
+  },
+  async deleteMember(parent, args, ctx, info) {
+    try {
+      await MemberModel.findByIdAndUpdate(
+        ctx.id,
+        { deletedAt: Date.now() },
+        { new: true }
+      );
+      return true;
+    } catch (e) {
+      throw new Error(e);
+    }
   },
 };
 
