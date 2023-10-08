@@ -12,11 +12,15 @@ export const authorizeUser = async ({ req }) => {
       const user = await authFirebase(token);
 
       // look up user in db
-      const dbUser = await MemberModel.find({ firebaseId: user.uid });
+      const dbUser = await MemberModel.find({
+        firebaseId: user.uid,
+        deletedAt: null,
+      });
+
       if (dbUser.length === 0) {
         throw new AuthenticationError('Member not found');
       }
-      return { dbUser };
+      return dbUser[0];
     } catch (error) {
       throw error;
     }

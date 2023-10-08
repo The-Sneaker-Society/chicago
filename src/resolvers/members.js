@@ -6,7 +6,6 @@ import ContractModel from '../models/Contract.model';
 const Query = {
   async members(parent, args, ctx, info) {
     try {
-      console.log(ctx);
       const members = await MemberModel.find();
       return members;
     } catch (e) {
@@ -52,6 +51,30 @@ const Mutation = {
     const res = await newMember.save();
 
     return { ...res._doc, id: res._id };
+  },
+  async updateMember(parent, args, ctx, info) {
+    try {
+      await MemberModel.findByIdAndUpdate(
+        ctx.id,
+        { ...args.data },
+        { new: true }
+      );
+      return true;
+    } catch (error) {
+      throw error;
+    }
+  },
+  async deleteMember(parent, args, ctx, info) {
+    try {
+      await MemberModel.findByIdAndUpdate(
+        ctx.id,
+        { deletedAt: Date.now() },
+        { new: true }
+      );
+      return true;
+    } catch (e) {
+      throw new Error(e);
+    }
   },
 };
 

@@ -31,7 +31,7 @@ async function startApolloServer() {
       }
       return error;
     },
-    // context: authorizeUser,
+    context: authorizeUser,
   });
 
   await server.start();

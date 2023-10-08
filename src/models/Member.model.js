@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const MemberSchema = new mongoose.Schema(
   {
@@ -24,24 +24,47 @@ const MemberSchema = new mongoose.Schema(
       type: Boolean,
       required: true,
     },
+    phoneNumber: {
+      type: String,
+    },
+    addressLineOne: {
+      type: String,
+    },
+    addressLineTwo: {
+      type: String,
+    },
+    zipcode: {
+      type: String,
+    },
+    state: {
+      type: String,
+    },
     clients: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Client",
+        ref: 'Client',
         required: true,
       },
     ],
     contracts: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Contracts",
+        ref: 'Contracts',
       },
     ],
+    subscriptionId: {
+      type: String,
+      required: true,
+    },
+    deletedAt: {
+      type: Date, // Use Date type to store the timestamp of deletion
+      default: null, // Set to null for active members, or a date value for deleted members
+    },
   },
   {
-    collection: "members",
+    collection: 'members',
     timestamps: true,
   }
 );
 
-module.exports = mongoose.model("Member", MemberSchema);
+module.exports = mongoose.model('Member', MemberSchema);
