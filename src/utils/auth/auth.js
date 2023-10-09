@@ -1,7 +1,7 @@
 import { authFirebase } from '../firebaseUtils/authFire';
 import { AuthenticationError } from 'apollo-server-core';
 import MemberModel from '../../models/Member.model';
-
+import ClientModel from '../../models/Client.model';
 export const authorizeUser = async ({ req }) => {
   const authHeader = req.headers.authorization;
 
@@ -17,10 +17,15 @@ export const authorizeUser = async ({ req }) => {
         deletedAt: null,
       });
 
-      if (dbUser.length === 0) {
+      const clientUser = await ClientModel.find({
+        firebaseId: user.uid,
+        deletedAt: null,
+      });
+
+      if (dbUser.length === 0 && clientUser.length === 0) {
         throw new AuthenticationError('Member not found');
       }
-      return dbUser[0];
+      return dbUser[0] || clientUser[0];
     } catch (error) {
       throw error;
     }
