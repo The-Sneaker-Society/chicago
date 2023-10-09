@@ -14,11 +14,13 @@ const clientTypeDefs = gql`
     addressLineTwo: String
     zipcode: String
     state: String
+    acceptedTos: Boolean!
     isActive: Boolean!
     members: [Member!]!
     contracts: [Contract!]
     createdAt: String!
     updatedAt: String!
+    deletedAt: String
   }
 
   input CreateClientInput {
@@ -26,6 +28,11 @@ const clientTypeDefs = gql`
     firstName: String!
     lastName: String!
     memberId: String!
+    phoneNumber: String
+    addressLineOne: String
+    addressLineTwo: String
+    zipcode: String
+    state: String
   }
 
   input UpdateClientInput {
