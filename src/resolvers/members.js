@@ -14,13 +14,12 @@ const Query = {
   },
   async memberById(parent, args, ctx, info) {
     try {
-      const member = await MemberModel.findById(args.id.toString());
-
+      const member = await MemberModel.find({ firebaseId: args.id });
       if (!member) {
         throw new Error('Member not found');
       }
 
-      return member;
+      return member[0];
     } catch (e) {
       throw new Error(e);
     }
@@ -29,28 +28,54 @@ const Query = {
 
 const Mutation = {
   async createMember(parent, args, ctx, info) {
-    const { email, firstName, lastName } = args.data;
+    try {
+      console.log(args);
+      const {
+        email,
+        firstName,
+        lastName,
+        firebaseId,
+        phoneNumber,
+        zipcode,
+        addressLineOne,
+        addressLineTwo,
+        state,
+      } = args.data;
 
-    const member = MemberModel.findOne({ email: email });
+      const member = await MemberModel.findOne({ email: email });
+      // console.log(member);
 
-    if (member) {
-      throw new UserInputError('Email is taken.', {
-        errors: {
-          email: 'This email is taken.',
-        },
+      if (member) {
+        throw new UserInputError(
+          'Email is taken. If this is wrong please contact support',
+          {
+            errors: {
+              email: 'This email is taken.',
+            },
+          }
+        );
+      }
+
+      const newMember = new MemberModel({
+        email,
+        firstName,
+        lastName,
+        firebaseId,
+        phoneNumber,
+        zipcode,
+        addressLineOne,
+        addressLineTwo,
+        state,
+        isActive: true,
       });
+
+      const res = await newMember.save();
+
+      return { ...res._doc, id: res._id };
+    } catch (error) {
+      console.error(error);
+      throw error;
     }
-
-    const newMember = new MemberModel({
-      email,
-      firstName,
-      lastName,
-      isActive: true,
-    });
-
-    const res = await newMember.save();
-
-    return { ...res._doc, id: res._id };
   },
   async updateMember(parent, args, ctx, info) {
     try {

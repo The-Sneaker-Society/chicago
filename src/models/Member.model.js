@@ -43,7 +43,6 @@ const MemberSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Client',
-        required: true,
       },
     ],
     contracts: [
@@ -54,7 +53,7 @@ const MemberSchema = new mongoose.Schema(
     ],
     subscriptionId: {
       type: String,
-      required: true,
+      default: null,
     },
     deletedAt: {
       type: Date, // Use Date type to store the timestamp of deletion
