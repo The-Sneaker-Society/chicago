@@ -2,6 +2,7 @@ import mongoose, { Connection } from 'mongoose';
 import dotenv from 'dotenv';
 
 dotenv.config({ path: 'config.env' });
+// other 
 
 const DATABASE_URL = process.env.ATLAS_URI;
 
