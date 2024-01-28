@@ -2,8 +2,7 @@ import mongoose, { Connection } from 'mongoose';
 import dotenv from 'dotenv';
 
 dotenv.config({ path: 'config.env' });
-// other 
-
+console.log('hello')
 const DATABASE_URL = process.env.ATLAS_URI;
 
 const connectDb = (): Promise<Connection> => {
