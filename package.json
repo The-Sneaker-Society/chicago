@@ -30,8 +30,10 @@
     "ts-node": "^10.9.2"
   },
   "devDependencies": {
+    "eslint": "^8.56.0",
     "husky": "^9.0.6",
     "lint-staged": "^15.2.0",
+    "prettier": "^3.2.4",
     "typescript": "^5.3.3"
   }
 }
