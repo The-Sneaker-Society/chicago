@@ -1,17 +1,37 @@
 {
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "start": "node dist/index.js",
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc"
   },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged && npm run typecheck"
+    }
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write",
+      "git add"
+    ]
+  },
   "dependencies": {
     "@types/express": "latest",
+    "@types/mongoose": "^5.11.97",
     "@types/node": "latest",
     "apollo-server-express": "^3.13.0",
+    "dotenv": "^16.4.1",
     "express": "^4.18.2",
     "graphql": "^16.8.1",
+    "mongoose": "^8.1.1",
     "nodemon": "^3.0.3",
-    "ts-node": "^10.9.2",
+    "ts-node": "^10.9.2"
+  },
+  "devDependencies": {
+    "husky": "^9.0.6",
+    "lint-staged": "^15.2.0",
     "typescript": "^5.3.3"
   }
 }

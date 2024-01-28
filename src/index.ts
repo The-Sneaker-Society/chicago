@@ -1,5 +1,6 @@
 import express, { Application } from 'express';
 import { ApolloServer, gql } from 'apollo-server-express';
+import connectDb from './db/db';
 
 const typeDefs = gql`
   type Query {
@@ -15,6 +16,15 @@ const resolvers = {
 
 const startServer = async () => {
   const app: Application = express();
+
+    // Connect to the database
+    try {
+      await connectDb();
+      console.log('Connected to the database');
+    } catch (error) {
+      console.error('Failed to connect to the database:', error);
+      return;
+    }
 
   const server = new ApolloServer({ typeDefs, resolvers });
 
