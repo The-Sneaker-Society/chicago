@@ -1,4 +1,3 @@
-// src/db.ts
 import mongoose, { Connection } from 'mongoose';
 import dotenv from 'dotenv';
 
