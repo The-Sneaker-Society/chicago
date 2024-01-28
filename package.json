@@ -7,6 +7,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@typegoose/typegoose": "^12.1.0",
     "@types/express": "latest",
     "@types/mongoose": "^5.11.97",
     "@types/node": "latest",
