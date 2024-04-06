@@ -2,11 +2,16 @@ import { UserInputError } from 'apollo-server-core';
 import MemberModel from '../models/Member.model';
 import ClientModel from '../models/Client.model';
 import ContractModel from '../models/Contract.model';
+import ProductsModel from '../models/Products.model';
+import { createAccountLink, createExpressaccount } from '../stripe/stripeUtils';
+
+//  test url https://docs.stripe.com/connect/testing
 
 const Query = {
   async members(parent, args, ctx, info) {
     try {
       const members = await MemberModel.find();
+      console.log('gello');
       return members;
     } catch (e) {
       throw new Error(e);
@@ -101,6 +106,37 @@ const Mutation = {
       throw new Error(e);
     }
   },
+  async onboardMemberToStripe(parent, args, ctx, info) {
+    try {
+      const createdStripeAccountId = await createExpressaccount();
+      const member = await MemberModel.findByIdAndUpdate(
+        ctx.id,
+        { stripeConnectAccountId: createdStripeAccountId.id },
+        { new: true }
+      );
+
+      console.log(member);
+
+      const { url } = await createAccountLink(member.stripeConnectAccountId);
+
+      return url;
+    } catch (error) {
+      throw new Error(error);
+    }
+  },
+  async resumeAccountOnboarding(parent, args, ctx, info) {
+    try {
+      const member = await MemberModel.findById(ctx.id);
+
+      console.log(member);
+
+      const { url } = await createAccountLink(member.stripeConnectAccountId);
+
+      return url;
+    } catch (error) {
+      throw new Error(error);
+    }
+  },
 };
 
 const Member = {
@@ -120,6 +156,17 @@ const Member = {
       return contracts.filter(
         (contract) => contract.member.toString() === parent.id
       );
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+
+  async products(parent, args, ctx, info) {
+    try {
+      const products = await ProductsModel.find({
+        member: parent._id,
+      });
+      return products;
     } catch (e) {
       throw new Error(e);
     }

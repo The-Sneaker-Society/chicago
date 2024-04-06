@@ -14,7 +14,8 @@
     "clean": "rm -rf build && mkdir build",
     "build-babel": "babel -d ./build src/server.js -s",
     "build": "npm run clean && npm run build-babel",
-    "start:dev": "npm run dev"
+    "start:dev": "npm run dev",
+    "generate-dev-token": "babel-node src/scripts/generateDevToken.js"
   },
   "repository": {
     "type": "git",
@@ -39,6 +40,7 @@
     "apollo-server-core": "^3.7.0",
     "apollo-server-express": "^3.7.0",
     "aws-sdk": "^2.1158.0",
+    "axios": "^1.6.7",
     "babel": "^6.23.0",
     "cors": "^2.8.5",
     "dotenv": "^16.0.1",
@@ -53,6 +55,7 @@
     "multer-s3": "^2.10.0",
     "node-cron": "^3.0.2",
     "node-fetch": "^2.6.7",
-    "nodemailer": "^6.7.5"
+    "nodemailer": "^6.7.5",
+    "stripe": "^14.15.0"
   }
 }
