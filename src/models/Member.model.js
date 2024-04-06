@@ -55,6 +55,10 @@ const MemberSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    stripeConnectAccountId: {
+      type: String,
+      default: null,
+    },
     deletedAt: {
       type: Date, // Use Date type to store the timestamp of deletion
       default: null, // Set to null for active members, or a date value for deleted members

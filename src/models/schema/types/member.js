@@ -17,6 +17,7 @@ const memberTypeDefs = gql`
     isActive: Boolean!
     clients: [Client!]!
     contracts: [Contract!]!
+    products: [Product]!
     acceptedTos: Boolean!
     subscriptionId: ID
     createdAt: String!
