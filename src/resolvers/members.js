@@ -4,6 +4,9 @@ import ClientModel from '../models/Client.model';
 import ContractModel from '../models/Contract.model';
 import ProductsModel from '../models/Products.model';
 import { createAccountLink, createExpressaccount } from '../stripe/stripeUtils';
+import { createQRCode, generateQRCodeImage } from '../utils/qrGenerator';
+import dotenv from 'dotenv';
+dotenv.config({ path: 'config.env' });
 
 //  test url https://docs.stripe.com/connect/testing
 
@@ -169,6 +172,21 @@ const Member = {
       return products;
     } catch (e) {
       throw new Error(e);
+    }
+  },
+  async qrWidgetData(parent, args, ctx, info) {
+    try {
+      const { CONTRACT_URL } = process.env;
+      const { id } = ctx;
+      const memberConractUrl = `${CONTRACT_URL}/${id}`;
+
+      const qrImage = await createQRCode(memberConractUrl);
+      return {
+        url: memberConractUrl,
+        image: qrImage,
+      };
+    } catch (error) {
+      throw new Error(error);
     }
   },
 };
