@@ -23,6 +23,12 @@ const memberTypeDefs = gql`
     createdAt: String!
     updatedAt: String!
     deletedAt: String
+    qrWidgetData: QrWidgetData!
+  }
+
+  type QrWidgetData {
+    image: String!
+    url: String!
   }
 
   input CreateMemberInput {
@@ -53,6 +59,7 @@ const memberTypeDefs = gql`
   type Query {
     members: [Member!]!
     memberById(id: ID!): Member!
+    # memberQrWidget: QrWidgetData!
   }
 
   # Mutations
