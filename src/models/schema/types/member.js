@@ -59,6 +59,7 @@ const memberTypeDefs = gql`
   type Query {
     members: [Member!]!
     memberById(id: ID!): Member!
+    currentMember: Member!
     # memberQrWidget: QrWidgetData!
   }
 

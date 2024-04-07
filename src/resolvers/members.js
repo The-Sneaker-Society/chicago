@@ -32,6 +32,18 @@ const Query = {
       throw new Error(e);
     }
   },
+  async currentMember(parent, args, ctx, info) {
+    try {
+      const member = await MemberModel.find({ firebaseId: ctx.firebaseId });
+      if (!member) {
+        throw new Error('Member not found');
+      }
+
+      return member[0];
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
 };
 
 const Mutation = {
