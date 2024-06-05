@@ -9,10 +9,14 @@ export const authorizeUser = async ({ req }) => {
     try {
       const token = authHeader.split(' ')[1];
 
+      if (!token) {
+        throw new Error('Unauthorized');
+      }
+
       const user = await authFirebase(token);
 
       // look up user in db
-      const dbUser = await MemberModel.find({
+      const dbMember = await MemberModel.find({
         firebaseId: user.uid,
         deletedAt: null,
       });
@@ -22,10 +26,21 @@ export const authorizeUser = async ({ req }) => {
         deletedAt: null,
       });
 
-      if (dbUser.length === 0 && clientUser.length === 0) {
+      // Need a away to dertimne a Member or User.........
+      if (dbMember.length === 0 && clientUser.length === 0) {
+        // console.log('hello');
+        const newMember = new MemberModel({
+          email: user.email,
+          isActive: true,
+          firebaseId: user.uid,
+        });
+
+        await newMember.save();
+        await MemberModel;
+        // console.log(user);
         throw new AuthenticationError('Member not found');
       }
-      return dbUser[0] || clientUser[0];
+      return dbMember[0] || clientUser[0];
     } catch (error) {
       throw error;
     }
