@@ -1,5 +1,5 @@
 import { authFirebase } from '../firebaseUtils/authFire';
-import { AuthenticationError } from 'apollo-server-core';
+import { ApolloError, AuthenticationError } from 'apollo-server-core';
 import MemberModel from '../../models/Member.model';
 import ClientModel from '../../models/Client.model';
 export const authorizeUser = async ({ req }) => {
@@ -26,19 +26,10 @@ export const authorizeUser = async ({ req }) => {
         deletedAt: null,
       });
 
-      // Need a away to dertimne a Member or User.........
+      // // Need a away to dertimne a Member or User.........
       if (dbMember.length === 0 && clientUser.length === 0) {
-        // console.log('hello');
-        const newMember = new MemberModel({
-          email: user.email,
-          isActive: true,
-          firebaseId: user.uid,
-        });
-
-        await newMember.save();
-        await MemberModel;
-        // console.log(user);
-        throw new AuthenticationError('Member not found');
+        console.log('No member but is verified');
+        return;
       }
       return dbMember[0] || clientUser[0];
     } catch (error) {

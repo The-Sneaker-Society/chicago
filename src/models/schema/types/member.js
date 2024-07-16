@@ -34,13 +34,6 @@ const memberTypeDefs = gql`
   input CreateMemberInput {
     firebaseId: String!
     email: String!
-    firstName: String!
-    lastName: String!
-    phoneNumber: String
-    addressLineOne: String
-    addressLineTwo: String
-    zipcode: String
-    state: String
   }
 
   input UpdateMemberInput {

@@ -14,7 +14,6 @@ const Query = {
   async members(parent, args, ctx, info) {
     try {
       const members = await MemberModel.find();
-      console.log('gello');
       return members;
     } catch (e) {
       throw new Error(e);
@@ -49,7 +48,6 @@ const Query = {
 const Mutation = {
   async createMember(parent, args, ctx, info) {
     try {
-      console.log(args);
       const {
         email,
         firstName,
@@ -63,7 +61,6 @@ const Mutation = {
       } = args.data;
 
       const member = await MemberModel.findOne({ email: email });
-      // console.log(member);
 
       if (member) {
         throw new UserInputError(
