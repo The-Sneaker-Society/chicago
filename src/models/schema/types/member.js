@@ -24,6 +24,7 @@ const memberTypeDefs = gql`
     updatedAt: String!
     deletedAt: String
     qrWidgetData: QrWidgetData!
+    isNewUser: Boolean!
   }
 
   type QrWidgetData {
@@ -46,6 +47,7 @@ const memberTypeDefs = gql`
     addressLineTwo: String
     zipcode: String
     state: String
+    isNewUser: Boolean
   }
 
   # Queries
@@ -53,7 +55,7 @@ const memberTypeDefs = gql`
     members: [Member!]!
     memberById(id: ID!): Member!
     currentMember: Member!
-    # memberQrWidget: QrWidgetData!
+    memberQrWidget: QrWidgetData!
   }
 
   # Mutations
