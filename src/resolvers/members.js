@@ -3,7 +3,11 @@ import MemberModel from "../models/Member.model";
 import ClientModel from "../models/Client.model";
 import ContractModel from "../models/Contract.model";
 import ProductsModel from "../models/Products.model";
-import { createAccountLink, createExpressaccount } from "../stripe/stripeUtils";
+import {
+  createAccountLink,
+  createExpressaccount,
+  getPayoutInfoMember,
+} from "../stripe/stripeUtils";
 import { createQRCode, generateQRCodeImage } from "../utils/qrGenerator";
 import dotenv from "dotenv";
 dotenv.config({ path: "config.env" });
@@ -14,7 +18,7 @@ const Query = {
   async members(parent, args, ctx, info) {
     try {
       const members = await MemberModel.find();
-      console.log('gello');
+      console.log("gello");
       return members;
     } catch (e) {
       throw new Error(e);
@@ -46,10 +50,26 @@ const Query = {
   },
   async stripeWidgetData(parent, args, ctx, info) {
     try {
+      const { payoutAmount, arrivalDate } = await getPayoutInfoMember(
+        ctx.stripeConnectAccountId
+      );
+
+      const currentDate = new Date();
+      const arrival = new Date(arrivalDate);
+      const deltaInMilliseconds = arrival - currentDate;
+      const deltaInDays = Math.ceil(
+        deltaInMilliseconds / (1000 * 60 * 60 * 24)
+      );
+
+      const formattedPayoutAmount = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+      }).format(payoutAmount / 100);
+
       return {
-        percentChange: 15,
-        nextPayoutDays: 3,
-        payoutAmount: 250.78,
+        percentChange: 0,
+        nextPayoutDays: deltaInDays,
+        payoutAmount: formattedPayoutAmount,
       };
     } catch (e) {
       throw new Error(e);
