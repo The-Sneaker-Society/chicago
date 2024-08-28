@@ -1,7 +1,7 @@
-import MemberModel from '../models/Member.model';
-import ClientModel from '../models/Client.model';
-import ContractModel from '../models/Contract.model';
-import { sendEmail } from '../utils/sendEmail';
+import MemberModel from "../models/Member.model";
+import ClientModel from "../models/Client.model";
+import ContractModel from "../models/Contract.model";
+import { sendEmail } from "../utils/sendEmail";
 
 const Query = {
   async contracts() {
@@ -17,10 +17,41 @@ const Query = {
       const contract = await ContractModel.findById(args.id.toString());
 
       if (!contract) {
-        throw new Error('contract not found');
+        throw new Error("contract not found");
       }
 
       return contract;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+  async memberContractStatus(parent, args, ctx, info) {
+    try {
+      const contractCounts = await ContractModel.aggregate([
+        {
+          $match: { member: ctx._id },
+        },
+        {
+          $group: {
+            _id: "$stage",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const statusCounts = {
+        notStarted: 0,
+        started: 0,
+        finished: 0,
+      };
+
+      contractCounts.forEach((stage) => {
+        if (stage._id === "NOT_STARTED") statusCounts.notStarted = stage.count;
+        if (stage._id === "STARTED") statusCounts.started = stage.count;
+        if (stage._id === "FINISHED") statusCounts.finished = stage.count;
+      });
+
+      return statusCounts;
     } catch (e) {
       throw new Error(e);
     }
@@ -40,7 +71,7 @@ const Mutation = {
         client: foundClient,
         member: foundMember,
         eta,
-        stage: 'NOT_STARTED',
+        stage: "NOT_STARTED",
         price,
         notes,
         reported: false,
@@ -67,23 +98,23 @@ const Mutation = {
       const { firstName, lastName, email } = foundMember;
 
       await sendEmail(
-        'New Contract!',
+        "New Contract!",
         email,
         {
           userName: `${firstName} ${lastName}`,
           link: `${process.env.APP_URL}/dashboard`,
         },
-        'src/emails/new_contract.html'
+        "src/emails/new_contract.html"
       );
 
       await sendEmail(
-        'Thank You',
+        "Thank You",
         foundClient.email,
         {
           userName: `${foundClient.firstName}`,
           memberName: `${firstName}`,
         },
-        'src/emails/new_contract_client.html'
+        "src/emails/new_contract_client.html"
       );
 
       return { ...res._doc, id: res._id };

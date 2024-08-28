@@ -1,9 +1,12 @@
-import { UserInputError } from 'apollo-server-core';
-import MemberModel from '../models/Member.model';
-import ClientModel from '../models/Client.model';
-import ContractModel from '../models/Contract.model';
-import ProductsModel from '../models/Products.model';
-import { createAccountLink, createExpressaccount } from '../stripe/stripeUtils';
+import { UserInputError } from "apollo-server-core";
+import MemberModel from "../models/Member.model";
+import ClientModel from "../models/Client.model";
+import ContractModel from "../models/Contract.model";
+import ProductsModel from "../models/Products.model";
+import { createAccountLink, createExpressaccount } from "../stripe/stripeUtils";
+import { createQRCode, generateQRCodeImage } from "../utils/qrGenerator";
+import dotenv from "dotenv";
+dotenv.config({ path: "config.env" });
 
 //  test url https://docs.stripe.com/connect/testing
 
@@ -21,10 +24,33 @@ const Query = {
     try {
       const member = await MemberModel.find({ firebaseId: args.id });
       if (!member) {
-        throw new Error('Member not found');
+        throw new Error("Member not found");
       }
 
       return member[0];
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+  async currentMember(parent, args, ctx, info) {
+    try {
+      const member = await MemberModel.find({ firebaseId: ctx.firebaseId });
+      if (!member) {
+        throw new Error("Member not found");
+      }
+
+      return member[0];
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+  async stripeWidgetData(parent, args, ctx, info) {
+    try {
+      return {
+        percentChange: 15,
+        nextPayoutDays: 3,
+        payoutAmount: 250.78,
+      };
     } catch (e) {
       throw new Error(e);
     }
@@ -34,7 +60,6 @@ const Query = {
 const Mutation = {
   async createMember(parent, args, ctx, info) {
     try {
-      console.log(args);
       const {
         email,
         firstName,
@@ -48,14 +73,13 @@ const Mutation = {
       } = args.data;
 
       const member = await MemberModel.findOne({ email: email });
-      // console.log(member);
 
       if (member) {
         throw new UserInputError(
-          'Email is taken. If this is wrong please contact support',
+          "Email is taken. If this is wrong please contact support",
           {
             errors: {
-              email: 'This email is taken.',
+              email: "This email is taken.",
             },
           }
         );
@@ -169,6 +193,21 @@ const Member = {
       return products;
     } catch (e) {
       throw new Error(e);
+    }
+  },
+  async qrWidgetData(parent, args, ctx, info) {
+    try {
+      const { CONTRACT_URL } = process.env;
+      const { id } = ctx;
+      const memberConractUrl = `${CONTRACT_URL}/${id}`;
+
+      const qrImage = await createQRCode(memberConractUrl);
+      return {
+        url: memberConractUrl,
+        image: qrImage,
+      };
+    } catch (error) {
+      throw new Error(error);
     }
   },
 };

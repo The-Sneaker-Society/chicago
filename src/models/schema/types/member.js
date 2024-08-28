@@ -1,6 +1,6 @@
 // member.js
 
-import { gql } from 'apollo-server-core';
+import { gql } from "apollo-server-core";
 
 const memberTypeDefs = gql`
   type Member {
@@ -23,18 +23,24 @@ const memberTypeDefs = gql`
     createdAt: String!
     updatedAt: String!
     deletedAt: String
+    qrWidgetData: QrWidgetData!
+    isNewUser: Boolean!
+  }
+
+  type QrWidgetData {
+    image: String!
+    url: String!
+  }
+
+  type StripeWidgetData {
+    percentChange: Float!
+    nextPayoutDays: Int!
+    payoutAmount: String!
   }
 
   input CreateMemberInput {
     firebaseId: String!
     email: String!
-    firstName: String!
-    lastName: String!
-    phoneNumber: String
-    addressLineOne: String
-    addressLineTwo: String
-    zipcode: String
-    state: String
   }
 
   input UpdateMemberInput {
@@ -47,12 +53,16 @@ const memberTypeDefs = gql`
     addressLineTwo: String
     zipcode: String
     state: String
+    isNewUser: Boolean
   }
 
   # Queries
   type Query {
     members: [Member!]!
     memberById(id: ID!): Member!
+    currentMember: Member!
+    memberQrWidget: QrWidgetData!
+    stripeWidgetData: StripeWidgetData!
   }
 
   # Mutations

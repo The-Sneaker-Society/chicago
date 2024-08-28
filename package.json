@@ -56,6 +56,8 @@
     "node-cron": "^3.0.2",
     "node-fetch": "^2.6.7",
     "nodemailer": "^6.7.5",
+    "qrcode": "^1.5.3",
+    "qrcodejs": "^1.0.0",
     "stripe": "^14.15.0"
   }
 }

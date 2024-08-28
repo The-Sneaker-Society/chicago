@@ -1,12 +1,18 @@
 // contract.js
 
-import { gql } from 'apollo-server-core';
+import { gql } from "apollo-server-core";
 
 const contractTypeDefs = gql`
   enum StageType {
     NOT_STARTED
     STARTED
     FINISHED
+  }
+
+  type MemberContractStatus {
+    notStarted: String!
+    started: String!
+    finished: String!
   }
 
   type Contract {
@@ -37,6 +43,7 @@ const contractTypeDefs = gql`
   type Query {
     contracts: [Contract!]!
     contractById(id: ID): Contract!
+    memberContractStatus: MemberContractStatus!
   }
 
   type Mutation {

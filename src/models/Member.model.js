@@ -14,11 +14,9 @@ const MemberSchema = new mongoose.Schema(
     },
     firstName: {
       type: String,
-      required: true,
     },
     lastName: {
       type: String,
-      required: true,
     },
     isActive: {
       type: Boolean,
@@ -58,6 +56,10 @@ const MemberSchema = new mongoose.Schema(
     stripeConnectAccountId: {
       type: String,
       default: null,
+    },
+    isNewUser: {
+      type: Boolean,
+      default: true,
     },
     deletedAt: {
       type: Date, // Use Date type to store the timestamp of deletion
