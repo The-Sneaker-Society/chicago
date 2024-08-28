@@ -1,12 +1,12 @@
-import { UserInputError } from 'apollo-server-core';
-import MemberModel from '../models/Member.model';
-import ClientModel from '../models/Client.model';
-import ContractModel from '../models/Contract.model';
-import ProductsModel from '../models/Products.model';
-import { createAccountLink, createExpressaccount } from '../stripe/stripeUtils';
-import { createQRCode, generateQRCodeImage } from '../utils/qrGenerator';
-import dotenv from 'dotenv';
-dotenv.config({ path: 'config.env' });
+import { UserInputError } from "apollo-server-core";
+import MemberModel from "../models/Member.model";
+import ClientModel from "../models/Client.model";
+import ContractModel from "../models/Contract.model";
+import ProductsModel from "../models/Products.model";
+import { createAccountLink, createExpressaccount } from "../stripe/stripeUtils";
+import { createQRCode, generateQRCodeImage } from "../utils/qrGenerator";
+import dotenv from "dotenv";
+dotenv.config({ path: "config.env" });
 
 //  test url https://docs.stripe.com/connect/testing
 
@@ -23,7 +23,7 @@ const Query = {
     try {
       const member = await MemberModel.find({ firebaseId: args.id });
       if (!member) {
-        throw new Error('Member not found');
+        throw new Error("Member not found");
       }
 
       return member[0];
@@ -35,10 +35,21 @@ const Query = {
     try {
       const member = await MemberModel.find({ firebaseId: ctx.firebaseId });
       if (!member) {
-        throw new Error('Member not found');
+        throw new Error("Member not found");
       }
 
       return member[0];
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+  async stripeWidgetData(parent, args, ctx, info) {
+    try {
+      return {
+        percentChange: 15,
+        nextPayoutDays: 3,
+        payoutAmount: 250.78,
+      };
     } catch (e) {
       throw new Error(e);
     }
@@ -64,10 +75,10 @@ const Mutation = {
 
       if (member) {
         throw new UserInputError(
-          'Email is taken. If this is wrong please contact support',
+          "Email is taken. If this is wrong please contact support",
           {
             errors: {
-              email: 'This email is taken.',
+              email: "This email is taken.",
             },
           }
         );

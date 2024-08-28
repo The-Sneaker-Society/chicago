@@ -1,6 +1,6 @@
 // member.js
 
-import { gql } from 'apollo-server-core';
+import { gql } from "apollo-server-core";
 
 const memberTypeDefs = gql`
   type Member {
@@ -32,6 +32,12 @@ const memberTypeDefs = gql`
     url: String!
   }
 
+  type StripeWidgetData {
+    percentChange: Float!
+    nextPayoutDays: Int!
+    payoutAmount: String!
+  }
+
   input CreateMemberInput {
     firebaseId: String!
     email: String!
@@ -56,6 +62,7 @@ const memberTypeDefs = gql`
     memberById(id: ID!): Member!
     currentMember: Member!
     memberQrWidget: QrWidgetData!
+    stripeWidgetData: StripeWidgetData!
   }
 
   # Mutations
