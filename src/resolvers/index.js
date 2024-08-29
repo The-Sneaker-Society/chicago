@@ -1,7 +1,8 @@
-import memberResolvers from './members';
-import clientResolvers from './clients';
-import contractResolvers from './contracts';
-import productResovers from './products';
+import memberResolvers from "./members";
+import clientResolvers from "./clients";
+import contractResolvers from "./contracts";
+import productResovers from "./products";
+import userResolvers from "./users";
 
 module.exports = {
   Query: {
@@ -9,6 +10,7 @@ module.exports = {
     ...memberResolvers.Query,
     ...contractResolvers.Query,
     ...productResovers.Query,
+    ...userResolvers.Query,
   },
 
   Mutation: {
@@ -16,6 +18,7 @@ module.exports = {
     ...clientResolvers.Mutation,
     ...contractResolvers.Mutation,
     ...productResovers.Mutation,
+    ...userResolvers.Mutation
   },
   Member: {
     ...memberResolvers.Member,
