@@ -18,7 +18,6 @@ const Query = {
   async members(parent, args, ctx, info) {
     try {
       const members = await MemberModel.find();
-      console.log("gello");
       return members;
     } catch (e) {
       throw new Error(e);
