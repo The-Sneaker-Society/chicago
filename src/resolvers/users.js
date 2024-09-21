@@ -79,9 +79,9 @@ const Mutation = {
       throw error;
     }
   },
-  async updateMember(parent, args, ctx, info) {
+  async updateUser(parent, args, ctx, info) {
     try {
-      await MemberModel.findByIdAndUpdate(
+      await UserModel.findByIdAndUpdate(
         ctx.id,
         { ...args.data },
         { new: true }

@@ -31,6 +31,7 @@ const userTypeDefs = gql`
   # Mutations
   type Mutation {
     createUser(data: CreateUserInput!): User!
+    updateUser(data: UpdateUserInput!): Boolean!
   }
 `;
 
