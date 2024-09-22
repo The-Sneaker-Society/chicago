@@ -17,12 +17,12 @@ const Query = {
   },
   async currentUser(parent, args, ctx, info) {
     try {
-        const user = await UserModel.find({ firebaseId: ctx.firebaseId });
-        if (!user) {
-          throw new Error("user not found");
-        }
-  
-        return user[0];
+      const user = await UserModel.find({ firebaseId: ctx.firebaseId });
+      if (!user) {
+        throw new Error("user not found");
+      }
+
+      return user[0];
     } catch (e) {
       throw new Error(e);
     }
@@ -32,17 +32,7 @@ const Query = {
 const Mutation = {
   async createUser(parent, args, ctx, info) {
     try {
-      const {
-        email,
-        firstName,
-        lastName,
-        firebaseId,
-        phoneNumber,
-        zipcode,
-        addressLineOne,
-        addressLineTwo,
-        state,
-      } = args.data;
+      const { email, firebaseId } = args.data;
 
       const member = await MemberModel.findOne({ email: email });
       const user = await UserModel.findOne({ email: email });
@@ -60,14 +50,14 @@ const Mutation = {
 
       const newUser = new UserModel({
         email,
-        firstName,
-        lastName,
+        firstName: '',
+        lastName: '',
         firebaseId,
-        phoneNumber,
-        zipcode,
-        addressLineOne,
-        addressLineTwo,
-        state,
+        phoneNumber: '',
+        zipcode: '',
+        addressLineOne: '',
+        addressLineTwo: '',
+        state: '',
         isActive: true,
       });
 

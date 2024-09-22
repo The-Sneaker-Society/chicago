@@ -9,6 +9,13 @@ const userTypeDefs = gql`
     email: String!
     isNewUser: Boolean!
     userType: String!
+    firstName: String!
+    lastName: String!
+    phoneNumber: String
+    addressLineOne: String
+    addressLineTwo: String
+    zipcode: String
+    state: String
   }
 
   input CreateUserInput {
@@ -20,6 +27,13 @@ const userTypeDefs = gql`
     subscriptionId: String
     email: String
     isNewUser: Boolean
+    firstName: String
+    lastName: String
+    phoneNumber: String
+    addressLineOne: String
+    addressLineTwo: String
+    zipcode: String
+    state: String
   }
 
   # Queries
