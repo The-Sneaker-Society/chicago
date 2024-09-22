@@ -18,13 +18,16 @@ module.exports = {
     ...clientResolvers.Mutation,
     ...contractResolvers.Mutation,
     ...productResovers.Mutation,
-    ...userResolvers.Mutation
+    ...userResolvers.Mutation,
   },
   Member: {
     ...memberResolvers.Member,
   },
   Client: {
     ...clientResolvers.Client,
+  },
+  User: {
+    ...userResolvers.User,
   },
   Contract: {
     ...contractResolvers.Contract,

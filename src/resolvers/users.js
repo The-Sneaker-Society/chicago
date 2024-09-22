@@ -1,6 +1,7 @@
 import { UserInputError } from "apollo-server-core";
 import UserModel from "../models/User.model";
 import MemberModel from "../models/Member.model";
+import ContractModel from "../models/Contract.model";
 import dotenv from "dotenv";
 dotenv.config({ path: "config.env" });
 
@@ -83,5 +84,16 @@ const Mutation = {
   },
 };
 
-const User = {};
+const User = {
+  async contracts(parent, args, ctx, info) {
+    try {
+      const contracts = await ContractModel.find();
+      return contracts.filter(
+        (contract) => contract.client.toString() === parent.id
+      );
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+};
 export default { Query, Mutation, User };
