@@ -25,6 +25,7 @@ const memberTypeDefs = gql`
     deletedAt: String
     qrWidgetData: QrWidgetData!
     isNewUser: Boolean!
+    chats: [Chat]!
   }
 
   type QrWidgetData {

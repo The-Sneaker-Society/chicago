@@ -1,5 +1,6 @@
 import { UserInputError } from "apollo-server-core";
 import MemberModel from "../models/Member.model";
+import ChatModel from "../models/Chat.model";
 import ClientModel from "../models/Client.model";
 import ContractModel from "../models/Contract.model";
 import ProductsModel from "../models/Products.model";
@@ -205,6 +206,15 @@ const Member = {
         url: memberConractUrl,
         image: qrImage,
       };
+    } catch (error) {
+      throw new Error(error);
+    }
+  },
+  async chats(parent, args, ctx, info) {
+    try {
+      const { _id } = ctx;
+      const chats = await ChatModel.find({ memberId: _id });
+      return chats;
     } catch (error) {
       throw new Error(error);
     }

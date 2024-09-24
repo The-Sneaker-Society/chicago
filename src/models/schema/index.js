@@ -6,12 +6,15 @@ import statsTypeDefs from "./types/stats";
 import emailSignUpTypeDefs from "./types/emailSignup";
 import productTypeDefs from "./types/products";
 import userTypeDefs from "./types/user";
+import chatTypeDefs from "./types/chat";
+
 const typeDefs = gql`
   ${clientTypeDefs}
   ${memberTypeDefs}
   ${contractTypeDefs}
   ${productTypeDefs}
   ${userTypeDefs}
+  ${chatTypeDefs}
 #   ${statsTypeDefs}
 #   ${emailSignUpTypeDefs}
 `;

@@ -17,6 +17,7 @@ const userTypeDefs = gql`
     zipcode: String
     state: String
     contracts: [Contract]
+    chats: [Chat]!
   }
 
   input CreateUserInput {

@@ -2,6 +2,8 @@ import { UserInputError } from "apollo-server-core";
 import UserModel from "../models/User.model";
 import MemberModel from "../models/Member.model";
 import ContractModel from "../models/Contract.model";
+import ChatModel from "../models/Chat.model";
+
 import dotenv from "dotenv";
 dotenv.config({ path: "config.env" });
 
@@ -93,6 +95,15 @@ const User = {
       );
     } catch (e) {
       throw new Error(e);
+    }
+  },
+  async chats(parent, args, ctx, info) {
+    try {
+      const { _id } = ctx;
+      const chats = await ChatModel.find({ userId: _id });
+      return chats;
+    } catch (error) {
+      throw new Error(error);
     }
   },
 };
