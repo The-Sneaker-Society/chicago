@@ -69,8 +69,11 @@ async function startApolloServer() {
   connectDb();
 
   const wsServer = new WebSocketServer({
+    // This is the `httpServer` we created in a previous step.
     server: httpServer,
-    path: "/graphql",
+    // Pass a different path here if app.use
+    // serves expressMiddleware at a different path
+    path: '/subscriptions',
   });
 
   const serverCleanup = useServer({ schema }, wsServer);
