@@ -125,7 +125,7 @@ const Mutation = {
         { deletedAt: Date.now() },
         { new: true }
       );
-      return true;
+      return true; // test
     } catch (e) {
       throw new Error(e);
     }
