@@ -62,14 +62,7 @@ const Mutation = {
     try {
       const {
         email,
-        firstName,
-        lastName,
         firebaseId,
-        phoneNumber,
-        zipcode,
-        addressLineOne,
-        addressLineTwo,
-        state,
       } = args.data;
 
       const member = await MemberModel.findOne({ email: email });
@@ -87,14 +80,14 @@ const Mutation = {
 
       const newMember = new MemberModel({
         email,
-        firstName,
-        lastName,
+        firstName: "",
+        lastName: "",
         firebaseId,
-        phoneNumber,
-        zipcode,
-        addressLineOne,
-        addressLineTwo,
-        state,
+        phoneNumber: "",
+        zipcode: "",
+        addressLineOne: "",
+        addressLineTwo: "",
+        state: "",
         isActive: true,
       });
 
