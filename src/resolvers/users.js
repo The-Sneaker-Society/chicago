@@ -10,6 +10,14 @@ dotenv.config({ path: "config.env" });
 //  test url https://docs.stripe.com/connect/testing
 
 const Query = {
+  async test(parent, args, ctx, info) {
+    try {
+      console.log("gello")
+      return "hello"
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
   async users(parent, args, ctx, info) {
     try {
       const users = await UserModel.find();

@@ -42,6 +42,7 @@ const userTypeDefs = gql`
   type Query {
     users: [User!]!
     currentUser: User!
+    test: String!
   }
 
   # Mutations

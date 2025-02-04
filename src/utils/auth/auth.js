@@ -1,7 +1,17 @@
 import { authFirebase } from "../firebaseUtils/authFire";
-import { ApolloError, AuthenticationError } from "apollo-server-core";
+import { AuthenticationError } from "apollo-server-core";
 import MemberModel from "../../models/Member.model";
 import UserModel from "../../models/User.model";
+
+export const clearkAuthorizeUser = async ({ req }) => {
+  const { auth } = req;
+  if (!auth || !auth.userId) {
+    throw new Error("Unauthorized");
+  }
+  console.log({ userId: auth.userId, userEmail: auth.sessionClaims?.email });
+  return { userId: auth.userId, userEmail: auth.sessionClaims?.email };
+};
+
 export const authorizeUser = async ({ req }) => {
   const authHeader = req.headers.authorization;
 

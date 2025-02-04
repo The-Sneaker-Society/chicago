@@ -6,16 +6,19 @@ import http from "http";
 import typeDefs from "./models/schema/index";
 import resolvers from "./resolvers";
 import connectDb from "./config/db";
-import { authorizeUser } from "./utils/auth/auth";
+import { clearkAuthorizeUser } from "./utils/auth/auth";
 import { handleStripeSubscriptionCreated } from "./stripe/stripeSubscriptions";
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { WebSocketServer } from "ws";
 import { useServer } from "graphql-ws/lib/use/ws";
-
+import { clerkMiddleware, requireAuth } from "@clerk/express";
 
 async function startApolloServer() {
   const app = express();
   app.use(cors());
+
+  app.use(clerkMiddleware());
+  app.use(requireAuth());
 
   app.get("/", (req, res) => {
     res.send("hello world");
@@ -73,7 +76,7 @@ async function startApolloServer() {
     server: httpServer,
     // Pass a different path here if app.use
     // serves expressMiddleware at a different path
-    path: '/subscriptions',
+    path: "/subscriptions",
   });
 
   const serverCleanup = useServer({ schema }, wsServer);
@@ -99,7 +102,7 @@ async function startApolloServer() {
       }
       return error;
     },
-    context: authorizeUser,
+    context: clearkAuthorizeUser,
   });
 
   await server.start();
