@@ -10,6 +10,13 @@ dotenv.config({ path: "config.env" });
 //  test url https://docs.stripe.com/connect/testing
 
 const Query = {
+  async test(parent, args, ctx, info) {
+    try {
+      return "hello";
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
   async users(parent, args, ctx, info) {
     try {
       const users = await UserModel.find();
@@ -35,12 +42,21 @@ const Query = {
 const Mutation = {
   async createUser(parent, args, ctx, info) {
     try {
-      const { email, firebaseId } = args.data;
+      const {
+        clerkId,
+        email,
+        firstName,
+        lastName,
+        phoneNumber,
+        addressLineOne,
+        addressLineTwo,
+        state,
+        zipcode,
+      } = args.data;
 
-      const member = await MemberModel.findOne({ email: email });
       const user = await UserModel.findOne({ email: email });
 
-      if (member || user) {
+      if (user) {
         throw new UserInputError(
           "Email is taken. If this is wrong please contact support",
           {
@@ -53,14 +69,15 @@ const Mutation = {
 
       const newUser = new UserModel({
         email,
-        firstName: '',
-        lastName: '',
-        firebaseId,
-        phoneNumber: '',
-        zipcode: '',
-        addressLineOne: '',
-        addressLineTwo: '',
-        state: '',
+        clerkId,
+        firstName,
+        lastName,
+        phoneNumber,
+        zipcode,
+        addressLineOne,
+        addressLineTwo,
+        state,
+        zipcode,
         isActive: true,
       });
 
