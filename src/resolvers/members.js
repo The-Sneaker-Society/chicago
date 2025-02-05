@@ -9,7 +9,7 @@ import {
   createExpressaccount,
   getPayoutInfoMember,
 } from "../stripe/stripeUtils";
-import { createQRCode, generateQRCodeImage } from "../utils/qrGenerator";
+import { createQRCode } from "../utils/qrGenerator";
 import dotenv from "dotenv";
 dotenv.config({ path: "config.env" });
 
