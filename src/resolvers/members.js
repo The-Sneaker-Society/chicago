@@ -46,7 +46,11 @@ const Query = {
   },
   async stripeWidgetData(parent, args, ctx, info) {
     try {
+      const { stripeConnectAccountId } = ctx.dbUser;
+
+
       return {
+        stripeConnectAccountId: stripeConnectAccountId,
         percentChange: 15,
         nextPayoutDays: 3,
         payoutAmount: 250.78,
@@ -61,11 +65,18 @@ const Mutation = {
   async createMember(parent, args, ctx, info) {
     try {
       const {
+        clerkId,
         email,
-        firebaseId,
+        firstName,
+        lastName,
+        phoneNumber,
+        addressLineOne,
+        addressLineTwo,
+        state,
+        zipcode,
       } = args.data;
 
-      const member = await MemberModel.findOne({ email: email });
+      const member = await MemberModel.findOne({ clerkId: clerkId });
 
       if (member) {
         throw new UserInputError(
@@ -80,14 +91,15 @@ const Mutation = {
 
       const newMember = new MemberModel({
         email,
-        firstName: "",
-        lastName: "",
-        firebaseId,
-        phoneNumber: "",
-        zipcode: "",
-        addressLineOne: "",
-        addressLineTwo: "",
-        state: "",
+        clerkId,
+        firstName,
+        lastName,
+        phoneNumber,
+        zipcode,
+        addressLineOne,
+        addressLineTwo,
+        state,
+        zipcode,
         isActive: true,
       });
 

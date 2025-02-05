@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const MemberSchema = new mongoose.Schema(
   {
@@ -7,7 +7,7 @@ const MemberSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-    firebaseId: {
+    clerkId: {
       type: String,
       required: true,
       unique: true,
@@ -40,13 +40,13 @@ const MemberSchema = new mongoose.Schema(
     clients: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Client',
+        ref: "Client",
       },
     ],
     contracts: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Contracts',
+        ref: "Contracts",
       },
     ],
     subscriptionId: {
@@ -67,9 +67,9 @@ const MemberSchema = new mongoose.Schema(
     },
   },
   {
-    collection: 'members',
+    collection: "members",
     timestamps: true,
   }
 );
 
-module.exports = mongoose.model('Member', MemberSchema);
+module.exports = mongoose.model("Member", MemberSchema);

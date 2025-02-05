@@ -1,5 +1,3 @@
-// member.js
-
 import { gql } from "apollo-server-core";
 
 const userTypeDefs = gql`
@@ -21,8 +19,15 @@ const userTypeDefs = gql`
   }
 
   input CreateUserInput {
-    firebaseId: String!
-    email: String!
+    clerkId: String!
+    email: String
+    firstName: String
+    lastName: String
+    phoneNumber: String
+    addressLineOne: String
+    addressLineTwo: String
+    zipcode: String
+    state: String
   }
 
   input UpdateUserInput {

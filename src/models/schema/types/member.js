@@ -1,5 +1,3 @@
-// member.js
-
 import { gql } from "apollo-server-core";
 
 const memberTypeDefs = gql`
@@ -37,11 +35,19 @@ const memberTypeDefs = gql`
     percentChange: Float!
     nextPayoutDays: Int!
     payoutAmount: String!
+    stripeConnectAccountId: String
   }
 
   input CreateMemberInput {
-    firebaseId: String!
-    email: String!
+    clerkId: String!
+    email: String
+    firstName: String
+    lastName: String
+    phoneNumber: String
+    addressLineOne: String
+    addressLineTwo: String
+    zipcode: String
+    state: String
   }
 
   input UpdateMemberInput {
