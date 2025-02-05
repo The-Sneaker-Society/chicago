@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const MemberSchema = new mongoose.Schema(
+const UserSchema = new mongoose.Schema(
   {
     email: {
       type: String,
@@ -37,7 +37,7 @@ const MemberSchema = new mongoose.Schema(
     state: {
       type: String,
     },
-    clients: [
+    Members: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Client",
@@ -49,13 +49,9 @@ const MemberSchema = new mongoose.Schema(
         ref: "Contracts",
       },
     ],
-    subscriptionId: {
+    userType: {
       type: String,
-      default: null,
-    },
-    stripeConnectAccountId: {
-      type: String,
-      default: null,
+      default: "USER",
     },
     isNewUser: {
       type: Boolean,
@@ -67,9 +63,9 @@ const MemberSchema = new mongoose.Schema(
     },
   },
   {
-    collection: "members",
+    collection: "users",
     timestamps: true,
   }
 );
 
-module.exports = mongoose.model("Member", MemberSchema);
+module.exports = mongoose.model("user", UserSchema);

@@ -1,29 +1,37 @@
-import memberResolvers from './members';
-import clientResolvers from './clients';
-import contractResolvers from './contracts';
-import productResovers from './products';
+import memberResolvers from "./members";
+import contractResolvers from "./contracts";
+import productResovers from "./products";
+import userResolvers from "./users";
+import chatResolvers from "./chat";
 
 module.exports = {
   Query: {
-    ...clientResolvers.Query,
     ...memberResolvers.Query,
     ...contractResolvers.Query,
     ...productResovers.Query,
+    ...userResolvers.Query,
+    ...chatResolvers.Query,
   },
-
   Mutation: {
     ...memberResolvers.Mutation,
-    ...clientResolvers.Mutation,
     ...contractResolvers.Mutation,
     ...productResovers.Mutation,
+    ...userResolvers.Mutation,
+    ...chatResolvers.Mutation,
   },
   Member: {
     ...memberResolvers.Member,
   },
-  Client: {
-    ...clientResolvers.Client,
+  Chat: {
+    ...chatResolvers.Chat,
+  },
+  User: {
+    ...userResolvers.User,
   },
   Contract: {
     ...contractResolvers.Contract,
+  },
+  Subscription: {
+    ...chatResolvers.Subscription,
   },
 };

@@ -1,5 +1,6 @@
 import { UserInputError } from "apollo-server-core";
 import MemberModel from "../models/Member.model";
+import ChatModel from "../models/Chat.model";
 import ClientModel from "../models/Client.model";
 import ContractModel from "../models/Contract.model";
 import ProductsModel from "../models/Products.model";
@@ -60,12 +61,13 @@ const Query = {
         deltaInMilliseconds / (1000 * 60 * 60 * 24)
       );
 
-      const formattedPayoutAmount = new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
+      const formattedPayoutAmount = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
       }).format(payoutAmount / 100);
 
       return {
+        stripeConnectAccountId: stripeConnectAccountId,
         percentChange: 0,
         nextPayoutDays: deltaInDays,
         payoutAmount: formattedPayoutAmount,
@@ -80,18 +82,18 @@ const Mutation = {
   async createMember(parent, args, ctx, info) {
     try {
       const {
+        clerkId,
         email,
         firstName,
         lastName,
-        firebaseId,
         phoneNumber,
-        zipcode,
         addressLineOne,
         addressLineTwo,
         state,
+        zipcode,
       } = args.data;
 
-      const member = await MemberModel.findOne({ email: email });
+      const member = await MemberModel.findOne({ clerkId: clerkId });
 
       if (member) {
         throw new UserInputError(
@@ -106,14 +108,15 @@ const Mutation = {
 
       const newMember = new MemberModel({
         email,
+        clerkId,
         firstName,
         lastName,
-        firebaseId,
         phoneNumber,
         zipcode,
         addressLineOne,
         addressLineTwo,
         state,
+        zipcode,
         isActive: true,
       });
 
@@ -144,7 +147,7 @@ const Mutation = {
         { deletedAt: Date.now() },
         { new: true }
       );
-      return true;
+      return true; // test
     } catch (e) {
       throw new Error(e);
     }
@@ -225,6 +228,15 @@ const Member = {
         url: memberConractUrl,
         image: qrImage,
       };
+    } catch (error) {
+      throw new Error(error);
+    }
+  },
+  async chats(parent, args, ctx, info) {
+    try {
+      const { _id } = ctx;
+      const chats = await ChatModel.find({ memberId: _id });
+      return chats;
     } catch (error) {
       throw new Error(error);
     }
