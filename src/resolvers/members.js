@@ -77,6 +77,8 @@ const Mutation = {
       } = args.data;
 
       const member = await MemberModel.findOne({ clerkId: clerkId });
+      //Other/
+      
 
       if (member) {
         throw new UserInputError(
