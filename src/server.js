@@ -11,14 +11,14 @@ import { handleStripeSubscriptionCreated } from "./stripe/stripeSubscriptions";
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { WebSocketServer } from "ws";
 import { useServer } from "graphql-ws/lib/use/ws";
-import { clerkMiddleware, requireAuth } from "@clerk/express";
+// import { clerkMiddleware, requireAuth } from "@clerk/express";
 
 async function startApolloServer() {
   const app = express();
   app.use(cors());
 
-  app.use(clerkMiddleware());
-  app.use(requireAuth());
+  // app.use(clerkMiddleware());
+  // app.use(requireAuth());
 
   app.get("/", (req, res) => {
     res.send("hello world");
@@ -102,7 +102,7 @@ async function startApolloServer() {
       }
       return error;
     },
-    context: clearkAuthorizeUser,
+    // context: clearkAuthorizeUser,
   });
 
   await server.start();
