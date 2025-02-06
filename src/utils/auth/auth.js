@@ -2,7 +2,7 @@ import { authFirebase } from "../firebaseUtils/authFire";
 import { AuthenticationError } from "apollo-server-core";
 import MemberModel from "../../models/Member.model";
 import UserModel from "../../models/User.model";
-import { clerkClient, getAuth } from "@clerk/express";
+import { clerkClient } from "@clerk/express";
 
 export const clearkAuthorizeUser = async ({ req }) => {
   const { auth } = req;
