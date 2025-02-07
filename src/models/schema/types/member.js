@@ -12,6 +12,7 @@ const memberTypeDefs = gql`
     addressLineTwo: String
     zipcode: String
     state: String
+    stripeConnectAccountId: String
     isActive: Boolean!
     clients: [Client!]!
     contracts: [Contract!]!
@@ -62,7 +63,7 @@ const memberTypeDefs = gql`
     state: String
     isNewUser: Boolean
   }
-    
+
   # Queries
   type Query {
     members: [Member!]!
@@ -77,6 +78,7 @@ const memberTypeDefs = gql`
   type Mutation {
     createMember(data: CreateMemberInput!): Member!
     updateMember(data: UpdateMemberInput!): Boolean!
+    onboardMemberToStripe: String!
     deleteMember: Boolean!
   }
 `;

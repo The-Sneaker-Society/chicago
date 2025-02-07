@@ -14,10 +14,13 @@ export const getOnboardingStatus = async (customerId) => {
   }
 };
 
-export const createExpressaccount = async () => {
+export const createExpressaccount = async (userId) => {
   try {
     const stripeAccount = await stripe.accounts.create({
       type: "express",
+      metadata: {
+        userId: userId,
+      },
     });
 
     return stripeAccount;
@@ -105,7 +108,6 @@ export const createSubscriptionForNewMember = async (memberEmail) => {
     throw e;
   }
 };
-
 export const getPayoutInfoMember = async (connectAccountId) => {
   try {
     const payouts = await stripe.payouts.list(
@@ -125,7 +127,7 @@ export const getPayoutInfoMember = async (connectAccountId) => {
       return { payoutAmount, arrivalDate };
     } else {
       console.log("No upcoming payouts found.");
-      return null;
+      return {};
     }
   } catch (e) {
     throw e;

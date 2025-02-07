@@ -52,8 +52,13 @@ const Query = {
   },
   async stripeWidgetData(parent, args, ctx, info) {
     try {
+      const { stripeConnectAccountId } = ctx.dbUser;
+
+      if (!stripeConnectAccountId) {
+        throw new Error("Not synced with stripe");
+      }
       const { payoutAmount, arrivalDate } = await getPayoutInfoMember(
-        ctx.stripeConnectAccountId
+        ctx.dbUser.stripeConnectAccountId
       );
 
       const currentDate = new Date();
@@ -63,16 +68,26 @@ const Query = {
         deltaInMilliseconds / (1000 * 60 * 60 * 24)
       );
 
+      if(!deltaInDays) {
+        return {
+          stripeConnectAccountId: stripeConnectAccountId ?? "",
+          percentChange: 0,
+          nextPayoutDays: 0,
+          payoutAmount: formattedPayoutAmount ?? "0",
+
+        }
+      }
+
       const formattedPayoutAmount = new Intl.NumberFormat("en-US", {
         style: "currency",
         currency: "USD",
-      }).format(payoutAmount / 100);
+      }).format(payoutAmount ?? 0 / 100);
 
       return {
-        stripeConnectAccountId: stripeConnectAccountId,
+        stripeConnectAccountId: stripeConnectAccountId ?? "",
         percentChange: 0,
         nextPayoutDays: deltaInDays,
-        payoutAmount: formattedPayoutAmount,
+        payoutAmount: formattedPayoutAmount ?? "0",
       };
     } catch (e) {
       throw new Error(e);
@@ -165,14 +180,12 @@ const Mutation = {
   },
   async onboardMemberToStripe(parent, args, ctx, info) {
     try {
-      const createdStripeAccountId = await createExpressaccount();
+      const createdStripeAccountId = await createExpressaccount(ctx.userId);
       const member = await MemberModel.findByIdAndUpdate(
-        ctx.id,
+        ctx.dbUser.id,
         { stripeConnectAccountId: createdStripeAccountId.id },
         { new: true }
       );
-
-      console.log(member);
 
       const { url } = await createAccountLink(member.stripeConnectAccountId);
 
