@@ -34,7 +34,7 @@ const Query = {
   },
   async currentMember(parent, args, ctx, info) {
     try {
-      const member = await MemberModel.find({ firebaseId: ctx.firebaseId });
+      const member = await MemberModel.find({ clerkId: ctx.userId });
       if (!member) {
         throw new Error("Member not found");
       }
@@ -47,7 +47,6 @@ const Query = {
   async stripeWidgetData(parent, args, ctx, info) {
     try {
       const { stripeConnectAccountId } = ctx.dbUser;
-
 
       return {
         stripeConnectAccountId: stripeConnectAccountId,
@@ -78,7 +77,6 @@ const Mutation = {
 
       const member = await MemberModel.findOne({ clerkId: clerkId });
       //Other/
-      
 
       if (member) {
         throw new UserInputError(
