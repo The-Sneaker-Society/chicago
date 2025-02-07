@@ -4,8 +4,14 @@ import ChatModel from "../models/Chat.model";
 import ClientModel from "../models/Client.model";
 import ContractModel from "../models/Contract.model";
 import ProductsModel from "../models/Products.model";
-import { createAccountLink, createExpressaccount } from "../stripe/stripeUtils";
-import { createQRCode, generateQRCodeImage } from "../utils/qrGenerator";
+import {
+  createAccountLink,
+  createExpressaccount,
+  createSubscriptionForNewMember,
+  getPayoutInfoMember,
+  signUpForMonthlyMembership,
+} from "../stripe/stripeUtils";
+import { createQRCode } from "../utils/qrGenerator";
 import dotenv from "dotenv";
 dotenv.config({ path: "config.env" });
 
@@ -34,7 +40,7 @@ const Query = {
   },
   async currentMember(parent, args, ctx, info) {
     try {
-      const member = await MemberModel.find({ clerkId: ctx.userId });
+      const member = await MemberModel.find({ firebaseId: ctx.firebaseId });
       if (!member) {
         throw new Error("Member not found");
       }
@@ -48,14 +54,52 @@ const Query = {
     try {
       const { stripeConnectAccountId } = ctx.dbUser;
 
+      if (!stripeConnectAccountId) {
+        throw new Error("Not synced with stripe");
+      }
+      const { payoutAmount, arrivalDate } = await getPayoutInfoMember(
+        ctx.dbUser.stripeConnectAccountId
+      );
+
+      const currentDate = new Date();
+      const arrival = new Date(arrivalDate);
+      const deltaInMilliseconds = arrival - currentDate;
+      const deltaInDays = Math.ceil(
+        deltaInMilliseconds / (1000 * 60 * 60 * 24)
+      );
+
+      if(!deltaInDays) {
+        return {
+          stripeConnectAccountId: stripeConnectAccountId ?? "",
+          percentChange: 0,
+          nextPayoutDays: 0,
+          payoutAmount: formattedPayoutAmount ?? "0",
+
+        }
+      }
+
+      const formattedPayoutAmount = new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
+      }).format(payoutAmount ?? 0 / 100);
+
       return {
-        stripeConnectAccountId: stripeConnectAccountId,
-        percentChange: 15,
-        nextPayoutDays: 3,
-        payoutAmount: 250.78,
+        stripeConnectAccountId: stripeConnectAccountId ?? "",
+        percentChange: 0,
+        nextPayoutDays: deltaInDays,
+        payoutAmount: formattedPayoutAmount ?? "0",
       };
     } catch (e) {
       throw new Error(e);
+    }
+  },
+  async createMemberSubsctiprion(parent, args, ctx, info) {
+    try {
+      const { email } = ctx.dbUser;
+      const subscriptionUrl = await createSubscriptionForNewMember(email);
+      return subscriptionUrl;
+    } catch (error) {
+      throw new Error(Error);
     }
   },
 };
@@ -76,7 +120,6 @@ const Mutation = {
       } = args.data;
 
       const member = await MemberModel.findOne({ clerkId: clerkId });
-      //Other/
 
       if (member) {
         throw new UserInputError(
@@ -137,14 +180,12 @@ const Mutation = {
   },
   async onboardMemberToStripe(parent, args, ctx, info) {
     try {
-      const createdStripeAccountId = await createExpressaccount();
+      const createdStripeAccountId = await createExpressaccount(ctx.userId);
       const member = await MemberModel.findByIdAndUpdate(
-        ctx.id,
+        ctx.dbUser.id,
         { stripeConnectAccountId: createdStripeAccountId.id },
         { new: true }
       );
-
-      console.log(member);
 
       const { url } = await createAccountLink(member.stripeConnectAccountId);
 
