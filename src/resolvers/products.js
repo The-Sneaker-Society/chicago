@@ -18,10 +18,6 @@ const Query = {
 };
 
 const Mutation = {
-  async createMemberSubscription() {
-    await createSubscriptionForNewMember('testCustomer@gmail.com');
-    return true;
-  },
   async createProduct(parent, args, ctx, info) {
     const { name, price, description } = args;
     try {

@@ -88,14 +88,22 @@ export const archiveStripeProduct = async (productId) => {
 };
 
 export const createSubscriptionForNewMember = async (memberEmail) => {
-  const session = await stripe.checkout.sessions.create({
-    billing_address_collection: "auto",
-    line_items: [{ price: "price_1OlMHZEtfRIDf54VO5sMrS45", quantity: 1 }],
-    mode: "subscription",
-    success_url: "https://mail.google.com",
-  });
-  console.log(session);
-  return;
+  try {
+    const session = await stripe.checkout.sessions.create({
+      billing_address_collection: "auto",
+      line_items: [{ price: "price_1OlMHZEtfRIDf54VO5sMrS45", quantity: 1 }],
+      mode: "subscription",
+      success_url: "https://mail.google.com",
+      customer_email: memberEmail,
+      metadata: {
+        userId: "test",
+      },
+    });
+
+    return session.url;
+  } catch (e) {
+    throw e;
+  }
 };
 
 export const getPayoutInfoMember = async (connectAccountId) => {

@@ -18,7 +18,6 @@ const productTypeDefs = gql`
   type Mutation {
     resumeAccountOnboarding: String!
     onboardMemberToStripe: String!
-    createMemberSubscription: Boolean!
     createProduct(name: String!, price: Int!, description: String!): Boolean!
     createProductPaymentLink(productId: String!): String!
     createMemberPaymentLink(productId: String!): String!

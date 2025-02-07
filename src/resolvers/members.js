@@ -7,7 +7,9 @@ import ProductsModel from "../models/Products.model";
 import {
   createAccountLink,
   createExpressaccount,
+  createSubscriptionForNewMember,
   getPayoutInfoMember,
+  signUpForMonthlyMembership,
 } from "../stripe/stripeUtils";
 import { createQRCode } from "../utils/qrGenerator";
 import dotenv from "dotenv";
@@ -74,6 +76,15 @@ const Query = {
       };
     } catch (e) {
       throw new Error(e);
+    }
+  },
+  async createMemberSubsctiprion(parent, args, ctx, info) {
+    try {
+      const { email } = ctx.dbUser;
+      const subscriptionUrl = await createSubscriptionForNewMember(email);
+      return subscriptionUrl;
+    } catch (error) {
+      throw new Error(Error);
     }
   },
 };

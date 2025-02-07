@@ -62,7 +62,7 @@ const memberTypeDefs = gql`
     state: String
     isNewUser: Boolean
   }
-
+    
   # Queries
   type Query {
     members: [Member!]!
@@ -70,6 +70,7 @@ const memberTypeDefs = gql`
     currentMember: Member!
     memberQrWidget: QrWidgetData!
     stripeWidgetData: StripeWidgetData!
+    createMemberSubsctiprion: String
   }
 
   # Mutations
