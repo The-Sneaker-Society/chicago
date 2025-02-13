@@ -3,7 +3,6 @@ import { gql } from "apollo-server-core";
 const memberTypeDefs = gql`
   type Member {
     id: ID!
-    firebaseId: String!
     email: String!
     firstName: String!
     lastName: String!
