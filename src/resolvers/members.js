@@ -28,7 +28,7 @@ const Query = {
   },
   async memberById(parent, args, ctx, info) {
     try {
-      const member = await MemberModel.find({ firebaseId: args.id });
+      const member = await MemberModel.find({ clerkId: ctx.userId });
       if (!member) {
         throw new Error("Member not found");
       }
@@ -40,7 +40,7 @@ const Query = {
   },
   async currentMember(parent, args, ctx, info) {
     try {
-      const member = await MemberModel.find({ firebaseId: ctx.firebaseId });
+      const member = await MemberModel.find({ clerkId: ctx.userId });
       if (!member) {
         throw new Error("Member not found");
       }
@@ -68,14 +68,13 @@ const Query = {
         deltaInMilliseconds / (1000 * 60 * 60 * 24)
       );
 
-      if(!deltaInDays) {
+      if (!deltaInDays) {
         return {
           stripeConnectAccountId: stripeConnectAccountId ?? "",
           percentChange: 0,
           nextPayoutDays: 0,
           payoutAmount: formattedPayoutAmount ?? "0",
-
-        }
+        };
       }
 
       const formattedPayoutAmount = new Intl.NumberFormat("en-US", {

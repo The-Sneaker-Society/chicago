@@ -27,7 +27,7 @@ const Query = {
   },
   async currentUser(parent, args, ctx, info) {
     try {
-      const user = await UserModel.find({ firebaseId: ctx.firebaseId });
+      const user = await UserModel.find({ clerkId: ctx.userId });
       if (!user) {
         throw new Error("user not found");
       }
