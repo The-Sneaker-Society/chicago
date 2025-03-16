@@ -19,25 +19,51 @@ const contractTypeDefs = gql`
     id: ID!
     client: Client!
     member: Member!
-    eta: String!
-    stage: StageType!
-    price: String!
-    notes: String!
-    photos: [String!]
-    reported: Boolean!
-    createdAt: String!
-    updatedAt: String!
+    chatId: ID
+    shoeDetails: ShoeDetails
+    repairDetails: RepairDetails
+    proposedPrice: Float
+    price: Float
+    status: String
+    trackingNumber: String
+    shippingCarrier: String
+    paymentStatus: String
+    createdAt: String
+    updatedAt: String
+  }
+  type ShoeDetails {
+    brand: String
+    model: String
+    color: String
+    size: String
+    soleCondition: String
+    material: String
+    photos: [String]
+  }
+
+  type RepairDetails {
+    clientNotes: String
+    memberNotes: String
   }
 
   input CreateContractInput {
-    client: String!
-    memberId: String!
-    eta: String!
-    stage: String!
-    price: String!
-    notes: String!
-    photos: [String!]
-    reported: Boolean!
+    memberId: ID!
+    shoeDetails: ShoeDetailsInput!
+    repairDetails: RepairDetailsInput!
+  }
+
+  input ShoeDetailsInput {
+    brand: String
+    model: String
+    color: String
+    size: String
+    soleCondition: String
+    material: String
+    photos: [String]
+  }
+
+  input RepairDetailsInput {
+    clientNotes: String
   }
 
   type Query {

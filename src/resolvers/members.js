@@ -1,7 +1,7 @@
 import { UserInputError } from "apollo-server-core";
 import MemberModel from "../models/Member.model";
 import ChatModel from "../models/Chat.model";
-import ClientModel from "../models/Client.model";
+import UserModel from "../models/User.model";
 import ContractModel from "../models/Contract.model";
 import ProductsModel from "../models/Products.model";
 import {
@@ -211,9 +211,10 @@ const Mutation = {
 const Member = {
   async clients(parent, args, ctx, info) {
     try {
-      const clients = await ClientModel.find();
+      const clientIds = ctx.dbUser.clients;
+      const clients = await UserModel.find({ _id: { $in: clientIds } });
 
-      return clients.filter((client) => client.members.includes(parent.id));
+      return clients;
     } catch (e) {
       throw new Error(e);
     }
@@ -221,15 +222,17 @@ const Member = {
 
   async contracts(parent, args, ctx, info) {
     try {
-      const contracts = await ContractModel.find();
-      return contracts.filter(
-        (contract) => contract.member.toString() === parent.id
-      );
+      const contractIds = ctx.dbUser.contracts;
+
+      const contracts = await ContractModel.find({
+        _id: { $in: contractIds },
+      });
+
+      return contracts;
     } catch (e) {
       throw new Error(e);
     }
   },
-
   async products(parent, args, ctx, info) {
     try {
       const products = await ProductsModel.find({
