@@ -1,7 +1,6 @@
 import MemberModel from "../models/Member.model";
-import ClientModel from "../models/Client.model";
+import UserModel from "../models/User.model";
 import ContractModel from "../models/Contract.model";
-import { sendEmail } from "../utils/sendEmail";
 
 const Query = {
   async contracts() {
@@ -60,64 +59,43 @@ const Query = {
 const Mutation = {
   async createContract(parent, args, ctx, info) {
     try {
-      const { memberId, eta, client, stage, price, notes, photos, reported } =
-        args.data;
+      const { memberId, shoeDetails, repairDetails } = args.data;
+      const clientId = ctx.dbUser._id;
 
-      const foundMember = await MemberModel.findById(memberId);
+      const member = await MemberModel.findById(memberId);
 
-      const foundClient = await ClientModel.findById(client);
-
-      const newContract = new ContractModel({
-        client: foundClient,
-        member: foundMember,
-        eta,
-        stage: "NOT_STARTED",
-        price,
-        notes,
-        reported: false,
-        photos: photos,
-      });
-
-      const res = await newContract.save();
-
-      const isAlreadyClient =
-        foundClient.members.filter((member) => {
-          return member.toString() === memberId;
-        }).length > 0;
-
-      if (!isAlreadyClient) {
-        foundClient.members.push(memberId);
-        foundMember.clients.push(foundClient.id.toString());
+      if (!member) {
+        throw new Error("member not found");
       }
 
-      foundMember.contracts.push(res._id);
-      foundClient.contracts.push(res._id);
-      await foundClient.save();
-      await foundMember.save();
-
-      const { firstName, lastName, email } = foundMember;
-
-      await sendEmail(
-        "New Contract!",
-        email,
-        {
-          userName: `${firstName} ${lastName}`,
-          link: `${process.env.APP_URL}/dashboard`,
+      const newContract = new ContractModel({
+        clientId,
+        memberId,
+        shoeDetails,
+        repairDetails: {
+          ...repairDetails,
+          memberNotes: "",
         },
-        "src/emails/new_contract.html"
-      );
+        proposedPrice: null,
+        price: null,
+        chatId: null,
+        status: "PENDING_REVIEW",
+        trackingNumber: null,
+        shippingCarrier: null,
+        paymentStatus: null,
+      });
 
-      await sendEmail(
-        "Thank You",
-        foundClient.email,
-        {
-          userName: `${foundClient.firstName}`,
-          memberName: `${firstName}`,
-        },
-        "src/emails/new_contract_client.html"
-      );
+      const savedContract = await newContract.save();
 
-      return { ...res._doc, id: res._id };
+      await UserModel.findByIdAndUpdate(clientId, {
+        $push: { contracts: savedContract._id },
+      });
+
+      await MemberModel.findByIdAndUpdate(memberId, {
+        $push: { contracts: savedContract._id },
+      });
+
+      return savedContract;
     } catch (e) {
       throw new Error(e);
     }
@@ -127,7 +105,7 @@ const Mutation = {
 const Contract = {
   async member(parent, args, ctx, info) {
     try {
-      const member = await MemberModel.findById(parent.member.toString());
+      const member = await MemberModel.findById(parent.memberId);
       return member;
     } catch (e) {
       throw new Error(e);
@@ -135,7 +113,7 @@ const Contract = {
   },
   async client(parent, args, ctx, info) {
     try {
-      const client = await ClientModel.findById(parent.client.toString());
+      const client = await UserModel.findById(parent.clientId);
       return client;
     } catch (e) {
       throw new Error(e);

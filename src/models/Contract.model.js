@@ -1,45 +1,43 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const ContractSchema = new mongoose.Schema(
   {
-    client: {
+    clientId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Clients',
+      ref: "Users",
       required: true,
     },
-    member: {
+    memberId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Members',
+      ref: "Members",
       required: true,
     },
-    eta: {
+    chatId: { type: mongoose.Schema.Types.ObjectId, ref: "Chats" },
+    shoeDetails: {
+      brand: { type: String },
+      model: { type: String },
+      color: { type: String },
+      size: { type: String },
+      soleCondition: { type: String },
+      material: { type: String },
+      photos: [{ type: String }],
+    },
+    repairDetails: {
+      clientNotes: { type: String },
+      memberNotes: { type: String },
+    },
+    proposedPrice: { type: Number },
+    price: { type: Number },
+    status: {
       type: String,
-      // required: true,
     },
-    stage: {
-      type: String,
-      // required: true,
-    },
-    price: {
-      type: String,
-      // required: true,
-    },
-    notes: {
-      type: String,
-      // required: true,
-    },
-    reported: {
-      type: Boolean,
-      // required: true,
-    },
-    photos: {
-      type: Array,
-      // required: true,
-    },
+    trackingNumber: { type: String },
+    shippingCarrier: { type: String },
+    paymentStatus: { type: String },
   },
   {
     timestamps: true,
   }
 );
 
-export default mongoose.model('Contracts', ContractSchema, 'contracts');
+export default mongoose.model("Contracts", ContractSchema, "contracts");

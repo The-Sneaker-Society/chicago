@@ -40,7 +40,7 @@ const MemberSchema = new mongoose.Schema(
     clients: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Client",
+        ref: "Users",
       },
     ],
     contracts: [
