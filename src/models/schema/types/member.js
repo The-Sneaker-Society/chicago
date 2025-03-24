@@ -63,7 +63,7 @@ const memberTypeDefs = gql`
     state: String
     isNewUser: Boolean
   }
-
+    
   # Queries
   type Query {
     members: [Member!]!
