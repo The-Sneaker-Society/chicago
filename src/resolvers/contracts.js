@@ -1,6 +1,7 @@
 import MemberModel from "../models/Member.model";
 import UserModel from "../models/User.model";
 import ContractModel from "../models/Contract.model";
+import { createPaymentIntent } from "../stripe/stripeUtils";
 
 const Query = {
   async contracts() {
@@ -83,21 +84,42 @@ const Mutation = {
         trackingNumber: null,
         shippingCarrier: null,
         paymentStatus: null,
+        timeline: [
+          {
+            event: "CONTRACT_CREATED",
+            date: Date.now(),
+          },
+        ],
       });
 
       const savedContract = await newContract.save();
 
       await UserModel.findByIdAndUpdate(clientId, {
-        $push: { contracts: savedContract._id },
+        $push: { contracts: savedContract._id, members: memberId },
       });
 
       await MemberModel.findByIdAndUpdate(memberId, {
-        $push: { contracts: savedContract._id },
+        $push: { contracts: savedContract._id, clients: clientId },
       });
 
       return savedContract;
     } catch (e) {
       throw new Error(e);
+    }
+  },
+  async createContractPrice(parent, args, ctx, info) {
+    try {
+      const { contractId, price } = args.data;
+      const { stripeConnectAccountId } = ctx.dbUser;
+      console.log({ args, user: ctx.dbUser });
+      const url = await createPaymentIntent(
+        stripeConnectAccountId,
+        price,
+        contractId
+      );
+      return url;
+    } catch (err) {
+      throw new Error(err);
     }
   },
 };

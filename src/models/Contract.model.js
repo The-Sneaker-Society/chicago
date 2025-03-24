@@ -31,9 +31,17 @@ const ContractSchema = new mongoose.Schema(
     status: {
       type: String,
     },
-    trackingNumber: { type: String },
-    shippingCarrier: { type: String },
+    trackingDetails: {
+      trackingNumber: { type: String },
+      carrier: { type: String },
+    },
     paymentStatus: { type: String },
+    timeline: [
+      {
+        event: { type: String },
+        date: { type: Date },
+      },
+    ],
   },
   {
     timestamps: true,

@@ -3,7 +3,7 @@ import {
   createStripeProduct,
   createSubscriptionForNewMember,
   archiveStripeProduct,
-  createPaymentLink,
+  createPaymentSessionLink,
 } from '../stripe/stripeUtils';
 
 const Query = {
@@ -58,7 +58,7 @@ const Mutation = {
       const { productId } = args;
       const foundProduct = await ProductsModel.findById(productId);
 
-      const paymentLink = await createPaymentLink(
+      const paymentLink = await createPaymentSessionLink(
         foundProduct.stripePriceId,
         ctx.stripeConnectAccountId
       );
