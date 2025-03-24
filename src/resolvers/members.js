@@ -156,7 +156,7 @@ const Mutation = {
   async updateMember(parent, args, ctx, info) {
     try {
       await MemberModel.findByIdAndUpdate(
-        ctx.id,
+        ctx.dbUser._id,
         { ...args.data },
         { new: true }
       );
