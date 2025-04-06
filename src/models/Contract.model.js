@@ -20,7 +20,15 @@ const ContractSchema = new mongoose.Schema(
       size: { type: String },
       soleCondition: { type: String },
       material: { type: String },
-      photos: [{ type: String }],
+      photos: {
+        leftSide: [{ type: String }],
+        rightSide: [{ type: String }],
+        topView: [{ type: String }],
+        bottomView: [{ type: String }],
+        frontView: [{ type: String }],
+        backView: [{ type: String }],
+        other: [{ type: String }],
+      },
     },
     repairDetails: {
       clientNotes: { type: String },

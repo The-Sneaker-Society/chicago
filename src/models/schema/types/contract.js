@@ -71,7 +71,17 @@ const contractTypeDefs = gql`
     size: String
     soleCondition: String
     material: String
-    photos: [String]
+    photos: PhotoInput
+  }
+
+  input PhotoInput {
+    leftSide: [String]
+    rightSide: [String]
+    topView: [String]
+    bottomView: [String]
+    frontView: [String]
+    backView: [String]
+    other: [String]
   }
 
   input CreateContractPriceInput {
