@@ -43,7 +43,7 @@ export const createAccountLink = async (stripeAccountId) => {
   }
 };
 
-export const createPaymentLink = async (priceId, connectAccountId) => {
+export const createPaymentSessionLink = async (priceId, connectAccountId) => {
   try {
     const paymentLink = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -110,26 +110,100 @@ export const createSubscriptionForNewMember = async (memberEmail) => {
 };
 export const getPayoutInfoMember = async (connectAccountId) => {
   try {
+    // const payouts = await stripe.payouts.list(
+    //   {
+    //     limit: 1,
+    //   },
+    //   {
+    //     stripeAccount: connectAccountId,
+    //   }
+    // );
+    // console.log(payouts);
+
+    // if (payouts.data.length > 0) {
+    //   const nextPayout = payouts.data[0];
+    //   const payoutAmount = nextPayout.amount / 100;
+    //   const arrivalDate = new Date(nextPayout.arrival_date * 1000);
+
+    //   return { payoutAmount, arrivalDate };
+    // } else {
+    //   console.log("No upcoming payouts found.");
+    //   return {};
+    // }
+
+    const balance = await stripe.balance.retrieve({
+      stripeAccount: connectAccountId,
+    });
+
+    const pendingBalance =
+      balance.pending.find((amount) => amount.currency === "usd")?.amount /
+        100 || 0;
+
     const payouts = await stripe.payouts.list(
       {
-        limit: 1,
+        limit: 10,
       },
       {
         stripeAccount: connectAccountId,
       }
     );
 
-    if (payouts.data.length > 0) {
+    console.log(balance);
+    console.log(payouts);
+
+    if (payouts.data && payouts.data.length > 0) {
       const nextPayout = payouts.data[0];
-      const payoutAmount = nextPayout.amount;
+      const payoutAmount = pendingBalance;
       const arrivalDate = new Date(nextPayout.arrival_date * 1000);
 
-      return { payoutAmount, arrivalDate };
+      return {
+        payoutAmount: payoutAmount,
+        arrivalDate: arrivalDate.toISOString(),
+      };
     } else {
-      console.log("No upcoming payouts found.");
-      return {};
+      return {
+        payoutAmount: 0,
+        arrivalDate: null,
+      };
     }
   } catch (e) {
     throw e;
+  }
+};
+
+export const createPaymentIntent = async (
+  connectAccountId,
+  amount,
+  contractId
+) => {
+  try {
+    const session = await stripe.checkout.sessions.create({
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: `Contract Payment - ${contractId}`,
+            },
+            unit_amount: amount * 100,
+          },
+          quantity: 1,
+        },
+      ],
+      mode: "payment",
+      success_url: "https://yourwebsite.com/success",
+      cancel_url: "https://yourwebsite.com/cancel",
+      payment_intent_data: {
+        application_fee_amount: 1200,
+        transfer_data: {
+          destination: connectAccountId,
+        },
+        metadata: { contractId: contractId },
+      },
+    });
+    return session.url;
+  } catch (error) {
+    console.error("Error creating payment intent and checkout session:", error);
+    throw error;
   }
 };

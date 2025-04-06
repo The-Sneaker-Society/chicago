@@ -25,12 +25,24 @@ const contractTypeDefs = gql`
     proposedPrice: Float
     price: Float
     status: String
-    trackingNumber: String
+    trackingNumber: TrackingDetails
+    timeline: TimelineDetails
     shippingCarrier: String
     paymentStatus: String
     createdAt: String
     updatedAt: String
   }
+
+  type TrackingDetails {
+    carrier: String
+    trackingNumber: String
+  }
+
+  type TimelineDetails {
+    event: String
+    date: String
+  }
+
   type ShoeDetails {
     brand: String
     model: String
@@ -59,7 +71,22 @@ const contractTypeDefs = gql`
     size: String
     soleCondition: String
     material: String
-    photos: [String]
+    photos: PhotoInput
+  }
+
+  input PhotoInput {
+    leftSide: [String]
+    rightSide: [String]
+    topView: [String]
+    bottomView: [String]
+    frontView: [String]
+    backView: [String]
+    other: [String]
+  }
+
+  input CreateContractPriceInput {
+    contractId: ID!
+    price: Int!
   }
 
   input RepairDetailsInput {
@@ -74,6 +101,7 @@ const contractTypeDefs = gql`
 
   type Mutation {
     createContract(data: CreateContractInput!): Contract!
+    createContractPrice(data: CreateContractPriceInput): String!
   }
 `;
 

@@ -37,10 +37,10 @@ const UserSchema = new mongoose.Schema(
     state: {
       type: String,
     },
-    Members: [
+    members: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Client",
+        ref: "Members",
       },
     ],
     contracts: [
