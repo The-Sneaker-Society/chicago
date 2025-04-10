@@ -12,6 +12,7 @@ import { makeExecutableSchema } from "@graphql-tools/schema";
 import { WebSocketServer } from "ws";
 import { useServer } from "graphql-ws/lib/use/ws";
 import { clerkMiddleware, requireAuth } from "@clerk/express";
+import redis from "./config/redis";
 
 async function startApolloServer() {
   const app = express();
@@ -102,7 +103,13 @@ async function startApolloServer() {
       }
       return error;
     },
-    context: clearkAuthorizeUser,
+    context: async (integrationContext) => {
+      const authContext = await clearkAuthorizeUser(integrationContext);
+      return {
+        ...authContext,
+        redis, // Use the imported Redis client
+      };
+    },
   });
 
   await server.start();
