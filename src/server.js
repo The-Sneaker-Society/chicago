@@ -12,7 +12,7 @@ import { makeExecutableSchema } from "@graphql-tools/schema";
 import { WebSocketServer } from "ws";
 import { useServer } from "graphql-ws/lib/use/ws";
 import { clerkMiddleware, requireAuth } from "@clerk/express";
-import redis from "./config/redis";
+// import redis from "./config/redis";
 
 async function startApolloServer() {
   const app = express();
