@@ -107,7 +107,7 @@ async function startApolloServer() {
       const authContext = await clearkAuthorizeUser(integrationContext);
       return {
         ...authContext,
-        redis, // Use the imported Redis client
+        // redis, // Use the imported Redis client
       };
     },
   });
