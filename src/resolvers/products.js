@@ -1,10 +1,10 @@
-import ProductsModel from '../models/Products.model';
+import ProductsModel from "../models/Products.model";
 import {
   createStripeProduct,
   createSubscriptionForNewMember,
   archiveStripeProduct,
   createPaymentSessionLink,
-} from '../stripe/stripeUtils';
+} from "../stripe/stripeUtils";
 
 const Query = {
   async products() {
@@ -26,8 +26,6 @@ const Mutation = {
         description,
         price
       );
-
-      console.log(createdStripeProduct);
 
       // saving to DB
       await ProductsModel.create({

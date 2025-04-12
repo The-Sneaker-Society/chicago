@@ -13,6 +13,7 @@ import {
 } from "../stripe/stripeUtils";
 import { createQRCode } from "../utils/qrGenerator";
 import dotenv from "dotenv";
+import { syncStripeDataToKV } from "../utils/redis/stripeSubscritpitonCache";
 dotenv.config({ path: "config.env" });
 
 //  test url https://docs.stripe.com/connect/testing
@@ -90,15 +91,6 @@ const Query = {
       };
     } catch (e) {
       throw new Error(e);
-    }
-  },
-  async createMemberSubsctiprion(parent, args, ctx, info) {
-    try {
-      const { email } = ctx.dbUser;
-      const subscriptionUrl = await createSubscriptionForNewMember(email);
-      return subscriptionUrl;
-    } catch (error) {
-      throw new Error(Error);
     }
   },
 };
@@ -197,13 +189,36 @@ const Mutation = {
     try {
       const member = await MemberModel.findById(ctx.id);
 
-      console.log(member);
-
       const { url } = await createAccountLink(member.stripeConnectAccountId);
 
       return url;
     } catch (error) {
       throw new Error(error);
+    }
+  },
+  async createMemberSubsctiprion(parent, args, ctx, info) {
+    try {
+      const { email, id } = ctx.dbUser;
+
+      const subscriptionUrl = await createSubscriptionForNewMember(email, id);
+      return subscriptionUrl;
+    } catch (error) {
+      throw new Error(Error);
+    }
+  },
+  async syncStripeData(parent, args, ctx, info) {
+    try {
+      const { stripeCustomerId } = ctx.dbUser;
+
+      if (!stripeCustomerId) {
+        throw new Error("Stripe customer ID not found for this user.");
+      }
+
+      await syncStripeDataToKV(stripeCustomerId);
+
+      return { success: true };
+    } catch (error) {
+      throw new Error("Failed to sync Stripe data.");
     }
   },
 };

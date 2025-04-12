@@ -111,7 +111,7 @@ const Mutation = {
     try {
       const { contractId, price } = args.data;
       const { stripeConnectAccountId } = ctx.dbUser;
-      console.log({ args, user: ctx.dbUser });
+
       const url = await createPaymentIntent(
         stripeConnectAccountId,
         price,
