@@ -115,9 +115,11 @@ export const createSubscriptionForNewMember = async (memberEmail, memberId) => {
 
     const session = await stripe.checkout.sessions.create({
       billing_address_collection: "auto",
-      line_items: [{ price: "price_1OlMHZEtfRIDf54VO5sMrS45", quantity: 1 }],
+      line_items: [
+        { price: `${process.env.STRIPE_MEMBER_SUBSCRIPTION_ID}`, quantity: 1 },
+      ],
       mode: "subscription",
-      success_url: "http://localhost:5173/member/subscription-success",
+      success_url: `${process.env.REACT_APP_URL}/member/subscription-success`,
       customer: stripeCustomerId,
       metadata: {
         userId: memberId,
