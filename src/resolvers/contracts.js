@@ -1,7 +1,7 @@
 import MemberModel from "../models/Member.model";
 import UserModel from "../models/User.model";
 import ContractModel from "../models/Contract.model";
-import { createPaymentIntent } from "../stripe/stripeUtils";
+import { createPaymentIntent } from "../stripe/stripe.service";
 
 const Query = {
   async contracts() {

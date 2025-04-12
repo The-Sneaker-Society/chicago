@@ -8,9 +8,10 @@ import {
   createAccountLink,
   createExpressaccount,
   createSubscriptionForNewMember,
+  getMemberSubscriptionStatus,
   getPayoutInfoMember,
   signUpForMonthlyMembership,
-} from "../stripe/stripeUtils";
+} from "../stripe/stripe.service";
 import { createQRCode } from "../utils/qrGenerator";
 import dotenv from "dotenv";
 import { syncStripeDataToKV } from "../utils/redis/stripeSubscritpitonCache";
@@ -278,6 +279,15 @@ const Member = {
       const { _id } = ctx;
       const chats = await ChatModel.find({ memberId: _id });
       return chats;
+    } catch (error) {
+      throw new Error(error);
+    }
+  },
+  async isSubscribed(parent, args, ctx, info) {
+    try {
+      const { stripeCustomerId } = parent;
+      const status = await getMemberSubscriptionStatus(stripeCustomerId);
+      return status;
     } catch (error) {
       throw new Error(error);
     }

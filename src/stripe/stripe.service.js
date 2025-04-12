@@ -1,5 +1,6 @@
 import { stripe } from "./config";
 import MemberModel from "../models/Member.model";
+import redis from "../config/redis";
 import { syncStripeDataToKV } from "../utils/redis/stripeSubscritpitonCache";
 
 export const getOnboardingStatus = async (customerId) => {
@@ -223,5 +224,43 @@ export const createPaymentIntent = async (
   } catch (error) {
     console.error("Error creating payment intent and checkout session:", error);
     throw error;
+  }
+};
+
+export const getMemberSubscriptionStatus = async (customerId) => {
+  if (!customerId) {
+    throw Error("Missing customer Id");
+  }
+
+  const kvKey = `stripe:customer:${customerId}`;
+
+  try {
+    const stripeData = await redis.get(kvKey);
+    if (stripeData) {
+      const subData = JSON.parse(stripeData);
+      return subData.status === "active";
+    }
+  } catch (redisError) {
+    console.error("Error accessing Redis:", redisError);
+  }
+
+  try {
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customerId,
+      status: "active",
+      limit: 1,
+    });
+
+    const isActive = subscriptions.data.length > 0;
+
+    if (isActive) {
+      // Sync data to KV for next time
+      await syncStripeDataToKV(customerId);
+    }
+
+    return isActive;
+  } catch (stripeError) {
+    console.error("Error querying Stripe:", stripeError);
+    throw stripeError;
   }
 };

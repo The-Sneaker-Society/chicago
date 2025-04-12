@@ -4,7 +4,7 @@ import {
   createSubscriptionForNewMember,
   archiveStripeProduct,
   createPaymentSessionLink,
-} from "../stripe/stripeUtils";
+} from "../stripe/stripe.service";
 
 const Query = {
   async products() {
