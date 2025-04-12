@@ -15,7 +15,9 @@
     "build-babel": "babel -d ./build src/server.js -s",
     "build": "npm run clean && npm run build-babel",
     "start:dev": "npm run dev",
-    "generate-dev-token": "babel-node src/scripts/generateDevToken.js"
+    "generate-dev-token": "babel-node src/scripts/generateDevToken.js",
+    "update-member": "babel-node src/scripts/updateMemberModel.js",
+    "remove-field": "babel-node src/scripts/removeSubscriptionId.js"
   },
   "repository": {
     "type": "git",
