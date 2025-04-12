@@ -130,29 +130,9 @@ export const createSubscriptionForNewMember = async (memberEmail, memberId) => {
     throw e;
   }
 };
+
 export const getPayoutInfoMember = async (connectAccountId) => {
   try {
-    // const payouts = await stripe.payouts.list(
-    //   {
-    //     limit: 1,
-    //   },
-    //   {
-    //     stripeAccount: connectAccountId,
-    //   }
-    // );
-    // console.log(payouts);
-
-    // if (payouts.data.length > 0) {
-    //   const nextPayout = payouts.data[0];
-    //   const payoutAmount = nextPayout.amount / 100;
-    //   const arrivalDate = new Date(nextPayout.arrival_date * 1000);
-
-    //   return { payoutAmount, arrivalDate };
-    // } else {
-    //   console.log("No upcoming payouts found.");
-    //   return {};
-    // }
-
     const balance = await stripe.balance.retrieve({
       stripeAccount: connectAccountId,
     });
@@ -332,4 +312,71 @@ export const cancelMemberSubscription = async (customerId) => {
   }
 };
 
-export const reactivateSubscription = async () => {};
+export const reactivateMemberSubscription = async (customerId, priceId) => {
+  if (!customerId) {
+    throw new Error("Missing customer Id");
+  }
+
+  try {
+    const kvKey = `stripe:customer:${customerId}`;
+    let subscriptionId;
+    let subscriptionStatus;
+
+    try {
+      const stripeData = await redis.get(kvKey);
+      if (stripeData) {
+        const subData = JSON.parse(stripeData);
+        subscriptionId = subData.subscriptionId;
+        subscriptionStatus = subData.status;
+      }
+    } catch (redisError) {
+      console.error("Error accessing Redis:", redisError);
+    }
+
+    if (!subscriptionId) {
+      try {
+        const subscriptions = await stripe.subscriptions.list({
+          customer: customerId,
+          limit: 1,
+        });
+
+        if (subscriptions.data.length > 0) {
+          subscriptionId = subscriptions.data[0].id;
+          subscriptionStatus = subscriptions.data[0].status;
+        } else {
+          throw new Error("No subscription found for this customer.");
+        }
+      } catch (stripeError) {
+        console.error("Error querying Stripe for subscription:", stripeError);
+        throw stripeError;
+      }
+    }
+
+    if (subscriptionStatus === "canceled" || subscriptionStatus === "ended") {
+      // Create a new subscription
+      const newSubscription = await stripe.subscriptions.create({
+        customer: customerId,
+        items: [{ price: priceId }],
+      });
+
+      await syncStripeDataToKV(customerId);
+
+      return newSubscription;
+    } else {
+      // Reactivate the existing subscription
+      const reactivatedSubscription = await stripe.subscriptions.update(
+        subscriptionId,
+        {
+          cancel_at_period_end: false,
+        }
+      );
+
+      await syncStripeDataToKV(customerId);
+
+      return reactivatedSubscription;
+    }
+  } catch (error) {
+    console.error("Error in reactivateMemberSubscription:", error);
+    throw error;
+  }
+};

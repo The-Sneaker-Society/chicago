@@ -85,6 +85,7 @@ const memberTypeDefs = gql`
     createMemberSubsctiprion: String
     cancelSubscription: Boolean!
     updateMember(data: UpdateMemberInput!): Boolean!
+    reactivateSubscription: Boolean!
     onboardMemberToStripe: String!
     deleteMember: Boolean!
     syncStripeData: SyncStripeDataResult!
