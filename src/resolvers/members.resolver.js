@@ -5,6 +5,7 @@ import UserModel from "../models/User.model";
 import ContractModel from "../models/Contract.model";
 import ProductsModel from "../models/Products.model";
 import {
+  cancelMemberSubscription,
   createAccountLink,
   createExpressaccount,
   createSubscriptionForNewMember,
@@ -220,6 +221,21 @@ const Mutation = {
       return { success: true };
     } catch (error) {
       throw new Error("Failed to sync Stripe data.");
+    }
+  },
+  async cancelSubscription(parent, args, ctx, info) {
+    try {
+      const { stripeCustomerId } = ctx.dbUser;
+
+      if (!stripeCustomerId) {
+        throw new Error("Stripe customer ID not found for this user.");
+      }
+
+      await cancelMemberSubscription(stripeCustomerId);
+
+      return true;
+    } catch {
+      throw new Error("Failed to cancel subscription");
     }
   },
 };

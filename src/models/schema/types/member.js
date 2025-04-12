@@ -83,6 +83,7 @@ const memberTypeDefs = gql`
   type Mutation {
     createMember(data: CreateMemberInput!): Member!
     createMemberSubsctiprion: String
+    cancelSubscription: Boolean!
     updateMember(data: UpdateMemberInput!): Boolean!
     onboardMemberToStripe: String!
     deleteMember: Boolean!

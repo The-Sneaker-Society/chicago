@@ -264,3 +264,72 @@ export const getMemberSubscriptionStatus = async (customerId) => {
     throw stripeError;
   }
 };
+
+export const cancelMemberSubscription = async (customerId) => {
+  if (!customerId) {
+    throw new Error("Missing customer Id");
+  }
+
+  try {
+    const kvKey = `stripe:customer:${customerId}`;
+    let subscriptionId;
+    try {
+      const stripeData = await redis.get(kvKey);
+      if (stripeData) {
+        const subData = JSON.parse(stripeData);
+        if (subData.status === "active") {
+          subscriptionId = subData.subscriptionId;
+        }
+      }
+    } catch (redisError) {
+      console.error("Error accessing Redis:", redisError);
+    }
+
+    if (!subscriptionId) {
+      try {
+        const subscriptions = await stripe.subscriptions.list({
+          customer: customerId,
+          status: "active",
+          limit: 1,
+        });
+
+        if (subscriptions.data.length > 0) {
+          subscriptionId = subscriptions.data[0].id;
+        } else {
+          throw new Error("No active subscription found to cancel.");
+        }
+      } catch (stripeError) {
+        console.error(
+          "Error querying Stripe for active subscription:",
+          stripeError
+        );
+        throw stripeError;
+      }
+    }
+
+    try {
+      const canceledSubscription = await stripe.subscriptions.update(
+        subscriptionId,
+        {
+          cancel_at_period_end: true,
+        }
+      );
+
+      // Sync Stripe data to KV (after successful cancellation)
+      await syncStripeDataToKV(customerId);
+
+      return canceledSubscription;
+    } catch (stripeCancelError) {
+      console.error(
+        "Error canceling subscription in Stripe:",
+        stripeCancelError
+      );
+      throw stripeCancelError;
+    }
+  } catch (error) {
+    console.error("Error in cancelMemberSubscription:", error);
+    throw error;
+  }
+};
+
+export const reactivateSubscription = async () => {};
