@@ -11,6 +11,8 @@ const allowedEvents = [
   "customer.subscription.deleted",
   "customer.subscription.paused",
   "customer.subscription.resumed",
+  "subscription_schedule.created",
+  "subscription_schedule.updated",
   "customer.subscription.pending_update_applied",
   "customer.subscription.pending_update_expired",
   "customer.subscription.trial_will_end",

@@ -3,6 +3,7 @@ import { stripe } from "../../stripe/config";
 
 export async function syncStripeDataToKV(customerId) {
   try {
+    console.log(`Syncing user: ${customerId}`);
     // Fetch latest subscription data from Stripe
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
