@@ -1,59 +1,130 @@
-import { stripe } from "./config";
+import { syncStripeDataToKV } from "../utils/redis/stripeSubscritpitonCache";
 import dotenv from "dotenv";
+import { stripe } from "./config";
 
 dotenv.config({ path: "config.env" });
+
+const allowedEvents = [
+  "checkout.session.completed",
+  "customer.subscription.created",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
+  "customer.subscription.paused",
+  "customer.subscription.resumed",
+  "customer.subscription.pending_update_applied",
+  "customer.subscription.pending_update_expired",
+  "customer.subscription.trial_will_end",
+  "invoice.paid",
+  "invoice.payment_failed",
+  "invoice.payment_action_required",
+  "invoice.upcoming",
+  "invoice.marked_uncollectible",
+  "invoice.payment_succeeded",
+  "payment_intent.succeeded",
+  "payment_intent.payment_failed",
+  "payment_intent.canceled",
+];
 
 export async function handleStripeWebhook(request, response, next) {
   const sig = request.headers["stripe-signature"];
   let event;
 
   try {
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET; // Get your secret from env
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
     if (!endpointSecret) {
       console.error(
         "STRIPE_WEBHOOK_SECRET is not set. Webhook signature verification will fail!"
       );
-      // It's critical to have this set, but for now, we'll proceed for demonstration
-      // In production, you should *not* proceed without it!
-      event = request.body; // Proceed with caution and log this
-    } else {
-      event = stripe.webhooks.constructEvent(request.body, sig, endpointSecret);
+      return response.status(500).send("STRIPE_WEBHOOK_SECRET is not set.");
     }
-  } catch (err) {
-    console.error(`Webhook Error: ${err.message}`);
-    return response.status(400).send(`Webhook Error: ${err.message}`);
-  }
 
-  try {
+    try {
+      event = stripe.webhooks.constructEvent(
+        request.rawBody,
+        sig,
+        endpointSecret
+      );
+    } catch (err) {
+      console.error(`Webhook Error: ${err.message}`);
+      return response.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    if (!allowedEvents.includes(event.type)) {
+      console.log(`Skipping event: ${event.type}`);
+      return response.json({ received: true });
+    }
+
     await handleStripeEvent(event);
     response.json({ received: true });
   } catch (error) {
-    console.error("Error handling Stripe event:", error);
-    next(error); // Pass the error to your error handling middleware
+    console.error("Error handling Stripe webhook:", error);
+    next(error);
   }
 }
 
 async function handleStripeEvent(event) {
-  switch (event.type) {
-    case "customer.subscription.created":
-      console.log("subscription created");
-      // Create subscription record in your DB
-      // Note: Don't grant full access yet!
-      break;
+  try {
+    let customerId;
 
-    case "invoice.paid":
-      console.log("Invoice paid");
-      // Payment was successful!
-      // Grant access to paid features
-      // Update user roles, etc.
-      break;
+    // Extract customerId (handle different event structures)
+    if (event.data.object.customer) {
+      customerId = event.data.object.customer;
+    } else if (event.data.object.subscription) {
+      customerId = event.data.object.subscription.customer;
+    } else if (event.data.object.payment_intent) {
+      customerId = event.data.object.payment_intent.customer;
+    } else if (event.data.object.invoice) {
+      customerId = event.data.object.invoice.customer;
+    } else if (event.data.object.checkout) {
+      customerId = event.data.object.checkout.customer;
+    }
 
-    case "checkout.session.completed":
-      console.log("checkout succeded");
-      // If using Checkout, you might want to
-      // verify the session and then check invoice status
-      break;
-    default:
-      console.log(`Unhandled event type: ${event.type}`);
+    if (typeof customerId !== "string") {
+      console.error(
+        `[STRIPE HOOK][CANCER] customerId isn't a string for event: ${event.type}`
+      );
+      return;
+    }
+
+    if (customerId) {
+      await syncStripeDataToKV(customerId);
+    } else {
+      console.warn(
+        `[STRIPE HOOK] No customerId found for event: ${event.type}`
+      );
+    }
+
+    // Additional database updates (if necessary)
+    switch (event.type) {
+      case "checkout.session.completed":
+        // You might want to verify the session and update order status in your DB
+        // But the core subscription data is now in KV
+        console.log("checkout.session.completed");
+        break;
+
+      // Add any other specific DB updates you need here
+      default:
+        break;
+    }
+  } catch (error) {
+    console.error("Error handling Stripe event:", error);
+    throw error; // Propagate the error for handling in the webhook handler
   }
+}
+
+// Function to get the raw body (important for signature verification)
+async function rawBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", (chunk) => {
+      body += chunk.toString();
+      console.log(body);
+    });
+    req.on("end", () => {
+      resolve(body);
+    });
+    req.on("error", (err) => {
+      reject(err);
+    });
+  });
 }

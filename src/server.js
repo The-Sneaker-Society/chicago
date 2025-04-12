@@ -7,7 +7,6 @@ import typeDefs from "./models/schema/index";
 import resolvers from "./resolvers";
 import connectDb from "./config/db";
 import { clearkAuthorizeUser } from "./utils/auth/auth";
-import { handleStripeSubscriptionCreated } from "./stripe/stripeSubscriptions";
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { WebSocketServer } from "ws";
 import { useServer } from "graphql-ws/lib/use/ws";
@@ -17,6 +16,15 @@ import { handleStripeWebhook } from "./stripe/stripeWebhookHandler";
 
 async function startApolloServer() {
   const app = express();
+
+  app.use(
+    express.json({
+      verify: (req, res, buf) => {
+        req.rawBody = buf.toString();
+      },
+    })
+  );
+
   app.use(cors());
 
   app.use(clerkMiddleware());
@@ -34,7 +42,10 @@ async function startApolloServer() {
 
   app.post(
     "/webhook",
-    express.raw({ type: "application/json" }),
+    (req, res, next) => {
+      console.log("Using req.rawBody");
+      next();
+    },
     handleStripeWebhook
   );
 

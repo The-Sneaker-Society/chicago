@@ -1,4 +1,6 @@
 import { stripe } from "./config";
+import MemberModel from "../models/Member.model";
+import { syncStripeDataToKV } from "../utils/redis/stripeSubscritpitonCache";
 
 export const getOnboardingStatus = async (customerId) => {
   try {
@@ -90,21 +92,40 @@ export const archiveStripeProduct = async (productId) => {
   }
 };
 
-export const createSubscriptionForNewMember = async (memberEmail) => {
+export const createSubscriptionForNewMember = async (memberEmail, memberId) => {
   try {
+    const customer = await stripe.customers.create({
+      email: memberEmail,
+      metadata: {
+        id: memberId,
+      },
+    });
+
+    const stripeCustomerId = customer.id;
+
+    // sync to redis
+    await syncStripeDataToKV(stripeCustomerId);
+
+    await MemberModel.findByIdAndUpdate(
+      memberId,
+      { stripeCustomerId: stripeCustomerId },
+      { new: true }
+    );
+
     const session = await stripe.checkout.sessions.create({
       billing_address_collection: "auto",
       line_items: [{ price: "price_1OlMHZEtfRIDf54VO5sMrS45", quantity: 1 }],
       mode: "subscription",
-      success_url: "https://mail.google.com",
-      customer_email: memberEmail,
+      success_url: "http://localhost:5173/member/subscription-success",
+      customer: stripeCustomerId,
       metadata: {
-        userId: "test",
+        userId: memberId,
       },
     });
 
     return session.url;
   } catch (e) {
+    console.error("Error creating subscription:", e);
     throw e;
   }
 };
@@ -147,9 +168,6 @@ export const getPayoutInfoMember = async (connectAccountId) => {
         stripeAccount: connectAccountId,
       }
     );
-
-    console.log(balance);
-    console.log(payouts);
 
     if (payouts.data && payouts.data.length > 0) {
       const nextPayout = payouts.data[0];
