@@ -101,6 +101,7 @@ async function handleStripeEvent(event) {
       case "checkout.session.completed":
         // You might want to verify the session and update order status in your DB
         // But the core subscription data is now in KV
+        // TODO Updatefor subscription created success and update in DB
         console.log("checkout.session.completed");
         break;
 

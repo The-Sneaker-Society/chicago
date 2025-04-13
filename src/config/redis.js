@@ -5,8 +5,6 @@ dotenv.config({ path: "config.env" });
 
 const redisUrl = process.env.REDIS_URL;
 
-console.log({ redisUrl });
-
 const redisConfig = redisUrl
   ? { url: redisUrl }
   : {

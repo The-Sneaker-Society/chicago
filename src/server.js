@@ -13,8 +13,19 @@ import { useServer } from "graphql-ws/lib/use/ws";
 import { clerkMiddleware, requireAuth } from "@clerk/express";
 import redis from "./config/redis";
 import { handleStripeWebhook } from "./stripe/stripeWebhookHandler";
+import { checkEnvVars } from "./utils/checkVars";
 
 async function startApolloServer() {
+  checkEnvVars([
+    "REDIS_HOST",
+    "REDIS_PORT",
+    "CLERK_PUBLISHABLE_KEY",
+    "CLERK_SECRET_KEY",
+    "STRIPE_API_KEY",
+    "STRIPE_MEMBER_SUBSCRIPTION_ID",
+    "ATLAS_URI",
+    "REACT_APP_URL",
+  ]);
   const app = express();
 
   app.use(
