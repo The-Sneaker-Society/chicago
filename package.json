@@ -15,7 +15,11 @@
     "build-babel": "babel -d ./build src/server.js -s",
     "build": "npm run clean && npm run build-babel",
     "start:dev": "npm run dev",
-    "generate-dev-token": "babel-node src/scripts/generateDevToken.js"
+    "generate-dev-token": "babel-node src/scripts/generateDevToken.js",
+    "update-member": "babel-node src/scripts/updateMemberModel.js",
+    "remove-field": "babel-node src/scripts/removeSubscriptionId.js",
+    "stripe-listen": "stripe listen --forward-to localhost:4000/webhook",
+    "dev-with-stripe": "concurrently \"npm run dev\" \"npm run stripe-listen\""
   },
   "repository": {
     "type": "git",
@@ -33,6 +37,7 @@
     "@babel/node": "^7.17.10",
     "@babel/preset-env": "^7.17.10",
     "babel-cli": "^6.26.0",
+    "concurrently": "^9.1.2",
     "morgan": "^1.10.0",
     "nodemon": "^2.0.18"
   },

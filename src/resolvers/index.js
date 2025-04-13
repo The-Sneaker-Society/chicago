@@ -1,4 +1,4 @@
-import memberResolvers from "./members";
+import memberResolvers from "./members.resolver";
 import contractResolvers from "./contracts";
 import productResovers from "./products";
 import userResolvers from "./users";

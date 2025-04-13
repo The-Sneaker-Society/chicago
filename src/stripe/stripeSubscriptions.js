@@ -1,5 +1,5 @@
-import { stripe } from './config';
-import MemberModel from '../models/Member.model';
+import { stripe } from "./config";
+import MemberModel from "../models/Member.model";
 
 /**
  *
@@ -28,19 +28,21 @@ export const handleStripeSubscriptionCreated = async ({
    * 2. Look up the customer in stripe with the customerId to get the email
    * 3. Update the DB with the customerId, subscriptionID, and the status.
    */
-  //   console.log({ customerId, subscriptionId, subscriptionStatus });
+  console.log({ customerId, subscriptionId, subscriptionStatus });
   const customer = await stripe.customers.retrieve(customerId);
 
-  const member = await MemberModel.find({ email: customer.email });
+  console.log({ customer });
 
-  if (!member) {
-    return false;
-  }
+  // const member = await MemberModel.find({ email: customer.email });
 
-  member[0].subscriptionId = subscriptionId;
-  member[0].customerId = customerId; // Add to Model
-  member[0].subscriptionStatus = subscriptionStatus; // add to Model
-  member[0].save();
+  // if (!member) {
+  //   return false;
+  // }
+
+  // member[0].subscriptionId = subscriptionId;
+  // member[0].customerId = customerId; // Add to Model
+  // member[0].subscriptionStatus = subscriptionStatus; // add to Model
+  // member[0].save();
 
   return true;
 };

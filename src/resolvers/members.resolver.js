@@ -1,21 +1,15 @@
+import dotenv from "dotenv";
 import { UserInputError } from "apollo-server-core";
 import MemberModel from "../models/Member.model";
 import ChatModel from "../models/Chat.model";
 import UserModel from "../models/User.model";
 import ContractModel from "../models/Contract.model";
 import ProductsModel from "../models/Products.model";
-import {
-  createAccountLink,
-  createExpressaccount,
-  createSubscriptionForNewMember,
-  getPayoutInfoMember,
-  signUpForMonthlyMembership,
-} from "../stripe/stripeUtils";
+import * as stripeService from "../stripe/stripe.service";
+import * as redisService from "../utils/redis/stripeSubscritpitonCache";
 import { createQRCode } from "../utils/qrGenerator";
-import dotenv from "dotenv";
-dotenv.config({ path: "config.env" });
 
-//  test url https://docs.stripe.com/connect/testing
+dotenv.config({ path: "config.env" });
 
 const Query = {
   async members(parent, args, ctx, info) {
@@ -57,9 +51,10 @@ const Query = {
       if (!stripeConnectAccountId) {
         throw new Error("Not synced with stripe");
       }
-      const { payoutAmount, arrivalDate } = await getPayoutInfoMember(
-        ctx.dbUser.stripeConnectAccountId
-      );
+      const { payoutAmount, arrivalDate } =
+        await stripeService.getPayoutInfoMember(
+          ctx.dbUser.stripeConnectAccountId
+        );
 
       const currentDate = new Date();
       const arrival = new Date(arrivalDate);
@@ -90,15 +85,6 @@ const Query = {
       };
     } catch (e) {
       throw new Error(e);
-    }
-  },
-  async createMemberSubsctiprion(parent, args, ctx, info) {
-    try {
-      const { email } = ctx.dbUser;
-      const subscriptionUrl = await createSubscriptionForNewMember(email);
-      return subscriptionUrl;
-    } catch (error) {
-      throw new Error(Error);
     }
   },
 };
@@ -179,14 +165,18 @@ const Mutation = {
   },
   async onboardMemberToStripe(parent, args, ctx, info) {
     try {
-      const createdStripeAccountId = await createExpressaccount(ctx.userId);
+      const createdStripeAccountId = await stripeService.createExpressaccount(
+        ctx.userId
+      );
       const member = await MemberModel.findByIdAndUpdate(
         ctx.dbUser.id,
         { stripeConnectAccountId: createdStripeAccountId.id },
         { new: true }
       );
 
-      const { url } = await createAccountLink(member.stripeConnectAccountId);
+      const { url } = await stripeService.createAccountLink(
+        member.stripeConnectAccountId
+      );
 
       return url;
     } catch (error) {
@@ -197,13 +187,69 @@ const Mutation = {
     try {
       const member = await MemberModel.findById(ctx.id);
 
-      console.log(member);
-
-      const { url } = await createAccountLink(member.stripeConnectAccountId);
+      const { url } = await stripeService.createAccountLink(
+        member.stripeConnectAccountId
+      );
 
       return url;
     } catch (error) {
       throw new Error(error);
+    }
+  },
+  async syncStripeData(parent, args, ctx, info) {
+    try {
+      const { stripeCustomerId } = ctx.dbUser;
+
+      if (!stripeCustomerId) {
+        throw new Error("Stripe customer ID not found for this user.");
+      }
+
+      await redisService.syncStripeDataToKV(stripeCustomerId);
+
+      return { success: true };
+    } catch (error) {
+      throw new Error("Failed to sync Stripe data.");
+    }
+  },
+  async createMemberSubsctiprion(parent, args, ctx, info) {
+    try {
+      const { email, id } = ctx.dbUser;
+
+      const subscriptionUrl =
+        await stripeService.createSubscriptionForNewMember(email, id);
+      return subscriptionUrl;
+    } catch (error) {
+      throw new Error(Error);
+    }
+  },
+  async cancelSubscription(parent, args, ctx, info) {
+    try {
+      const { stripeCustomerId } = ctx.dbUser;
+
+      if (!stripeCustomerId) {
+        throw new Error("Stripe customer ID not found for this user.");
+      }
+
+      await stripeService.cancelMemberSubscription(stripeCustomerId);
+
+      return true;
+    } catch {
+      throw new Error("Failed to cancel subscription");
+    }
+  },
+  async reactivateSubscription(parent, args, ctx, info) {
+    try {
+      const { stripeCustomerId } = ctx.dbUser;
+
+      if (!stripeCustomerId) {
+        throw new Error("Stripe customer ID not found for this user.");
+      }
+
+      await stripeService.reactivateMemberSubscription(stripeCustomerId);
+
+      return true;
+    } catch {
+      throw new Error("Failed to reactivate subscription");
     }
   },
 };
@@ -263,6 +309,17 @@ const Member = {
       const { _id } = ctx;
       const chats = await ChatModel.find({ memberId: _id });
       return chats;
+    } catch (error) {
+      throw new Error(error);
+    }
+  },
+  async isSubscribed(parent, args, ctx, info) {
+    try {
+      const { stripeCustomerId } = parent;
+      const status = await stripeService.getMemberSubscriptionStatus(
+        stripeCustomerId
+      );
+      return status;
     } catch (error) {
       throw new Error(error);
     }

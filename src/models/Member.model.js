@@ -49,9 +49,14 @@ const MemberSchema = new mongoose.Schema(
         ref: "Contracts",
       },
     ],
-    subscriptionId: {
+    stripeCustomerId: {
       type: String,
       default: null,
+    },
+    subscriptionStatus: {
+      type: String,
+      enum: ["inactive", "pending", "active", "past_due", "canceled"],
+      default: "inactive",
     },
     stripeConnectAccountId: {
       type: String,
@@ -62,8 +67,8 @@ const MemberSchema = new mongoose.Schema(
       default: true,
     },
     deletedAt: {
-      type: Date, // Use Date type to store the timestamp of deletion
-      default: null, // Set to null for active members, or a date value for deleted members
+      type: Date,
+      default: null,
     },
   },
   {

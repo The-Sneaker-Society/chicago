@@ -7,19 +7,45 @@ import typeDefs from "./models/schema/index";
 import resolvers from "./resolvers";
 import connectDb from "./config/db";
 import { clearkAuthorizeUser } from "./utils/auth/auth";
-import { handleStripeSubscriptionCreated } from "./stripe/stripeSubscriptions";
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { WebSocketServer } from "ws";
 import { useServer } from "graphql-ws/lib/use/ws";
 import { clerkMiddleware, requireAuth } from "@clerk/express";
-// import redis from "./config/redis";
+import redis from "./config/redis";
+import { handleStripeWebhook } from "./stripe/stripeWebhookHandler";
+import { checkEnvVars } from "./utils/checkVars";
 
 async function startApolloServer() {
+  checkEnvVars([
+    "REDIS_HOST",
+    "REDIS_PORT",
+    "CLERK_PUBLISHABLE_KEY",
+    "CLERK_SECRET_KEY",
+    "STRIPE_API_KEY",
+    "STRIPE_MEMBER_SUBSCRIPTION_ID",
+    "ATLAS_URI",
+    "REACT_APP_URL",
+  ]);
   const app = express();
+
+  app.use(
+    express.json({
+      verify: (req, res, buf) => {
+        req.rawBody = buf.toString();
+      },
+    })
+  );
+
   app.use(cors());
 
   app.use(clerkMiddleware());
-  app.use(requireAuth());
+
+  app.use((req, res, next) => {
+    if (req.path !== "/webhook") {
+      return requireAuth()(req, res, next);
+    }
+    next(); // Skip requireAuth for /webhook
+  });
 
   app.get("/", (req, res) => {
     res.send("hello world");
@@ -27,43 +53,11 @@ async function startApolloServer() {
 
   app.post(
     "/webhook",
-    express.json({ type: "application/json" }),
-    (request, response) => {
-      const event = request.body;
-      let subscription;
-      let status;
-      // Handle the event
-      switch (event.type) {
-        case "payment_intent.succeeded":
-          const paymentIntent = event.data.object;
-          // Then define and call a method to handle the successful payment intent.
-          // handlePaymentIntentSucceeded(paymentIntent);
-          break;
-        case "payment_method.attached":
-          const paymentMethod = event.data.object;
-          // Then define and call a method to handle the successful attachment of a PaymentMethod.
-          // handlePaymentMethodAttached(paymentMethod);
-          break;
-        case "customer.subscription.created":
-          subscription = event.data.object;
-          status = subscription.status;
-          console.log(`Subscription status is ${status}.`);
-          // Then define and call a method to handle the subscription created.
-          // handleSubscriptionCreated(subscription);
-          handleStripeSubscriptionCreated({
-            subscriptionId: subscription.id,
-            customerId: subscription.customer,
-            subscriptionStatus: subscription.status,
-          });
-          break;
-        // ... handle other event types
-        default:
-          console.log(`Unhandled event type ${event.type}`);
-      }
-
-      // Return a response to acknowledge receipt of the event
-      response.json({ received: true });
-    }
+    (req, res, next) => {
+      console.log("Using req.rawBody");
+      next();
+    },
+    handleStripeWebhook
   );
 
   const httpServer = http.createServer(app);
@@ -107,7 +101,7 @@ async function startApolloServer() {
       const authContext = await clearkAuthorizeUser(integrationContext);
       return {
         ...authContext,
-        // redis, // Use the imported Redis client
+        redis,
       };
     },
   });

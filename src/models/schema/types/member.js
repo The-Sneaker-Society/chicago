@@ -13,6 +13,7 @@ const memberTypeDefs = gql`
     zipcode: String
     state: String
     stripeConnectAccountId: String
+    stripeCustomerId: String
     isActive: Boolean!
     clients: [Client!]!
     contracts: [Contract!]!
@@ -24,7 +25,12 @@ const memberTypeDefs = gql`
     deletedAt: String
     qrWidgetData: QrWidgetData!
     isNewUser: Boolean!
+    isSubscribed: Boolean!
     chats: [Chat]!
+  }
+
+  type SyncStripeDataResult {
+    success: Boolean!
   }
 
   type QrWidgetData {
@@ -63,7 +69,7 @@ const memberTypeDefs = gql`
     state: String
     isNewUser: Boolean
   }
-    
+
   # Queries
   type Query {
     members: [Member!]!
@@ -71,15 +77,18 @@ const memberTypeDefs = gql`
     currentMember: Member!
     memberQrWidget: QrWidgetData!
     stripeWidgetData: StripeWidgetData!
-    createMemberSubsctiprion: String
   }
 
   # Mutations
   type Mutation {
     createMember(data: CreateMemberInput!): Member!
+    createMemberSubsctiprion: String
+    cancelSubscription: Boolean!
     updateMember(data: UpdateMemberInput!): Boolean!
+    reactivateSubscription: Boolean!
     onboardMemberToStripe: String!
     deleteMember: Boolean!
+    syncStripeData: SyncStripeDataResult!
   }
 `;
 
