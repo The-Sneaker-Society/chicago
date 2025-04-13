@@ -6,7 +6,7 @@ dotenv.config({ path: "config.env" });
 const redisUrl = process.env.REDIS_URL;
 
 const redisConfig = redisUrl
-  ? { url: redisUrl }
+  ? redisUrl
   : {
       host: process.env.REDIS_HOST || "127.0.0.1",
       port: parseInt(process.env.REDIS_PORT || "6379"),
@@ -14,7 +14,6 @@ const redisConfig = redisUrl
     };
 
 const redis = new Redis(redisConfig);
-
 redis.on("connect", () => {
   console.log("Connected to Redis");
 });
