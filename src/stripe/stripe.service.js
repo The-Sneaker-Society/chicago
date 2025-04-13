@@ -382,3 +382,54 @@ export const reactivateMemberSubscription = async (customerId, priceId) => {
     throw error;
   }
 };
+
+export const getMemberSubscriptionDetails = async (customerId) => {
+  if (!customerId) {
+    throw Error("Missing customer Id");
+  }
+
+  const kvKey = `stripe:customer:${customerId}`;
+
+  try {
+    const stripeData = await redis.get(kvKey);
+    if (stripeData) {
+      const subData = JSON.parse(stripeData);
+      return {
+        status: subData.status,
+        currentPeriodEnd: new Date(sub.currentPeriodEnd * 1000).toISOString(),
+        paymentMethod: subData.paymentMethod,
+      };
+    }
+  } catch (redisError) {
+    console.error("Error accessing Redis:", redisError);
+  }
+
+  try {
+    const subscriptions = await stripe.subscriptions.list({
+      customer: customerId,
+      limit: 1,
+    });
+
+    if (subscriptions.data.length > 0) {
+      const sub = subscriptions.data[0];
+      const subscriptionDetails = {
+        status: sub.status,
+        currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
+        paymentMethod: sub.default_payment_method,
+      };
+
+      await syncStripeDataToKV(customerId);
+
+      return subscriptionDetails;
+    } else {
+      return {
+        status: false,
+        currentPeriodEnd: null,
+        paymentMethod: null,
+      };
+    }
+  } catch (stripeError) {
+    console.error("Error querying Stripe:", stripeError);
+    throw stripeError;
+  }
+};
