@@ -87,6 +87,19 @@ const Query = {
       throw new Error(e);
     }
   },
+  async subscriptionDetails(parent, args, ctx, info) {
+    try {
+      const { stripeCustomerId } = ctx.dbUser;
+
+      const details = await stripeService.getMemberSubscriptionDetails(
+        stripeCustomerId
+      );
+
+      return details;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
 };
 
 const Mutation = {

@@ -45,6 +45,17 @@ const memberTypeDefs = gql`
     stripeConnectAccountId: String
   }
 
+  type SubscriptionDetails {
+    status: String
+    currentPeriodEnd: String
+    paymentMethod: PaymentMethod
+  }
+
+  type PaymentMethod {
+    brand: String
+    last4: String
+  }
+
   input CreateMemberInput {
     clerkId: String!
     email: String
@@ -77,6 +88,7 @@ const memberTypeDefs = gql`
     currentMember: Member!
     memberQrWidget: QrWidgetData!
     stripeWidgetData: StripeWidgetData!
+    subscriptionDetails: SubscriptionDetails!
   }
 
   # Mutations
