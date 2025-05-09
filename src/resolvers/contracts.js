@@ -2,6 +2,7 @@ import MemberModel from "../models/Member.model";
 import UserModel from "../models/User.model";
 import ContractModel from "../models/Contract.model";
 import { createPaymentIntent } from "../stripe/stripe.service";
+import mongoose from "mongoose";
 
 const Query = {
   async contracts() {
@@ -27,33 +28,59 @@ const Query = {
   },
   async memberContractStatus(parent, args, ctx, info) {
     try {
+      // Validate that the context contains a valid member ID
+      if (!ctx.dbUser) {
+        throw new Error("Unauthorized: Member ID is missing in the context.");
+      }
+
+      const { id } = ctx.dbUser;
+
+      const memberId = mongoose.Types.ObjectId.isValid(id)
+        ? mongoose.Types.ObjectId(id)
+        : id;
+
+      // Aggregate contract counts by stage
       const contractCounts = await ContractModel.aggregate([
         {
-          $match: { member: ctx._id },
+          $match: { memberId: memberId },
         },
         {
           $group: {
-            _id: "$stage",
+            _id: "$status",
             count: { $sum: 1 },
           },
         },
       ]);
-
+  
       const statusCounts = {
         notStarted: 0,
+        pendingReview: 0,
         started: 0,
         finished: 0,
       };
 
+      // Map database stages to status counts
+      const STAGE_MAP = {
+        PENDING_REVIEW: "notStarted",
+        STARTED: "started",
+        FINISHED: "finished",
+      };
+
       contractCounts.forEach((stage) => {
-        if (stage._id === "NOT_STARTED") statusCounts.notStarted = stage.count;
-        if (stage._id === "STARTED") statusCounts.started = stage.count;
-        if (stage._id === "FINISHED") statusCounts.finished = stage.count;
+        const statusKey = STAGE_MAP[stage._id];
+        if (statusKey) {
+          statusCounts[statusKey] = stage.count;
+        }
       });
+
+      console.log("Status Counts:", statusCounts); // Debugging log
 
       return statusCounts;
     } catch (e) {
-      throw new Error(e);
+      console.error("Error in memberContractStatus resolver:", e.message);
+      throw new Error(
+        "Failed to fetch member contract status. Please try again."
+      );
     }
   },
   async getContractList(parent, args, ctx, info) {
