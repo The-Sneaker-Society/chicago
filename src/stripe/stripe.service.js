@@ -211,7 +211,8 @@ export const createPaymentIntent = async (
 
 export const getMemberSubscriptionStatus = async (customerId) => {
   if (!customerId) {
-    throw Error("Missing customer Id");
+    console.error("Missing customer Id");
+    return false;
   }
 
   const kvKey = `stripe:customer:${customerId}`;

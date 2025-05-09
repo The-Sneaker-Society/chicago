@@ -56,6 +56,23 @@ const Query = {
       throw new Error(e);
     }
   },
+  async getContractList(parent, args, ctx, info) {
+    try {
+      const contractIds = ctx.dbUser.contracts;
+
+      const contracts = await ContractModel.find({ _id: { $in: contractIds } });
+
+      return contracts.map((contract) => ({
+        id: contract._id,
+        name: `${contract.shoeDetails.brand} ${contract.shoeDetails.model}`,
+        status: contract.status,
+        createdAt: contract.createdAt,
+        updatedAt: contract.updatedAt,
+      }));
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
 };
 const Mutation = {
   async createContract(parent, args, ctx, info) {
