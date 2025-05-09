@@ -73,8 +73,6 @@ const Query = {
         }
       });
 
-      console.log("Status Counts:", statusCounts); // Debugging log
-
       return statusCounts;
     } catch (e) {
       console.error("Error in memberContractStatus resolver:", e.message);
