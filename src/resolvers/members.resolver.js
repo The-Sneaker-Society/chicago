@@ -304,9 +304,9 @@ const Member = {
   },
   async qrWidgetData(parent, args, ctx, info) {
     try {
-      const { CONTRACT_URL } = process.env;
-      const { id } = ctx;
-      const memberConractUrl = `${CONTRACT_URL}/${id}`;
+      const { REACT_APP_URL } = process.env;
+      const { id } = ctx.dbUser;
+      const memberConractUrl = `${REACT_APP_URL}/user/new-contract/${id}`;
 
       const qrImage = await createQRCode(memberConractUrl);
       return {
