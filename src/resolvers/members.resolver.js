@@ -56,31 +56,15 @@ const Query = {
           ctx.dbUser.stripeConnectAccountId
         );
 
-      const currentDate = new Date();
-      const arrival = new Date(arrivalDate);
-      const deltaInMilliseconds = arrival - currentDate;
-      const deltaInDays = Math.ceil(
-        deltaInMilliseconds / (1000 * 60 * 60 * 24)
-      );
-
-      if (!deltaInDays) {
-        return {
-          stripeConnectAccountId: stripeConnectAccountId ?? "",
-          percentChange: 0,
-          nextPayoutDays: 0,
-          payoutAmount: formattedPayoutAmount ?? "0",
-        };
-      }
-
       const formattedPayoutAmount = new Intl.NumberFormat("en-US", {
         style: "currency",
         currency: "USD",
-      }).format(payoutAmount ?? 0 / 100);
+      }).format(payoutAmount);
 
       return {
         stripeConnectAccountId: stripeConnectAccountId ?? "",
         percentChange: 0,
-        nextPayoutDays: deltaInDays,
+        nextPayoutDate: arrivalDate,
         payoutAmount: formattedPayoutAmount ?? "0",
       };
     } catch (e) {

@@ -40,7 +40,7 @@ const memberTypeDefs = gql`
 
   type StripeWidgetData {
     percentChange: Float!
-    nextPayoutDays: Int!
+    nextPayoutDate: String!
     payoutAmount: String!
     stripeConnectAccountId: String
   }
