@@ -133,41 +133,88 @@ export const createSubscriptionForNewMember = async (memberEmail, memberId) => {
   }
 };
 
+export const getPayoutSchedule = async (connectAccountId) => {
+  try {
+    const account = await stripe.accounts.retrieve(connectAccountId);
+
+    const payoutSchedule = account.settings.payouts.schedule;
+
+    return {
+      interval: payoutSchedule.interval,
+      delayDays: payoutSchedule.delay_days,
+    };
+  } catch (error) {
+    console.error("Error retrieving payout schedule:", error);
+    throw error;
+  }
+};
+
+export const getNextPayoutDate = async (connectAccountId) => {
+  try {
+    // Retrieve the payout schedule
+    const payoutSchedule = await getPayoutSchedule(connectAccountId);
+    const { interval, delayDays } = payoutSchedule;
+
+    // Retrieve the last payout date
+    const payouts = await stripe.payouts.list(
+      { limit: 1 },
+      { stripeAccount: connectAccountId }
+    );
+
+    const lastPayoutDate = payouts.data.length
+      ? new Date(payouts.data[0].arrival_date * 1000)
+      : new Date(); // Default to current date if no payouts exist
+
+    let nextPayoutDate;
+
+    if (interval === "daily") {
+      // Add delay days to the last payout date for daily payouts
+      nextPayoutDate = new Date(lastPayoutDate);
+      nextPayoutDate.setDate(lastPayoutDate.getDate() + delayDays);
+    } else if (interval === "weekly") {
+      // Calculate the next weekly payout date
+      const dayOfWeek = lastPayoutDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      const daysUntilNextPayout = (7 - dayOfWeek + delayDays) % 7 || 7;
+      nextPayoutDate = new Date(lastPayoutDate);
+      nextPayoutDate.setDate(lastPayoutDate.getDate() + daysUntilNextPayout);
+    } else if (interval === "monthly") {
+      // Assume monthly payouts occur on the same day of the month
+      nextPayoutDate = new Date(lastPayoutDate);
+      nextPayoutDate.setMonth(lastPayoutDate.getMonth() + 1);
+      nextPayoutDate.setDate(delayDays || 1); // Default to the 1st of the month if no delayDays
+    } else {
+      throw new Error("Unsupported payout interval");
+    }
+
+    return {
+      nextPayoutDate: nextPayoutDate.toISOString(),
+      lastPayoutDate: lastPayoutDate.toISOString(),
+      interval,
+      delayDays,
+    };
+  } catch (error) {
+    console.error("Error calculating next payout date:", error);
+    throw error;
+  }
+};
+
 export const getPayoutInfoMember = async (connectAccountId) => {
   try {
     const balance = await stripe.balance.retrieve({
       stripeAccount: connectAccountId,
     });
 
-    const pendingBalance =
-      balance.pending.find((amount) => amount.currency === "usd")?.amount /
-        100 || 0;
+    const pendingBalance = balance.pending.reduce((acc, item) => {
+      return acc + item.amount;
+    }, 0);
+    const payoutData = await getNextPayoutDate(connectAccountId);
 
-    const payouts = await stripe.payouts.list(
-      {
-        limit: 10,
-      },
-      {
-        stripeAccount: connectAccountId,
-      }
-    );
-
-    if (payouts.data && payouts.data.length > 0) {
-      const nextPayout = payouts.data[0];
-      const payoutAmount = pendingBalance;
-      const arrivalDate = new Date(nextPayout.arrival_date * 1000);
-
-      return {
-        payoutAmount: payoutAmount,
-        arrivalDate: arrivalDate.toISOString(),
-      };
-    } else {
-      return {
-        payoutAmount: 0,
-        arrivalDate: null,
-      };
-    }
+    return {
+      payoutAmount: pendingBalance / 100,
+      arrivalDate: payoutData.nextPayoutDate,
+    };
   } catch (e) {
+    console.error("Error fetching payout info:", e);
     throw e;
   }
 };
