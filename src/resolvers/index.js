@@ -2,7 +2,7 @@ import memberResolvers from "./members.resolver";
 import contractResolvers from "./contracts";
 import productResovers from "./products";
 import userResolvers from "./users";
-import chatResolvers from "./chat";
+import chatResolvers from "./chat/chat";
 
 module.exports = {
   Query: {

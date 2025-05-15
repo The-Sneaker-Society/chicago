@@ -34,7 +34,7 @@ const chatTypeDefs = gql`
     senderType: MessageSenderType!
   }
 
-  input ChatSubscriptionInput {
+  input SubscribeToChatInput {
     chatId: ID!
   }
 
@@ -49,7 +49,8 @@ const chatTypeDefs = gql`
   }
 
   type Subscription {
-    subscribeToChat(data: ChatSubscriptionInput): Message!
+    subscribeToChat(data: SubscribeToChatInput): Message!
+    hello: String!
   }
 `;
 
