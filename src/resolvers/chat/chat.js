@@ -1,22 +1,12 @@
-import MessageModel from "../models/Messages.Model";
-import UserModel from "../models/User.model";
-import MemberModel from "../models/Member.model";
-import ChatModel from "../models/Chat.model";
+import MessageModel from "../../models/Messages.Model";
+import UserModel from "../../models/User.model";
+import MemberModel from "../../models/Member.model";
+import ChatModel from "../../models/Chat.model";
 import { PubSub } from "graphql-subscriptions";
 
 const pubsub = new PubSub();
 
 const Query = {
-  // newMessage() {
-  //   const date = Date.now();
-  //   const dateString = new Date(date);
-
-  //   return {
-  //     user: "Alanis Yates",
-  //     text: `Message + num:${currentNumber}`,
-  //     timeStamp: dateString.toDateString(),
-  //   };
-  // },
   async messages() {
     try {
       const messages = await MessageModel.find();
@@ -49,7 +39,7 @@ const Query = {
 const Mutation = {
   async createChat(parent, args, ctx, info) {
     try {
-      const { _id } = ctx;
+      const { _id } = ctx.dbUser;
       const { userId, name } = args.data;
 
       const newChat = ChatModel({ name, memberId: _id, userId });
@@ -63,7 +53,7 @@ const Mutation = {
   },
   async createMessage(parent, args, ctx, info) {
     try {
-      const { _id } = ctx;
+      const { _id } = ctx.dbUser;
       const { content, senderType, chatId } = args.data;
 
       const chat = await ChatModel.findById(chatId);
@@ -86,10 +76,10 @@ const Mutation = {
           subscribeToChat: {
             id: res._id,
             chatId: res.chatId,
-            senderId: res._id,
+            senderId: res.senderId,
             content: res.content,
             senderType: res.senderType,
-            createdAt: new Date(res.createdAt),
+            createdAt: res.createdAt,
           },
         });
 
@@ -106,10 +96,16 @@ const Mutation = {
 const Chat = {
   async messages(parent, args, ctx, info) {
     try {
-      const messages = await MessageModel.find({ chatId: parent.id });
+      const { id: chatId } = parent;
+
+      const messages = await MessageModel.find({ chatId }).sort({
+        createdAt: 1,
+      });
+
       return messages;
-    } catch (e) {
-      throw e;
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      throw error;
     }
   },
   async user(parent, args, ctx, info) {
@@ -134,11 +130,8 @@ const Chat = {
 };
 
 const Subscription = {
-  // numberIncremented: {
-  //   subscribe: () => pubsub.asyncIterator(['NUMBER_INCREMENTED']),
-  // },
   subscribeToChat: {
-    subscribe: (partent, args, ctx, ibfo) => {
+    subscribe: (parent, args, ctx, info) => {
       const { chatId } = args.data;
       return pubsub.asyncIterator([`MESSAGE_CREATED ${chatId}`]);
     },
