@@ -93,6 +93,13 @@ const contractTypeDefs = gql`
   input RepairDetailsInput {
     clientNotes: String
   }
+    
+  type ContractListItem {
+    id: ID!
+    name: String!
+    status: StageType!
+    createdAt: String!
+  }
 
   type Query {
     contracts: [Contract!]!
@@ -101,12 +108,6 @@ const contractTypeDefs = gql`
     getContractList: [ContractListItem!]!
   }
 
-  type ContractListItem {
-    id: ID!
-    name: String!
-    status: StageType!
-    createdAt: String!
-  }
 
   type Mutation {
     createContract(data: CreateContractInput!): Contract!

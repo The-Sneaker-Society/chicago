@@ -444,7 +444,7 @@ export const getMemberSubscriptionDetails = async (customerId) => {
       const subData = JSON.parse(stripeData);
       return {
         status: subData.status,
-        currentPeriodEnd: new Date(sub.currentPeriodEnd * 1000).toISOString(),
+        currentPeriodEnd: new Date(subData.currentPeriodEnd * 1000).toISOString(),
         paymentMethod: subData.paymentMethod,
       };
     }
