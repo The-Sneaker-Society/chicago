@@ -3,16 +3,34 @@ import MemberModel from "../models/Member.model";
 import redis from "../config/redis";
 import { syncStripeDataToKV } from "../utils/redis/stripeSubscritpitonCache";
 
-export const getOnboardingStatus = async (customerId) => {
-  try {
-    const stripeAccount = await stripe.accounts.retrieve(customerId);
-
-    if (stripeAccount.details_submitted) {
-      return true;
-    }
-
+export const getOnboardingStatus = async (stripeConnectAccountId) => {
+  if (!stripeConnectAccountId) {
     return false;
+  }
+
+  try {
+    const account = await stripe.accounts.retrieve(stripeConnectAccountId);
+
+    const { payouts_enabled, details_submitted, requirements } = account;
+
+    const hasNoCurrentlyDueRequirements = !(
+      requirements &&
+      requirements.currently_due &&
+      requirements.currently_due.length > 0
+    );
+
+    console.log(
+      payouts_enabled && details_submitted && hasNoCurrentlyDueRequirements
+    );
+
+    return (
+      payouts_enabled && details_submitted && hasNoCurrentlyDueRequirements
+    );
   } catch (error) {
+    console.error(
+      `Error in getOnboardingStatus for Stripe account ${stripeConnectAccountId}:`,
+      error.message
+    );
     throw error;
   }
 };
@@ -444,7 +462,9 @@ export const getMemberSubscriptionDetails = async (customerId) => {
       const subData = JSON.parse(stripeData);
       return {
         status: subData.status,
-        currentPeriodEnd: new Date(subData.currentPeriodEnd * 1000).toISOString(),
+        currentPeriodEnd: new Date(
+          subData.currentPeriodEnd * 1000
+        ).toISOString(),
         paymentMethod: subData.paymentMethod,
       };
     }

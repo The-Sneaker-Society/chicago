@@ -27,6 +27,7 @@ const memberTypeDefs = gql`
     qrWidgetData: QrWidgetData!
     isNewUser: Boolean!
     isSubscribed: Boolean!
+    isOnboardedWithStripe: Boolean!
     chats: [Chat]!
   }
 
@@ -101,6 +102,7 @@ const memberTypeDefs = gql`
     updateMember(data: UpdateMemberInput!): Boolean!
     reactivateSubscription: Boolean!
     onboardMemberToStripe: String!
+    resumeAccountOnboarding: String!
     deleteMember: Boolean!
     syncStripeData: SyncStripeDataResult!
   }
