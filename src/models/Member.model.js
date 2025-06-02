@@ -12,6 +12,9 @@ const MemberSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    businessName: {
+      type: String,
+    },
     firstName: {
       type: String,
     },

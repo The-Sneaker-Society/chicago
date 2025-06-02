@@ -5,6 +5,7 @@ const memberTypeDefs = gql`
     id: ID!
     firebaseId: String!
     email: String!
+    businessName: String
     firstName: String!
     lastName: String!
     phoneNumber: String
@@ -71,6 +72,7 @@ const memberTypeDefs = gql`
   input UpdateMemberInput {
     subscriptionId: String
     email: String
+    businessName: String
     firstName: String
     lastName: String
     phoneNumber: String
