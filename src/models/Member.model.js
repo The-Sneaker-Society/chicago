@@ -63,7 +63,7 @@ const MemberSchema = new mongoose.Schema(
     },
     stripeConnectAccountId: {
       type: String,
-      default: null,
+      default: "",
     },
     isNewUser: {
       type: Boolean,

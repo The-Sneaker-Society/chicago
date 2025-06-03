@@ -13,7 +13,7 @@ const memberTypeDefs = gql`
     addressLineTwo: String
     zipcode: String
     state: String
-    stripeConnectAccountId: String
+    stripeConnectAccountId: String!
     stripeCustomerId: String
     isActive: Boolean!
     clients: [Client!]!

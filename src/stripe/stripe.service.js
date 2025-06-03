@@ -1,7 +1,9 @@
+import dotenv from "dotenv";
 import { stripe } from "./config";
 import MemberModel from "../models/Member.model";
 import redis from "../config/redis";
 import { syncStripeDataToKV } from "../utils/redis/stripeSubscritpitonCache";
+dotenv.config({ path: "config.env" });
 
 export const getOnboardingStatus = async (stripeConnectAccountId) => {
   if (!stripeConnectAccountId) {
@@ -17,10 +19,6 @@ export const getOnboardingStatus = async (stripeConnectAccountId) => {
       requirements &&
       requirements.currently_due &&
       requirements.currently_due.length > 0
-    );
-
-    console.log(
-      payouts_enabled && details_submitted && hasNoCurrentlyDueRequirements
     );
 
     return (
@@ -51,11 +49,12 @@ export const createExpressaccount = async (userId) => {
 };
 
 export const createAccountLink = async (stripeAccountId) => {
+  const { REACT_APP_URL } = process.env;
   try {
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
-      refresh_url: "https://example.com/reauth",
-      return_url: "https://example.com/return",
+      refresh_url: `${REACT_APP_URL}/member/onboarding`,
+      return_url: `${REACT_APP_URL}/member/onboarding`,
       type: "account_onboarding",
     });
     return accountLink;
