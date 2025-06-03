@@ -210,10 +210,19 @@ const Mutation = {
   },
   async createMemberSubsctiprion(parent, args, ctx, info) {
     try {
-      const { email, id } = ctx.dbUser;
+      const { email, id, isNewUser } = ctx.dbUser;
 
       const subscriptionUrl =
         await stripeService.createSubscriptionForNewMember(email, id);
+
+      if (isNewUser) {
+        await MemberModel.findByIdAndUpdate(
+          ctx.dbUser._id,
+          { isNewUser: false },
+          { new: true }
+        );
+      }
+
       return subscriptionUrl;
     } catch (error) {
       throw new Error(Error);
