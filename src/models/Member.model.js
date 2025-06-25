@@ -12,6 +12,9 @@ const MemberSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    businessName: {
+      type: String,
+    },
     firstName: {
       type: String,
     },
@@ -60,7 +63,7 @@ const MemberSchema = new mongoose.Schema(
     },
     stripeConnectAccountId: {
       type: String,
-      default: null,
+      default: "",
     },
     isNewUser: {
       type: Boolean,

@@ -182,7 +182,7 @@ const Mutation = {
   },
   async resumeAccountOnboarding(parent, args, ctx, info) {
     try {
-      const member = await MemberModel.findById(ctx.id);
+      const member = await MemberModel.findById(ctx.dbUser.id);
 
       const { url } = await stripeService.createAccountLink(
         member.stripeConnectAccountId
@@ -210,10 +210,19 @@ const Mutation = {
   },
   async createMemberSubsctiprion(parent, args, ctx, info) {
     try {
-      const { email, id } = ctx.dbUser;
+      const { email, id, isNewUser } = ctx.dbUser;
 
       const subscriptionUrl =
         await stripeService.createSubscriptionForNewMember(email, id);
+
+      if (isNewUser) {
+        await MemberModel.findByIdAndUpdate(
+          ctx.dbUser._id,
+          { isNewUser: false },
+          { new: true }
+        );
+      }
+
       return subscriptionUrl;
     } catch (error) {
       throw new Error(Error);
@@ -317,6 +326,19 @@ const Member = {
         stripeCustomerId
       );
       return status;
+    } catch (error) {
+      throw new Error(error);
+    }
+  },
+  async isOnboardedWithStripe(parent, args, ctx, info) {
+    try {
+      const { stripeConnectAccountId } = parent;
+
+      const result = await stripeService.getOnboardingStatus(
+        stripeConnectAccountId
+      );
+
+      return result;
     } catch (error) {
       throw new Error(error);
     }
