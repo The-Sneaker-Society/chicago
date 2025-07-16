@@ -1,12 +1,12 @@
 import { clerkClient } from "@clerk/express";
 import connectDb from "../config/db";
-import UserModel from "../models/User.model";
+import MemberModel from "../models/Member.model";
 
-async function deleteClerkUser(email) {
+async function deleteClerkMember(email) {
   await connectDb();
 
   try {
-    const foundUser = await UserModel.findOne({ email: email });
+    const foundUser = await MemberModel.findOne({ email: email });
 
     if (!foundUser) {
       throw new Error(`User Not found: ${email}`);
@@ -14,7 +14,7 @@ async function deleteClerkUser(email) {
 
     const { clerkId, _id } = foundUser;
 
-    await UserModel.deleteOne({ _id: _id });
+    await MemberModel.deleteOne({ _id: _id });
     const deletedUser = await clerkClient.users.deleteUser(clerkId);
 
     console.log(`User ${email} deleted successfully:`, deletedUser);
@@ -30,4 +30,4 @@ async function deleteClerkUser(email) {
   }
 }
 
-deleteClerkUser("thesneakersociety1@gmail.com");
+deleteClerkMember("kyledes08@gmail.com");
