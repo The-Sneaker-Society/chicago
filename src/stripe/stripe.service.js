@@ -1,18 +1,34 @@
+import dotenv from "dotenv";
 import { stripe } from "./config";
 import MemberModel from "../models/Member.model";
 import redis from "../config/redis";
 import { syncStripeDataToKV } from "../utils/redis/stripeSubscritpitonCache";
+dotenv.config({ path: "config.env" });
 
-export const getOnboardingStatus = async (customerId) => {
-  try {
-    const stripeAccount = await stripe.accounts.retrieve(customerId);
-
-    if (stripeAccount.details_submitted) {
-      return true;
-    }
-
+export const getOnboardingStatus = async (stripeConnectAccountId) => {
+  if (!stripeConnectAccountId) {
     return false;
+  }
+
+  try {
+    const account = await stripe.accounts.retrieve(stripeConnectAccountId);
+
+    const { payouts_enabled, details_submitted, requirements } = account;
+
+    const hasNoCurrentlyDueRequirements = !(
+      requirements &&
+      requirements.currently_due &&
+      requirements.currently_due.length > 0
+    );
+
+    return (
+      payouts_enabled && details_submitted && hasNoCurrentlyDueRequirements
+    );
   } catch (error) {
+    console.error(
+      `Error in getOnboardingStatus for Stripe account ${stripeConnectAccountId}:`,
+      error.message
+    );
     throw error;
   }
 };
@@ -33,11 +49,12 @@ export const createExpressaccount = async (userId) => {
 };
 
 export const createAccountLink = async (stripeAccountId) => {
+  const { REACT_APP_URL } = process.env;
   try {
     const accountLink = await stripe.accountLinks.create({
       account: stripeAccountId,
-      refresh_url: "https://example.com/reauth",
-      return_url: "https://example.com/return",
+      refresh_url: `${REACT_APP_URL}/member/onboarding`,
+      return_url: `${REACT_APP_URL}/member/onboarding`,
       type: "account_onboarding",
     });
     return accountLink;

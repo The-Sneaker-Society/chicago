@@ -14,15 +14,12 @@ async function updateMemberModel() {
     for (const member of members) {
       const updateObject = {};
 
-      // Add the new 'stripeCustomerId' field if it doesn't exist
-      if (member.stripeCustomerId === undefined) {
-        updateObject.stripeCustomerId = null; // Set a default value
-      }
+      // Add the new 'buisnessName' field if it doesn't exist
+      // if (member.subscriptionStatus === "") {
+      //   updateObject.subscriptionStatus = "inactive";
+      // }
 
-        // Add the new 'subscriptionStatus' field if it doesn't exist
-        if (!member.subscriptionStatu ) {
-          updateObject.subscriptionStatus = "inactive"; // Set the default value
-        }
+      // updateObject.stripeConnectAccountId = ""
 
       // If there are any updates to apply
       if (Object.keys(updateObject).length > 0) {

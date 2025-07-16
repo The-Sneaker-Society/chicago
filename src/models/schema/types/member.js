@@ -5,6 +5,7 @@ const memberTypeDefs = gql`
     id: ID!
     firebaseId: String!
     email: String!
+    businessName: String
     firstName: String!
     lastName: String!
     phoneNumber: String
@@ -12,7 +13,7 @@ const memberTypeDefs = gql`
     addressLineTwo: String
     zipcode: String
     state: String
-    stripeConnectAccountId: String
+    stripeConnectAccountId: String!
     stripeCustomerId: String
     isActive: Boolean!
     clients: [Client!]!
@@ -26,6 +27,7 @@ const memberTypeDefs = gql`
     qrWidgetData: QrWidgetData!
     isNewUser: Boolean!
     isSubscribed: Boolean!
+    isOnboardedWithStripe: Boolean!
     chats: [Chat]!
   }
 
@@ -71,6 +73,7 @@ const memberTypeDefs = gql`
   input UpdateMemberInput {
     subscriptionId: String
     email: String
+    businessName: String
     firstName: String
     lastName: String
     phoneNumber: String
@@ -99,6 +102,7 @@ const memberTypeDefs = gql`
     updateMember(data: UpdateMemberInput!): Boolean!
     reactivateSubscription: Boolean!
     onboardMemberToStripe: String!
+    resumeAccountOnboarding: String!
     deleteMember: Boolean!
     syncStripeData: SyncStripeDataResult!
   }
