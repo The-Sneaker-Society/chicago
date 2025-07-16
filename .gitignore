@@ -3,3 +3,5 @@ npm-debug.log
 .DS_Store
 /*.env
 /build
+src/scripts/deleteMember.js
+src/scripts/deleteUser.js

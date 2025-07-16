@@ -30,4 +30,4 @@ async function deleteClerkMember(email) {
   }
 }
 
-deleteClerkMember("kyledes08@gmail.com");
+deleteClerkMember("alanisyates96@gmail.com");
