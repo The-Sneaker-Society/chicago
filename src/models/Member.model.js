@@ -12,6 +12,11 @@ const MemberSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    contractsDisabled: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
     businessName: {
       type: String,
     },

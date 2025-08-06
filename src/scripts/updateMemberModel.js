@@ -15,9 +15,9 @@ async function updateMemberModel() {
       const updateObject = {};
 
       // Add the new 'buisnessName' field if it doesn't exist
-      // if (member.subscriptionStatus === "") {
-      //   updateObject.subscriptionStatus = "inactive";
-      // }
+      if (!member.contractsDisabled) {
+        updateObject.contractsDisabled = false;
+      }
 
       // updateObject.stripeConnectAccountId = ""
 

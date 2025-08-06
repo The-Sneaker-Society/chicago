@@ -2,33 +2,34 @@ import { gql } from "apollo-server-core";
 
 const memberTypeDefs = gql`
   type Member {
-    id: ID!
-    firebaseId: String!
-    email: String!
-    businessName: String
-    firstName: String!
-    lastName: String!
-    phoneNumber: String
+    acceptedTos: Boolean!
     addressLineOne: String
     addressLineTwo: String
-    zipcode: String
+    businessName: String
+    chats: [Chat]!
+    clients: [Client!]!
+    contracts: [Contract!]!
+    contractsDisabled: Boolean!
+    createdAt: String!
+    deletedAt: String
+    email: String!
+    firstName: String!
+    firebaseId: String!
+    id: ID!
+    isActive: Boolean!
+    isNewUser: Boolean!
+    isOnboardedWithStripe: Boolean!
+    isSubscribed: Boolean!
+    lastName: String!
+    phoneNumber: String
+    products: [Product]!
+    qrWidgetData: QrWidgetData!
     state: String
     stripeConnectAccountId: String!
     stripeCustomerId: String
-    isActive: Boolean!
-    clients: [Client!]!
-    contracts: [Contract!]!
-    products: [Product]!
-    acceptedTos: Boolean!
     subscriptionId: ID
-    createdAt: String!
     updatedAt: String!
-    deletedAt: String
-    qrWidgetData: QrWidgetData!
-    isNewUser: Boolean!
-    isSubscribed: Boolean!
-    isOnboardedWithStripe: Boolean!
-    chats: [Chat]!
+    zipcode: String
   }
 
   type SyncStripeDataResult {
@@ -38,6 +39,7 @@ const memberTypeDefs = gql`
   type QrWidgetData {
     image: String!
     url: String!
+    contractsDisabled: Boolean!
   }
 
   type StripeWidgetData {

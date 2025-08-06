@@ -298,13 +298,14 @@ const Member = {
   async qrWidgetData(parent, args, ctx, info) {
     try {
       const { REACT_APP_URL } = process.env;
-      const { id } = ctx.dbUser;
+      const { id, contractsDisabled } = ctx.dbUser;
       const memberConractUrl = `${REACT_APP_URL}/user/new-contract/${id}`;
 
       const qrImage = await createQRCode(memberConractUrl);
       return {
         url: memberConractUrl,
         image: qrImage,
+        contractsDisabled: contractsDisabled 
       };
     } catch (error) {
       throw new Error(error);
