@@ -93,7 +93,30 @@ const contractTypeDefs = gql`
   input RepairDetailsInput {
     clientNotes: String
   }
-    
+
+  input UpdateContractInput {
+    memberId: ID
+    shoeDetails: ShoeDetailsInput
+    repairDetails: RepairDetailsInput
+    proposedPrice: Float
+    price: Float
+    status: String
+    trackingNumber: TrackingDetailsInput
+    timeline: [TimelineDetailsInput]
+    shippingCarrier: String
+    paymentStatus: String
+  }
+
+  input TrackingDetailsInput {
+    carrier: String
+    trackingNumber: String
+  }
+
+  input TimelineDetailsInput {
+    event: String
+    date: String
+  }
+
   type ContractListItem {
     id: ID!
     name: String!
@@ -108,10 +131,10 @@ const contractTypeDefs = gql`
     getContractList: [ContractListItem!]!
   }
 
-
   type Mutation {
     createContract(data: CreateContractInput!): Contract!
     createContractPrice(data: CreateContractPriceInput): String!
+    updateContract(id: ID!, data: UpdateContractInput!): Boolean!
   }
 `;
 

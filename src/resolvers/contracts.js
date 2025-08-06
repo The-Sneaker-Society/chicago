@@ -164,6 +164,30 @@ const Mutation = {
       throw new Error(err);
     }
   },
+  async updateContract(parent, args, ctx, info) {
+    try {
+      const { id, data } = args;
+      const contract = await ContractModel.findById(id);
+      if (!contract) {
+        throw new Error("Contract not found");
+      }
+      // Check if contract belongs to the member in context
+      const memberId = ctx.dbUser?._id?.toString();
+      if (memberId && contract.memberId.toString() !== memberId) {
+        throw new Error("Unauthorized: Contract does not belong to this member");
+      }
+      // Only update fields provided in data
+      Object.keys(data).forEach((key) => {
+        if (data[key] !== undefined) {
+          contract[key] = data[key];
+        }
+      });
+      await contract.save();
+      return true;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
 };
 
 const Contract = {
