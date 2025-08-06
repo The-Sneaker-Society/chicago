@@ -79,6 +79,7 @@ async function startApolloServer() {
   const server = new ApolloServer({
     schema,
     csrfPrevention: true,
+    cache: "bounded",
     plugins: [
       ApolloServerPluginDrainHttpServer({ httpServer }),
       {

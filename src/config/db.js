@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+mongoose.set('strictQuery', false);
 import dotenv from "dotenv";
 
 dotenv.config({ path: "config.env" });
