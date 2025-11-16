@@ -1,42 +1,54 @@
+// src/resolvers/group.js
+
 import GroupsModel from "../models/Groups.model";
 
 const Query = {
-  async groups(parent, args, ctx, info) {
-    try {
-      // Fetch all groups, optionally populate members if your schema uses them
-      const groups = await GroupsModel.find().populate("members");
-      return groups;
-    } catch (e) {
-      throw new Error(e);
-    }
+  async getGroup(parent, { id }, ctx, info) {
+    return await GroupsModel.findById(id).populate("members");
+  },
+
+  async getGroups() {
+    return await GroupsModel.find({}).populate("members");
+  },
+
+  async getGroupsForUser(parent, { userId }) {
+    // Groups where userId is in members array
+    return await GroupsModel.find({ members: userId }).populate("members");
   },
 };
 
 const Mutation = {
   async createGroup(parent, args, ctx, info) {
-    try {
-      const { name, description, avatar, memberIds } = args.data;
-
-      if (!name || !memberIds || memberIds.length === 0) {
-        throw new Error("Group name and at least one member are required.");
-      }
-
-      // Create new group instance
-      const newGroup = new GroupsModel({
-        name,
-        description,
-        avatar,
-        members: memberIds,
-      });
-
-      // Save to DB
-      const res = await newGroup.save();
-
-      // Optionally populate members before returning
-      return await GroupsModel.findById(res._id).populate("members");
-    } catch (e) {
-      throw new Error(e);
+    const { name, description, avatar, memberIds } = args;
+    if (!name || !memberIds || memberIds.length === 0) {
+      throw new Error("Group name and at least one member are required.");
     }
+    const newGroup = new GroupsModel({
+      name,
+      description,
+      avatar,
+      members: memberIds,
+    });
+    const res = await newGroup.save();
+    return await GroupsModel.findById(res._id).populate("members");
+  },
+
+  async updateGroup(parent, { id, name, description, avatar, memberIds }) {
+    const update = {};
+    if (name !== undefined) update.name = name;
+    if (description !== undefined) update.description = description;
+    if (avatar !== undefined) update.avatar = avatar;
+    if (memberIds !== undefined) update.members = memberIds;
+    const group = await GroupsModel.findByIdAndUpdate(id, update, {
+      new: true,
+    }).populate("members");
+    if (!group) throw new Error("Group not found");
+    return group;
+  },
+
+  async deleteGroup(parent, { id }) {
+    const result = await GroupsModel.findByIdAndDelete(id);
+    return !!result; // returns true if deleted
   },
 };
 
