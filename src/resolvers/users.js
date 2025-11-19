@@ -3,6 +3,7 @@ import UserModel from "../models/User.model";
 import MemberModel from "../models/Member.model";
 import ContractModel from "../models/Contract.model";
 import ChatModel from "../models/Chat.model";
+import GroupModel from "../models/Group.model";
 
 import dotenv from "dotenv";
 dotenv.config({ path: "config.env" });
@@ -119,6 +120,14 @@ const User = {
       const { _id } = ctx;
       const chats = await ChatModel.find({ userId: _id });
       return chats;
+    } catch (error) {
+      throw new Error(error);
+    }
+  },
+  async groups(parent, args, ctx, info) {
+    try {
+      const groups = await GroupModel.find({ members: parent.id });
+      return groups;
     } catch (error) {
       throw new Error(error);
     }

@@ -15,6 +15,7 @@ const userTypeDefs = gql`
     zipcode: String
     state: String
     contracts: [Contract]
+    groups: [Group]!
     chats: [Chat]!
   }
 
