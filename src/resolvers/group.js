@@ -20,15 +20,17 @@ const Query = {
 const Mutation = {
   async createGroup(parent, args, ctx, info) {
     const { name, description, avatar, memberIds } = args;
-    if (!name || !memberIds || memberIds.length === 0) {
-      throw new Error("Group name and at least one member are required.");
+    if (!name) {
+      throw new Error("Group name is required.");
     }
+
     const newGroup = new GroupsModel({
       name,
       description,
       avatar,
-      members: memberIds,
+      members: memberIds || [], // allow empty
     });
+
     const res = await newGroup.save();
     return await GroupsModel.findById(res._id).populate("members");
   },

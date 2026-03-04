@@ -26,25 +26,40 @@ async function startApolloServer() {
     "ATLAS_URI",
     "REACT_APP_URL",
   ]);
+
   const app = express();
 
+  // ONE json parser: limit + rawBody for Stripe
   app.use(
     express.json({
+      limit: "10mb",
       verify: (req, res, buf) => {
         req.rawBody = buf.toString();
       },
-    })
+    }),
   );
 
-  app.use(cors());
+  // (optional) urlencoded, also with limit
+  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+  // CORS BEFORE clerk/requireAuth
+  app.use(
+    cors({
+      origin: "http://localhost:5173",
+      credentials: true,
+    }),
+  );
 
   app.use(clerkMiddleware());
 
   app.use((req, res, next) => {
-    if (req.path !== "/webhook") {
-      return requireAuth()(req, res, next);
+    // Allow webhook and GraphQL (adjust later if you want auth on GraphQL)
+    if (req.path === "/webhook" || req.path === "/graphql") {
+      return next();
     }
-    next(); // Skip requireAuth for /webhook
+
+    // Everything else still requires auth
+    return requireAuth()(req, res, next);
   });
 
   app.get("/", (req, res) => {
@@ -57,7 +72,7 @@ async function startApolloServer() {
       console.log("Using req.rawBody");
       next();
     },
-    handleStripeWebhook
+    handleStripeWebhook,
   );
 
   const httpServer = http.createServer(app);
@@ -108,7 +123,7 @@ async function startApolloServer() {
   });
 
   await server.start();
-  server.applyMiddleware({ app });
+  server.applyMiddleware({ app, cors: false });
   httpServer.listen({ port: process.env.PORT || 4000 });
   console.log(`🚀 Server ready at ${server.graphqlPath}`);
 }

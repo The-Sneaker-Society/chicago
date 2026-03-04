@@ -8,7 +8,7 @@ const groupTypeDefs = gql`
     name: String!
     description: String
     avatar: String
-    members: [User!]!
+    members: [Member!]!
     createdAt: String
     updatedAt: String
   }
