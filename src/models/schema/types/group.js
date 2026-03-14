@@ -31,10 +31,7 @@ const groupTypeDefs = gql`
       description: String
       avatar: String
       memberIds: [ID!]
-    ): Group
-    updateGroup(
-      id: ID!
-      name: String
+    ): name: String
       description: String
       avatar: String
       memberIds: [ID!]

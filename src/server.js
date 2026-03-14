@@ -29,18 +29,13 @@ async function startApolloServer() {
 
   const app = express();
 
-  // ONE json parser: limit + rawBody for Stripe
   app.use(
     express.json({
-      limit: "10mb",
       verify: (req, res, buf) => {
         req.rawBody = buf.toString();
       },
     }),
   );
-
-  // (optional) urlencoded, also with limit
-  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
   // CORS BEFORE clerk/requireAuth
   app.use(

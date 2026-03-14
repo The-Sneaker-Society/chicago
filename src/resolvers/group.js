@@ -1,5 +1,3 @@
-// src/resolvers/group.js
-
 import GroupsModel from "../models/Groups.model";
 
 const Query = {
