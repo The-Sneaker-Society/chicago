@@ -48,13 +48,10 @@ async function startApolloServer() {
   app.use(clerkMiddleware());
 
   app.use((req, res, next) => {
-    // Allow webhook and GraphQL (adjust later if you want auth on GraphQL)
-    if (req.path === "/webhook" || req.path === "/graphql") {
-      return next();
+    if (req.path !== "/webhook") {
+      return requireAuth()(req, res, next);
     }
-
-    // Everything else still requires auth
-    return requireAuth()(req, res, next);
+    next();
   });
 
   app.get("/", (req, res) => {
@@ -77,10 +74,8 @@ async function startApolloServer() {
   connectDb();
 
   const wsServer = new WebSocketServer({
-    // This is the `httpServer` we created in a previous step.
     server: httpServer,
-    // Pass a different path here if app.use
-    // serves expressMiddleware at a different path
+
     path: "/subscriptions",
   });
 
