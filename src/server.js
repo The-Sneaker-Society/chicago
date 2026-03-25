@@ -26,7 +26,6 @@ async function startApolloServer() {
     "ATLAS_URI",
     "REACT_APP_URL",
   ]);
-
   const app = express();
 
   app.use(
@@ -34,16 +33,10 @@ async function startApolloServer() {
       verify: (req, res, buf) => {
         req.rawBody = buf.toString();
       },
-    }),
+    })
   );
 
-  // CORS BEFORE clerk/requireAuth
-  app.use(
-    cors({
-      origin: "http://localhost:5173",
-      credentials: true,
-    }),
-  );
+  app.use(cors());
 
   app.use(clerkMiddleware());
 
@@ -51,7 +44,7 @@ async function startApolloServer() {
     if (req.path !== "/webhook") {
       return requireAuth()(req, res, next);
     }
-    next();
+    next(); // Skip requireAuth for /webhook
   });
 
   app.get("/", (req, res) => {
@@ -64,7 +57,7 @@ async function startApolloServer() {
       console.log("Using req.rawBody");
       next();
     },
-    handleStripeWebhook,
+    handleStripeWebhook
   );
 
   const httpServer = http.createServer(app);
@@ -74,8 +67,10 @@ async function startApolloServer() {
   connectDb();
 
   const wsServer = new WebSocketServer({
+    // This is the `httpServer` we created in a previous step.
     server: httpServer,
-
+    // Pass a different path here if app.use
+    // serves expressMiddleware at a different path
     path: "/subscriptions",
   });
 
@@ -113,7 +108,7 @@ async function startApolloServer() {
   });
 
   await server.start();
-  server.applyMiddleware({ app, cors: false });
+  server.applyMiddleware({ app });
   httpServer.listen({ port: process.env.PORT || 4000 });
   console.log(`🚀 Server ready at ${server.graphqlPath}`);
 }

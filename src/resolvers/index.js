@@ -3,7 +3,6 @@ import contractResolvers from "./contracts";
 import productResovers from "./products";
 import userResolvers from "./users";
 import chatResolvers from "./chat/chat";
-import groupResolvers from "./group";
 
 module.exports = {
   Query: {
@@ -12,7 +11,6 @@ module.exports = {
     ...productResovers.Query,
     ...userResolvers.Query,
     ...chatResolvers.Query,
-    ...groupResolvers.Query,
   },
   Mutation: {
     ...memberResolvers.Mutation,
@@ -20,7 +18,6 @@ module.exports = {
     ...productResovers.Mutation,
     ...userResolvers.Mutation,
     ...chatResolvers.Mutation,
-    ...groupResolvers.Mutation,
   },
   Member: {
     ...memberResolvers.Member,
@@ -36,8 +33,5 @@ module.exports = {
   },
   Subscription: {
     ...chatResolvers.Subscription,
-  },
-  Group: {
-    ...groupResolvers.Group,
   },
 };
