@@ -1,5 +1,3 @@
-// src/models/schema/types/group.js
-
 import { gql } from "apollo-server-core";
 
 const groupTypeDefs = gql`
@@ -31,11 +29,16 @@ const groupTypeDefs = gql`
       description: String
       avatar: String
       memberIds: [ID!]
-    ): name: String
+    ): Group
+
+    updateGroup(
+      id: ID!
+      name: String
       description: String
       avatar: String
       memberIds: [ID!]
     ): Group
+
     deleteGroup(id: ID!): Boolean
   }
 `;
