@@ -3,6 +3,7 @@ import contractResolvers from "./contracts";
 import productResovers from "./products";
 import userResolvers from "./users";
 import chatResolvers from "./chat/chat";
+import imageResolvers from "../photo-upload-service/image.resolvers";
 
 module.exports = {
   Query: {
@@ -11,6 +12,7 @@ module.exports = {
     ...productResovers.Query,
     ...userResolvers.Query,
     ...chatResolvers.Query,
+    ...imageResolvers.Query,
   },
   Mutation: {
     ...memberResolvers.Mutation,
@@ -18,6 +20,7 @@ module.exports = {
     ...productResovers.Mutation,
     ...userResolvers.Mutation,
     ...chatResolvers.Mutation,
+    ...imageResolvers.Mutation,
   },
   Member: {
     ...memberResolvers.Member,
