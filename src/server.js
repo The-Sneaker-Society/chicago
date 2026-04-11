@@ -47,6 +47,19 @@ async function startApolloServer() {
 
   app.use(clerkMiddleware());
 
+  // DEV: allow impersonation via header or env for local testing only
+  if (process.env.NODE_ENV !== 'production') {
+    app.use((req, res, next) => {
+      const devUser = req.headers['x-dev-user-id'] || process.env.DEV_USER_ID;
+      if (devUser) {
+        req.auth = req.auth || {};
+        req.auth.userId = devUser;
+        req.auth.sessionId = req.auth.sessionId || 'dev-session';
+      }
+      next();
+    });
+  }
+
   app.use((req, res, next) => {
     if (req.path !== "/webhook") {
       return requireAuth()(req, res, next);

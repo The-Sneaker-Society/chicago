@@ -7,6 +7,7 @@ import emailSignUpTypeDefs from "./types/emailSignup";
 import productTypeDefs from "./types/products";
 import userTypeDefs from "./types/user";
 import chatTypeDefs from "./types/chat";
+import imageTypeDefs from "./types/image";
 import groupTypeDefs from "./types/group";
 
 const typeDefs = gql`
@@ -16,6 +17,7 @@ const typeDefs = gql`
   ${productTypeDefs}
   ${userTypeDefs}
   ${chatTypeDefs}
+  ${imageTypeDefs}
   ${groupTypeDefs}
 #   ${statsTypeDefs}
 #   ${emailSignUpTypeDefs}
