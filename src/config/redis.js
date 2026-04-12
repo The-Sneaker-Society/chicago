@@ -10,20 +10,12 @@ const getRedisConfig = () => {
   const isProduction = process.env.NODE_ENV === "production";
 
   if (redisUrl) {
-    return { 
-      url: redisUrl,
+    return {
       maxRetriesPerRequest: 1,
       retryStrategy(times) {
         if (times > 3) return null;
         return Math.min(times * 200, 2000);
       },
-      reconnectOnError(err) {
-        const targetErrors = ["READONLY", "ECONNRESET", "ETIMEDOUT"];
-        if (targetErrors.some(e => err.message.includes(e))) {
-          return true;
-        }
-        return false;
-      }
     };
   }
 
@@ -48,11 +40,16 @@ const getRedisConfig = () => {
   return null;
 };
 
+const redisUrl = process.env.REDIS_URL;
 const redisConfig = getRedisConfig();
-const redis = redisConfig ? new Redis(redisConfig) : null;
+const redis = redisConfig
+  ? redisUrl
+    ? new Redis(redisUrl, redisConfig)
+    : new Redis(redisConfig)
+  : null;
 
 if (redis) {
-  redis.on("connect", () => {
+  redis.on("ready", () => {
     console.log("Connected to Redis");
   });
 
