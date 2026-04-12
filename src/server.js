@@ -16,16 +16,20 @@ import { handleStripeWebhook } from "./stripe/stripeWebhookHandler";
 import { checkEnvVars } from "./utils/checkVars";
 
 async function startApolloServer() {
-  checkEnvVars([
-    "REDIS_HOST",
-    "REDIS_PORT",
+  const requiredVars = [
     "CLERK_PUBLISHABLE_KEY",
     "CLERK_SECRET_KEY",
     "STRIPE_API_KEY",
     "STRIPE_MEMBER_SUBSCRIPTION_ID",
     "ATLAS_URI",
     "REACT_APP_URL",
-  ]);
+  ];
+
+  if (!process.env.REDIS_URL && (!process.env.REDIS_HOST || !process.env.REDIS_PORT)) {
+    requiredVars.push("REDIS_HOST", "REDIS_PORT");
+  }
+
+  checkEnvVars(requiredVars);
 
   const app = express();
 
