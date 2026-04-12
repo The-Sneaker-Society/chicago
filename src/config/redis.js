@@ -21,11 +21,21 @@ const redisConfig = redisUrl
         return false;
       }
     }
-  : {
-      host: process.env.REDIS_HOST || "127.0.0.1",
-      port: parseInt(process.env.REDIS_PORT || "6379"),
-      password: process.env.REDIS_PASSWORD || undefined,
-    };
+  : process.env.REDIS_HOST
+    ? {
+        host: process.env.REDIS_HOST,
+        port: parseInt(process.env.REDIS_PORT || "6379"),
+        password: process.env.REDIS_PASSWORD || undefined,
+        maxRetriesPerRequest: 1,
+        retryStrategy(times) {
+          if (times > 3) return null;
+          return Math.min(times * 200, 2000);
+        },
+      }
+    : {
+        host: "127.0.0.1",
+        port: 6379,
+      };
 
 const redis = new Redis(redisConfig);
 redis.on("connect", () => {
