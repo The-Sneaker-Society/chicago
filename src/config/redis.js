@@ -1,11 +1,15 @@
 import Redis from "ioredis";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
-dotenv.config({ path: "config.env" });
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "../../config.env") });
 
 const getRedisConfig = () => {
   const redisUrl = process.env.REDIS_URL;
   const redisHost = process.env.REDIS_HOST;
+  const isProduction = process.env.NODE_ENV === "production";
 
   if (redisUrl) {
     return { 
@@ -25,7 +29,7 @@ const getRedisConfig = () => {
     };
   }
 
-  if (redisHost) {
+  if (redisHost && !isProduction) {
     return {
       host: redisHost,
       port: parseInt(process.env.REDIS_PORT || "6379"),
@@ -36,6 +40,11 @@ const getRedisConfig = () => {
         return Math.min(times * 200, 2000);
       },
     };
+  }
+
+  if (isProduction && !redisUrl && !redisHost) {
+    console.log("Redis not configured in production - skipping connection");
+    return null;
   }
 
   return null;
