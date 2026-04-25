@@ -9,10 +9,25 @@ const requireAuthenticatedMember = (ctx) => {
   return String(ctx.dbUser._id);
 };
 
+const requireGroupCreatorAccess = async (groupId, ctx) => {
+  const memberId = requireAuthenticatedMember(ctx);
+  const group = await GroupsModel.findById(groupId);
+
+  if (!group) {
+    throw new Error("Group not found");
+  }
+
+  if (String(group.createdBy) !== memberId) {
+    throw new Error("Only the group creator can perform this action.");
+  }
+
+  return { group, memberId };
+};
+
 const requireGroupAdminAccess = async (groupId, ctx) => {
   const memberId = requireAuthenticatedMember(ctx);
-
   const group = await GroupsModel.findById(groupId);
+
   if (!group) {
     throw new Error("Group not found");
   }
@@ -21,9 +36,7 @@ const requireGroupAdminAccess = async (groupId, ctx) => {
   const isAdmin = (group.admins || []).some((id) => String(id) === memberId);
 
   if (!isCreator && !isAdmin) {
-    throw new Error(
-      "Only the group creator or an admin can perform this action.",
-    );
+    throw new Error("Only the group creator or an admin can perform this action.");
   }
 
   return { group, memberId };
@@ -31,8 +44,8 @@ const requireGroupAdminAccess = async (groupId, ctx) => {
 
 const requireGroupMembership = async (groupId, ctx) => {
   const memberId = requireAuthenticatedMember(ctx);
-
   const group = await GroupsModel.findById(groupId);
+
   if (!group) {
     throw new Error("Group not found");
   }
@@ -45,12 +58,43 @@ const requireGroupMembership = async (groupId, ctx) => {
   return { group, memberId };
 };
 
+const getPostAndGroup = async (postId) => {
+  const post = await PostModel.findById(postId);
+  if (!post) {
+    throw new Error("Post not found");
+  }
+
+  const group = await GroupsModel.findById(post.groupId);
+  if (!group) {
+    throw new Error("Group not found");
+  }
+
+  return { post, group };
+};
+
+const isGroupAdminOrCreator = (group, memberId) => {
+  const isCreator = String(group.createdBy) === memberId;
+  const isAdmin = (group.admins || []).some((id) => String(id) === memberId);
+  return isCreator || isAdmin;
+};
+
+const getPopulatedGroup = async (groupId) => {
+  return await GroupsModel.findById(groupId)
+    .populate("members")
+    .populate("createdBy")
+    .populate("admins");
+};
+
+const getPopulatedPost = async (postId) => {
+  return await PostModel.findById(postId)
+    .populate("author")
+    .populate("likes")
+    .populate("comments.author");
+};
+
 const Query = {
   async getGroup(parent, { id }) {
-    return await GroupsModel.findById(id)
-      .populate("members")
-      .populate("createdBy")
-      .populate("admins");
+    return await getPopulatedGroup(id);
   },
 
   async getGroups() {
@@ -96,17 +140,12 @@ const Mutation = {
       admins: [creatorMemberId],
     });
 
-    const res = await newGroup.save();
-
-    return await GroupsModel.findById(res._id)
-      .populate("members")
-      .populate("createdBy")
-      .populate("admins");
+    const saved = await newGroup.save();
+    return await getPopulatedGroup(saved._id);
   },
 
   async updateGroup(parent, { id, name, description, avatar, memberIds }, ctx) {
     const { group: existingGroup } = await requireGroupAdminAccess(id, ctx);
-
     const update = {};
 
     if (name !== undefined) {
@@ -130,16 +169,10 @@ const Mutation = {
       update.members = nextMembers;
     }
 
-    const group = await GroupsModel.findByIdAndUpdate(id, update, {
-      new: true,
-    })
-      .populate("members")
-      .populate("createdBy")
-      .populate("admins");
-
+    const group = await GroupsModel.findByIdAndUpdate(id, update, { new: true });
     if (!group) throw new Error("Group not found");
 
-    return group;
+    return await getPopulatedGroup(group._id);
   },
 
   async deleteGroup(parent, { id }, ctx) {
@@ -155,35 +188,90 @@ const Mutation = {
       groupId,
       { $addToSet: { members: memberId } },
       { new: true },
-    )
-      .populate("members")
-      .populate("createdBy")
-      .populate("admins");
+    );
 
     if (!group) throw new Error("Group not found");
-    return group;
+    return await getPopulatedGroup(group._id);
   },
 
   async leaveGroup(parent, { groupId }, ctx) {
     const memberId = requireAuthenticatedMember(ctx);
-
     const group = await GroupsModel.findById(groupId);
-    if (!group) throw new Error("Group not found");
 
+    if (!group) throw new Error("Group not found");
     if (String(group.createdBy) === memberId) {
       throw new Error("The group creator cannot leave the group.");
     }
 
     const updated = await GroupsModel.findByIdAndUpdate(
       groupId,
-      { $pull: { members: memberId } },
+      { $pull: { members: memberId, admins: memberId } },
       { new: true },
-    )
-      .populate("members")
-      .populate("createdBy")
-      .populate("admins");
+    );
 
-    return updated;
+    return await getPopulatedGroup(updated._id);
+  },
+
+  async addGroupAdmin(parent, { groupId, memberId }, ctx) {
+    const { group } = await requireGroupCreatorAccess(groupId, ctx);
+    const normalizedMemberId = String(memberId);
+
+    const isMember = (group.members || []).some((id) => String(id) === normalizedMemberId);
+    if (!isMember) {
+      throw new Error("Only a current group member can be promoted to admin.");
+    }
+
+    await GroupsModel.findByIdAndUpdate(
+      groupId,
+      { $addToSet: { admins: normalizedMemberId } },
+      { new: true },
+    );
+
+    return await getPopulatedGroup(groupId);
+  },
+
+  async removeGroupAdmin(parent, { groupId, memberId }, ctx) {
+    const { group, memberId: actingMemberId } = await requireGroupCreatorAccess(groupId, ctx);
+    const normalizedMemberId = String(memberId);
+
+    if (normalizedMemberId === actingMemberId) {
+      throw new Error("The group creator cannot remove themselves as an admin.");
+    }
+
+    const isCreatorTarget = String(group.createdBy) === normalizedMemberId;
+    if (isCreatorTarget) {
+      throw new Error("The group creator must remain an admin.");
+    }
+
+    await GroupsModel.findByIdAndUpdate(
+      groupId,
+      { $pull: { admins: normalizedMemberId } },
+      { new: true },
+    );
+
+    return await getPopulatedGroup(groupId);
+  },
+
+  async removeGroupMember(parent, { groupId, memberId }, ctx) {
+    const { group } = await requireGroupAdminAccess(groupId, ctx);
+    const normalizedMemberId = String(memberId);
+
+    if (String(group.createdBy) === normalizedMemberId) {
+      throw new Error("The group creator cannot be removed from the group.");
+    }
+
+    const isMember = (group.members || []).some((id) => String(id) === normalizedMemberId);
+    if (!isMember) {
+      throw new Error("That member is not currently in the group.");
+    }
+
+    await GroupsModel.findByIdAndUpdate(
+      groupId,
+      { $pull: { members: normalizedMemberId, admins: normalizedMemberId } },
+      { new: true },
+    );
+
+    return await getPopulatedGroup(groupId);
   },
 
   async createPost(parent, { groupId, content, images = [] }, ctx) {
@@ -204,27 +292,43 @@ const Mutation = {
     });
 
     const saved = await post.save();
+    return await getPopulatedPost(saved._id);
+  },
 
-    return await PostModel.findById(saved._id)
-      .populate("author")
-      .populate("likes")
-      .populate("comments.author");
+  async updatePost(parent, { postId, content, images = [] }, ctx) {
+    const memberId = requireAuthenticatedMember(ctx);
+
+    if (!content || !content.trim()) {
+      throw new Error("Post content is required.");
+    }
+
+    const { post, group } = await getPostAndGroup(postId);
+    const isAuthor = String(post.author) === memberId;
+
+    if (!isAuthor) {
+      throw new Error("Only the post author can edit this post.");
+    }
+
+    const isMember = (group.members || []).some((id) => String(id) === memberId);
+    if (!isMember) {
+      throw new Error("You must be a member of this group to edit a post.");
+    }
+
+    post.content = content.trim();
+    post.images = images;
+    await post.save();
+
+    return await getPopulatedPost(post._id);
   },
 
   async deletePost(parent, { postId }, ctx) {
     const memberId = requireAuthenticatedMember(ctx);
-
-    const post = await PostModel.findById(postId);
-    if (!post) throw new Error("Post not found");
-
-    const group = await GroupsModel.findById(post.groupId);
-    if (!group) throw new Error("Group not found");
+    const { post, group } = await getPostAndGroup(postId);
 
     const isAuthor = String(post.author) === memberId;
-    const isCreator = String(group.createdBy) === memberId;
-    const isAdmin = (group.admins || []).some((id) => String(id) === memberId);
+    const canManage = isGroupAdminOrCreator(group, memberId);
 
-    if (!isAuthor && !isCreator && !isAdmin) {
+    if (!isAuthor && !canManage) {
       throw new Error("Only the post author or a group admin can delete this post.");
     }
 
@@ -234,12 +338,7 @@ const Mutation = {
 
   async likePost(parent, { postId }, ctx) {
     const memberId = requireAuthenticatedMember(ctx);
-
-    const post = await PostModel.findById(postId);
-    if (!post) throw new Error("Post not found");
-
-    const group = await GroupsModel.findById(post.groupId);
-    if (!group) throw new Error("Group not found");
+    const { post, group } = await getPostAndGroup(postId);
 
     const isMember = (group.members || []).some((id) => String(id) === memberId);
     if (!isMember) {
@@ -247,17 +346,12 @@ const Mutation = {
     }
 
     const alreadyLiked = (post.likes || []).some((id) => String(id) === memberId);
-
     post.likes = alreadyLiked
       ? post.likes.filter((id) => String(id) !== memberId)
       : [...post.likes, memberId];
 
     await post.save();
-
-    return await PostModel.findById(post._id)
-      .populate("author")
-      .populate("likes")
-      .populate("comments.author");
+    return await getPopulatedPost(post._id);
   },
 
   async addComment(parent, { postId, content }, ctx) {
@@ -267,26 +361,75 @@ const Mutation = {
       throw new Error("Comment content is required.");
     }
 
-    const post = await PostModel.findById(postId);
-    if (!post) throw new Error("Post not found");
-
-    const group = await GroupsModel.findById(post.groupId);
-    if (!group) throw new Error("Group not found");
-
+    const { post, group } = await getPostAndGroup(postId);
     const isMember = (group.members || []).some((id) => String(id) === memberId);
+
     if (!isMember) {
       throw new Error("You must be a member of this group to comment.");
     }
 
-    post.comments.push({
-      author: memberId,
-      content: content.trim(),
-    });
-
+    post.comments.push({ author: memberId, content: content.trim() });
     await post.save();
 
     const updatedPost = await PostModel.findById(post._id).populate("comments.author");
     return updatedPost.comments[updatedPost.comments.length - 1];
+  },
+
+  async updateComment(parent, { postId, commentId, content }, ctx) {
+    const memberId = requireAuthenticatedMember(ctx);
+
+    if (!content || !content.trim()) {
+      throw new Error("Comment content is required.");
+    }
+
+    const { post, group } = await getPostAndGroup(postId);
+    const isMember = (group.members || []).some((id) => String(id) === memberId);
+
+    if (!isMember) {
+      throw new Error("You must be a member of this group to edit a comment.");
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      throw new Error("Comment not found");
+    }
+
+    if (String(comment.author) !== memberId) {
+      throw new Error("Only the comment author can edit this comment.");
+    }
+
+    comment.content = content.trim();
+    await post.save();
+
+    const updatedPost = await PostModel.findById(post._id).populate("comments.author");
+    return updatedPost.comments.id(commentId);
+  },
+
+  async deleteComment(parent, { postId, commentId }, ctx) {
+    const memberId = requireAuthenticatedMember(ctx);
+    const { post, group } = await getPostAndGroup(postId);
+
+    const isMember = (group.members || []).some((id) => String(id) === memberId);
+    if (!isMember) {
+      throw new Error("You must be a member of this group to delete a comment.");
+    }
+
+    const comment = post.comments.id(commentId);
+    if (!comment) {
+      throw new Error("Comment not found");
+    }
+
+    const isCommentAuthor = String(comment.author) === memberId;
+    const canManage = isGroupAdminOrCreator(group, memberId);
+
+    if (!isCommentAuthor && !canManage) {
+      throw new Error("Only the comment author or a group admin can delete this comment.");
+    }
+
+    comment.deleteOne();
+    await post.save();
+
+    return true;
   },
 };
 

@@ -64,11 +64,18 @@ const groupTypeDefs = gql`
     deleteGroup(id: ID!): Boolean
     joinGroup(groupId: ID!): Group
     leaveGroup(groupId: ID!): Group
+    addGroupAdmin(groupId: ID!, memberId: ID!): Group
+    removeGroupAdmin(groupId: ID!, memberId: ID!): Group
+    removeGroupMember(groupId: ID!, memberId: ID!): Group
 
     createPost(groupId: ID!, content: String!, images: [String!]): Post
+    updatePost(postId: ID!, content: String!, images: [String!]): Post
     deletePost(postId: ID!): Boolean
     likePost(postId: ID!): Post
+
     addComment(postId: ID!, content: String!): PostComment
+    updateComment(postId: ID!, commentId: ID!, content: String!): PostComment
+    deleteComment(postId: ID!, commentId: ID!): Boolean
   }
 `;
 
