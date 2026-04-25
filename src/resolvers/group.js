@@ -1,12 +1,39 @@
 import GroupsModel from "../models/Groups.model";
 import PostModel from "../models/Post.model";
 
+const DEFAULT_POST_LIMIT = 10;
+const MAX_POST_LIMIT = 50;
+const DEFAULT_COMMENT_LIMIT = 10;
+const MAX_COMMENT_LIMIT = 50;
+
 const requireAuthenticatedMember = (ctx) => {
   if (ctx.role !== "member" || !ctx.dbUser?._id) {
     throw new Error("Only authenticated members can perform this action.");
   }
 
   return String(ctx.dbUser._id);
+};
+
+const sanitizeLimit = (value, fallback, max) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(Math.floor(parsed), max);
+};
+
+const sanitizeOffset = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  return Math.floor(parsed);
+};
+
+const buildPage = ({ items, totalCount, offset }) => {
+  const nextOffset = offset + items.length;
+  return {
+    items,
+    totalCount,
+    hasMore: nextOffset < totalCount,
+    nextOffset: nextOffset < totalCount ? nextOffset : null,
+  };
 };
 
 const requireGroupCreatorAccess = async (groupId, ctx) => {
@@ -111,12 +138,37 @@ const Query = {
       .populate("admins");
   },
 
-  async getPostsByGroup(parent, { groupId }) {
-    return await PostModel.find({ groupId })
-      .populate("author")
-      .populate("likes")
-      .populate("comments.author")
-      .sort({ createdAt: -1 });
+  async getPostsByGroup(parent, { groupId, limit = DEFAULT_POST_LIMIT, offset = 0 }) {
+    const safeLimit = sanitizeLimit(limit, DEFAULT_POST_LIMIT, MAX_POST_LIMIT);
+    const safeOffset = sanitizeOffset(offset);
+
+    const [items, totalCount] = await Promise.all([
+      PostModel.find({ groupId })
+        .populate("author")
+        .populate("likes")
+        .populate("comments.author")
+        .sort({ createdAt: -1 })
+        .skip(safeOffset)
+        .limit(safeLimit),
+      PostModel.countDocuments({ groupId }),
+    ]);
+
+    return buildPage({ items, totalCount, offset: safeOffset });
+  },
+};
+
+const Post = {
+  commentCount(parent) {
+    return parent.comments?.length || 0;
+  },
+
+  commentsPage(parent, { limit = DEFAULT_COMMENT_LIMIT, offset = 0 }) {
+    const safeLimit = sanitizeLimit(limit, DEFAULT_COMMENT_LIMIT, MAX_COMMENT_LIMIT);
+    const safeOffset = sanitizeOffset(offset);
+    const totalCount = parent.comments?.length || 0;
+    const items = (parent.comments || []).slice(safeOffset, safeOffset + safeLimit);
+
+    return buildPage({ items, totalCount, offset: safeOffset });
   },
 };
 
@@ -433,4 +485,4 @@ const Mutation = {
   },
 };
 
-export default { Query, Mutation };
+export default { Query, Post, Mutation };

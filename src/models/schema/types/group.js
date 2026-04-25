@@ -26,6 +26,13 @@ const groupTypeDefs = gql`
     createdAt: String
   }
 
+  type CommentPage {
+    items: [PostComment!]!
+    totalCount: Int!
+    hasMore: Boolean!
+    nextOffset: Int
+  }
+
   type Post {
     id: ID!
     groupId: ID!
@@ -34,15 +41,24 @@ const groupTypeDefs = gql`
     images: [String!]!
     likes: [Member!]!
     comments: [PostComment!]!
+    commentCount: Int!
+    commentsPage(limit: Int = 10, offset: Int = 0): CommentPage!
     shares: Int
     createdAt: String
+  }
+
+  type PostPage {
+    items: [Post!]!
+    totalCount: Int!
+    hasMore: Boolean!
+    nextOffset: Int
   }
 
   type Query {
     getGroup(id: ID!): Group
     getGroups: [Group!]!
     getGroupsForUser(userId: ID!): [Group!]!
-    getPostsByGroup(groupId: ID!): [Post!]!
+    getPostsByGroup(groupId: ID!, limit: Int = 10, offset: Int = 0): PostPage!
   }
 
   type Mutation {

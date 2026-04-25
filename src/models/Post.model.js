@@ -13,7 +13,7 @@ const PostCommentSchema = new mongoose.Schema(
       trim: true,
     },
   },
-  { timestamps: { createdAt: true, updatedAt: false } }
+  { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 const PostSchema = new mongoose.Schema(
@@ -22,6 +22,7 @@ const PostSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Group",
       required: true,
+      index: true,
     },
     author: {
       type: mongoose.Schema.Types.ObjectId,
@@ -41,7 +42,9 @@ const PostSchema = new mongoose.Schema(
       default: 0,
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
+
+PostSchema.index({ groupId: 1, createdAt: -1 });
 
 export default mongoose.model("Post", PostSchema);
