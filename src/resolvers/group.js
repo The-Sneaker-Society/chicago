@@ -14,25 +14,27 @@ const requireAuthenticatedMember = (ctx) => {
   return String(ctx.dbUser._id);
 };
 
-const sanitizeLimit = (value, fallback, max) => {
+const normalizeLimit = (value, fallback, max) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return Math.min(Math.floor(parsed), max);
+  return Math.min(parsed, max);
 };
 
-const sanitizeOffset = (value) => {
+const normalizeOffset = (value) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) return 0;
-  return Math.floor(parsed);
+  return parsed;
 };
 
 const buildPage = ({ items, totalCount, offset }) => {
   const nextOffset = offset + items.length;
+  const hasMore = nextOffset < totalCount;
+
   return {
     items,
     totalCount,
-    hasMore: nextOffset < totalCount,
-    nextOffset: nextOffset < totalCount ? nextOffset : null,
+    hasMore,
+    nextOffset: hasMore ? nextOffset : null,
   };
 };
 
@@ -63,7 +65,9 @@ const requireGroupAdminAccess = async (groupId, ctx) => {
   const isAdmin = (group.admins || []).some((id) => String(id) === memberId);
 
   if (!isCreator && !isAdmin) {
-    throw new Error("Only the group creator or an admin can perform this action.");
+    throw new Error(
+      "Only the group creator or an admin can perform this action.",
+    );
   }
 
   return { group, memberId };
@@ -79,7 +83,9 @@ const requireGroupMembership = async (groupId, ctx) => {
 
   const isMember = (group.members || []).some((id) => String(id) === memberId);
   if (!isMember) {
-    throw new Error("You must be a member of this group to perform this action.");
+    throw new Error(
+      "You must be a member of this group to perform this action.",
+    );
   }
 
   return { group, memberId };
@@ -138,22 +144,31 @@ const Query = {
       .populate("admins");
   },
 
-  async getPostsByGroup(parent, { groupId, limit = DEFAULT_POST_LIMIT, offset = 0 }) {
-    const safeLimit = sanitizeLimit(limit, DEFAULT_POST_LIMIT, MAX_POST_LIMIT);
-    const safeOffset = sanitizeOffset(offset);
+  async getPostsByGroup(
+    parent,
+    { groupId, limit = DEFAULT_POST_LIMIT, offset = 0 },
+  ) {
+    const normalizedLimit = normalizeLimit(
+      limit,
+      DEFAULT_POST_LIMIT,
+      MAX_POST_LIMIT,
+    );
+    const normalizedOffset = normalizeOffset(offset);
 
-    const [items, totalCount] = await Promise.all([
-      PostModel.find({ groupId })
-        .populate("author")
-        .populate("likes")
-        .populate("comments.author")
-        .sort({ createdAt: -1 })
-        .skip(safeOffset)
-        .limit(safeLimit),
-      PostModel.countDocuments({ groupId }),
-    ]);
+    const totalCount = await PostModel.countDocuments({ groupId });
 
-    return buildPage({ items, totalCount, offset: safeOffset });
+    const items = await PostModel.find({ groupId })
+      .populate("author")
+      .populate("likes")
+      .sort({ createdAt: -1 })
+      .skip(normalizedOffset)
+      .limit(normalizedLimit);
+
+    return buildPage({
+      items,
+      totalCount,
+      offset: normalizedOffset,
+    });
   },
 };
 
@@ -162,13 +177,30 @@ const Post = {
     return parent.comments?.length || 0;
   },
 
-  commentsPage(parent, { limit = DEFAULT_COMMENT_LIMIT, offset = 0 }) {
-    const safeLimit = sanitizeLimit(limit, DEFAULT_COMMENT_LIMIT, MAX_COMMENT_LIMIT);
-    const safeOffset = sanitizeOffset(offset);
-    const totalCount = parent.comments?.length || 0;
-    const items = (parent.comments || []).slice(safeOffset, safeOffset + safeLimit);
+  async commentsPage(
+    parent,
+    { limit = DEFAULT_COMMENT_LIMIT, offset = 0 },
+  ) {
+    const normalizedLimit = normalizeLimit(
+      limit,
+      DEFAULT_COMMENT_LIMIT,
+      MAX_COMMENT_LIMIT,
+    );
+    const normalizedOffset = normalizeOffset(offset);
 
-    return buildPage({ items, totalCount, offset: safeOffset });
+    const totalCount = parent.comments?.length || 0;
+    const commentSlice = (parent.comments || []).slice(
+      normalizedOffset,
+      normalizedOffset + normalizedLimit,
+    );
+
+    await PostModel.populate(commentSlice, { path: "author" });
+
+    return buildPage({
+      items: commentSlice,
+      totalCount,
+      offset: normalizedOffset,
+    });
   },
 };
 
@@ -221,7 +253,9 @@ const Mutation = {
       update.members = nextMembers;
     }
 
-    const group = await GroupsModel.findByIdAndUpdate(id, update, { new: true });
+    const group = await GroupsModel.findByIdAndUpdate(id, update, {
+      new: true,
+    });
     if (!group) throw new Error("Group not found");
 
     return await getPopulatedGroup(group._id);
@@ -268,7 +302,9 @@ const Mutation = {
     const { group } = await requireGroupCreatorAccess(groupId, ctx);
     const normalizedMemberId = String(memberId);
 
-    const isMember = (group.members || []).some((id) => String(id) === normalizedMemberId);
+    const isMember = (group.members || []).some(
+      (id) => String(id) === normalizedMemberId,
+    );
     if (!isMember) {
       throw new Error("Only a current group member can be promoted to admin.");
     }
@@ -283,11 +319,16 @@ const Mutation = {
   },
 
   async removeGroupAdmin(parent, { groupId, memberId }, ctx) {
-    const { group, memberId: actingMemberId } = await requireGroupCreatorAccess(groupId, ctx);
+    const { group, memberId: actingMemberId } = await requireGroupCreatorAccess(
+      groupId,
+      ctx,
+    );
     const normalizedMemberId = String(memberId);
 
     if (normalizedMemberId === actingMemberId) {
-      throw new Error("The group creator cannot remove themselves as an admin.");
+      throw new Error(
+        "The group creator cannot remove themselves as an admin.",
+      );
     }
 
     const isCreatorTarget = String(group.createdBy) === normalizedMemberId;
@@ -312,7 +353,9 @@ const Mutation = {
       throw new Error("The group creator cannot be removed from the group.");
     }
 
-    const isMember = (group.members || []).some((id) => String(id) === normalizedMemberId);
+    const isMember = (group.members || []).some(
+      (id) => String(id) === normalizedMemberId,
+    );
     if (!isMember) {
       throw new Error("That member is not currently in the group.");
     }
@@ -340,7 +383,6 @@ const Mutation = {
       images,
       likes: [],
       comments: [],
-      shares: 0,
     });
 
     const saved = await post.save();
@@ -361,7 +403,9 @@ const Mutation = {
       throw new Error("Only the post author can edit this post.");
     }
 
-    const isMember = (group.members || []).some((id) => String(id) === memberId);
+    const isMember = (group.members || []).some(
+      (id) => String(id) === memberId,
+    );
     if (!isMember) {
       throw new Error("You must be a member of this group to edit a post.");
     }
@@ -381,7 +425,9 @@ const Mutation = {
     const canManage = isGroupAdminOrCreator(group, memberId);
 
     if (!isAuthor && !canManage) {
-      throw new Error("Only the post author or a group admin can delete this post.");
+      throw new Error(
+        "Only the post author or a group admin can delete this post.",
+      );
     }
 
     const result = await PostModel.findByIdAndDelete(postId);
@@ -392,12 +438,16 @@ const Mutation = {
     const memberId = requireAuthenticatedMember(ctx);
     const { post, group } = await getPostAndGroup(postId);
 
-    const isMember = (group.members || []).some((id) => String(id) === memberId);
+    const isMember = (group.members || []).some(
+      (id) => String(id) === memberId,
+    );
     if (!isMember) {
       throw new Error("You must be a member of this group to like a post.");
     }
 
-    const alreadyLiked = (post.likes || []).some((id) => String(id) === memberId);
+    const alreadyLiked = (post.likes || []).some(
+      (id) => String(id) === memberId,
+    );
     post.likes = alreadyLiked
       ? post.likes.filter((id) => String(id) !== memberId)
       : [...post.likes, memberId];
@@ -414,7 +464,9 @@ const Mutation = {
     }
 
     const { post, group } = await getPostAndGroup(postId);
-    const isMember = (group.members || []).some((id) => String(id) === memberId);
+    const isMember = (group.members || []).some(
+      (id) => String(id) === memberId,
+    );
 
     if (!isMember) {
       throw new Error("You must be a member of this group to comment.");
@@ -423,7 +475,9 @@ const Mutation = {
     post.comments.push({ author: memberId, content: content.trim() });
     await post.save();
 
-    const updatedPost = await PostModel.findById(post._id).populate("comments.author");
+    const updatedPost = await PostModel.findById(post._id).populate(
+      "comments.author",
+    );
     return updatedPost.comments[updatedPost.comments.length - 1];
   },
 
@@ -435,7 +489,9 @@ const Mutation = {
     }
 
     const { post, group } = await getPostAndGroup(postId);
-    const isMember = (group.members || []).some((id) => String(id) === memberId);
+    const isMember = (group.members || []).some(
+      (id) => String(id) === memberId,
+    );
 
     if (!isMember) {
       throw new Error("You must be a member of this group to edit a comment.");
@@ -453,7 +509,9 @@ const Mutation = {
     comment.content = content.trim();
     await post.save();
 
-    const updatedPost = await PostModel.findById(post._id).populate("comments.author");
+    const updatedPost = await PostModel.findById(post._id).populate(
+      "comments.author",
+    );
     return updatedPost.comments.id(commentId);
   },
 
@@ -461,9 +519,13 @@ const Mutation = {
     const memberId = requireAuthenticatedMember(ctx);
     const { post, group } = await getPostAndGroup(postId);
 
-    const isMember = (group.members || []).some((id) => String(id) === memberId);
+    const isMember = (group.members || []).some(
+      (id) => String(id) === memberId,
+    );
     if (!isMember) {
-      throw new Error("You must be a member of this group to delete a comment.");
+      throw new Error(
+        "You must be a member of this group to delete a comment.",
+      );
     }
 
     const comment = post.comments.id(commentId);
@@ -475,7 +537,9 @@ const Mutation = {
     const canManage = isGroupAdminOrCreator(group, memberId);
 
     if (!isCommentAuthor && !canManage) {
-      throw new Error("Only the comment author or a group admin can delete this comment.");
+      throw new Error(
+        "Only the comment author or a group admin can delete this comment.",
+      );
     }
 
     comment.deleteOne();
@@ -485,4 +549,4 @@ const Mutation = {
   },
 };
 
-export default { Query, Post, Mutation };
+export default { Query, Mutation, Post };

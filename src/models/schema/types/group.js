@@ -26,7 +26,7 @@ const groupTypeDefs = gql`
     createdAt: String
   }
 
-  type CommentPage {
+  type PostCommentPage {
     items: [PostComment!]!
     totalCount: Int!
     hasMore: Boolean!
@@ -40,11 +40,9 @@ const groupTypeDefs = gql`
     content: String!
     images: [String!]!
     likes: [Member!]!
-    comments: [PostComment!]!
     commentCount: Int!
-    commentsPage(limit: Int = 10, offset: Int = 0): CommentPage!
-    shares: Int
     createdAt: String
+    commentsPage(limit: Int = 10, offset: Int = 0): PostCommentPage!
   }
 
   type PostPage {
@@ -80,6 +78,7 @@ const groupTypeDefs = gql`
     deleteGroup(id: ID!): Boolean
     joinGroup(groupId: ID!): Group
     leaveGroup(groupId: ID!): Group
+
     addGroupAdmin(groupId: ID!, memberId: ID!): Group
     removeGroupAdmin(groupId: ID!, memberId: ID!): Group
     removeGroupMember(groupId: ID!, memberId: ID!): Group

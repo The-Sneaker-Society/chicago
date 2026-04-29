@@ -37,10 +37,6 @@ const PostSchema = new mongoose.Schema(
     images: [{ type: String }],
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "Member" }],
     comments: [PostCommentSchema],
-    shares: {
-      type: Number,
-      default: 0,
-    },
   },
   { timestamps: true },
 );
