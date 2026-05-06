@@ -92,22 +92,66 @@ const Query = {
 
       const currentMember = await MemberModel.findOne({ clerkId: ctx.userId });
 
-      // Build exclusion list: self + members already followed
+      // IDs to exclude: self + already-followed members
       const excludeIds = currentMember
         ? [currentMember._id, ...(currentMember.following || [])]
         : [];
 
-      const filter = {
+      // IDs the current member already follows — used for mutual connection scoring
+      const followingIds = currentMember?.following?.map(String) || [];
+
+      const matchStage = {
         isActive: true,
         deletedAt: null,
         ...(excludeIds.length > 0 && { _id: { $nin: excludeIds } }),
       };
 
-      const [items, totalCount] = await Promise.all([
-        MemberModel.find(filter).skip(offset).limit(limit),
-        MemberModel.countDocuments(filter),
+      // Aggregation pipeline:
+      // 1. Filter active, non-deleted, non-followed, non-self members
+      // 2. Compute a relevance score from community signals:
+      //    - mutualCount  (×3): followers who the current user also follows
+      //    - followerCount (×1): established presence in the community
+      //    - isPro         (+2): active subscription signals engagement
+      // 3. Sort by score desc, then createdAt desc as a tiebreaker
+      // 4. Get total before slicing, then apply skip/limit
+      const pipeline = [
+        { $match: matchStage },
+        {
+          $addFields: {
+            mutualCount: followingIds.length
+              ? {
+                  $size: {
+                    $setIntersection: [
+                      { $map: { input: "$followers", as: "f", in: { $toString: "$$f" } } },
+                      followingIds,
+                    ],
+                  },
+                }
+              : 0,
+            followerCount: { $size: { $ifNull: ["$followers", []] } },
+            isPro: { $eq: ["$subscriptionStatus", "active"] },
+          },
+        },
+        {
+          $addFields: {
+            _score: {
+              $add: [
+                { $multiply: ["$mutualCount", 3] },
+                "$followerCount",
+                { $cond: ["$isPro", 2, 0] },
+              ],
+            },
+          },
+        },
+        { $sort: { _score: -1, createdAt: -1 } },
+      ];
+
+      const [countResult, items] = await Promise.all([
+        MemberModel.aggregate([...pipeline, { $count: "total" }]),
+        MemberModel.aggregate([...pipeline, { $skip: offset }, { $limit: limit }]),
       ]);
 
+      const totalCount = countResult[0]?.total ?? 0;
       const hasMore = offset + items.length < totalCount;
       const nextOffset = hasMore ? offset + limit : null;
 
