@@ -301,9 +301,18 @@ const Mutation = {
         throw new Error("Cannot follow yourself");
       }
 
-      await MemberModel.findByIdAndUpdate(currentMember._id, {
-        $addToSet: { following: targetId },
-      });
+      const target = await MemberModel.findById(targetId);
+      if (!target) throw new Error("Target member not found");
+
+      // Keep both sides of the relationship in sync atomically
+      await Promise.all([
+        MemberModel.findByIdAndUpdate(currentMember._id, {
+          $addToSet: { following: targetId },
+        }),
+        MemberModel.findByIdAndUpdate(targetId, {
+          $addToSet: { followers: currentMember._id },
+        }),
+      ]);
 
       return true;
     } catch (e) {
@@ -316,9 +325,16 @@ const Mutation = {
       const currentMember = await MemberModel.findOne({ clerkId: ctx.userId });
       if (!currentMember) throw new Error("Member not found");
 
-      await MemberModel.findByIdAndUpdate(currentMember._id, {
-        $pull: { following: args.memberId },
-      });
+      const targetId = args.memberId;
+
+      await Promise.all([
+        MemberModel.findByIdAndUpdate(currentMember._id, {
+          $pull: { following: targetId },
+        }),
+        MemberModel.findByIdAndUpdate(targetId, {
+          $pull: { followers: currentMember._id },
+        }),
+      ]);
 
       return true;
     } catch (e) {
@@ -416,6 +432,15 @@ const Member = {
     try {
       if (!parent.following?.length) return [];
       return MemberModel.find({ _id: { $in: parent.following } });
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+
+  async followers(parent) {
+    try {
+      if (!parent.followers?.length) return [];
+      return MemberModel.find({ _id: { $in: parent.followers } });
     } catch (e) {
       throw new Error(e);
     }

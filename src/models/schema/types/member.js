@@ -15,6 +15,7 @@ const memberTypeDefs = gql`
     email: String!
     firstName: String!
     firebaseId: String!
+    followers: [Member!]!
     following: [Member!]!
     id: ID!
     isActive: Boolean!
