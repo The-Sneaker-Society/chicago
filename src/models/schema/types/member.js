@@ -15,6 +15,7 @@ const memberTypeDefs = gql`
     email: String!
     firstName: String!
     firebaseId: String!
+    following: [Member!]!
     id: ID!
     isActive: Boolean!
     isNewUser: Boolean!
@@ -115,6 +116,8 @@ const memberTypeDefs = gql`
     resumeAccountOnboarding: String!
     deleteMember: Boolean!
     syncStripeData: SyncStripeDataResult!
+    followMember(memberId: ID!): Boolean!
+    unfollowMember(memberId: ID!): Boolean!
   }
 `;
 

@@ -90,11 +90,18 @@ const Query = {
       const limit = args.limit ?? 10;
       const offset = args.offset ?? 0;
 
-      // Exclude the requesting member from their own discover feed
       const currentMember = await MemberModel.findOne({ clerkId: ctx.userId });
-      const excludeId = currentMember?._id;
 
-      const filter = excludeId ? { _id: { $ne: excludeId } } : {};
+      // Build exclusion list: self + members already followed
+      const excludeIds = currentMember
+        ? [currentMember._id, ...(currentMember.following || [])]
+        : [];
+
+      const filter = {
+        isActive: true,
+        deletedAt: null,
+        ...(excludeIds.length > 0 && { _id: { $nin: excludeIds } }),
+      };
 
       const [items, totalCount] = await Promise.all([
         MemberModel.find(filter).skip(offset).limit(limit),
@@ -283,6 +290,41 @@ const Mutation = {
       throw new Error("Failed to reactivate subscription");
     }
   },
+
+  async followMember(parent, args, ctx) {
+    try {
+      const currentMember = await MemberModel.findOne({ clerkId: ctx.userId });
+      if (!currentMember) throw new Error("Member not found");
+
+      const targetId = args.memberId;
+      if (String(currentMember._id) === String(targetId)) {
+        throw new Error("Cannot follow yourself");
+      }
+
+      await MemberModel.findByIdAndUpdate(currentMember._id, {
+        $addToSet: { following: targetId },
+      });
+
+      return true;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+
+  async unfollowMember(parent, args, ctx) {
+    try {
+      const currentMember = await MemberModel.findOne({ clerkId: ctx.userId });
+      if (!currentMember) throw new Error("Member not found");
+
+      await MemberModel.findByIdAndUpdate(currentMember._id, {
+        $pull: { following: args.memberId },
+      });
+
+      return true;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
 };
 
 const Member = {
@@ -367,6 +409,15 @@ const Member = {
       return result;
     } catch (error) {
       throw new Error(error);
+    }
+  },
+
+  async following(parent) {
+    try {
+      if (!parent.following?.length) return [];
+      return MemberModel.find({ _id: { $in: parent.following } });
+    } catch (e) {
+      throw new Error(e);
     }
   },
 };
