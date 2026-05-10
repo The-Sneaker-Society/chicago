@@ -57,6 +57,10 @@ async function run() {
   console.log('\n=== Testing deleteImage resolver ===');
   const del = await imageResolvers.Mutation.deleteImage(null, { id: 'mock-id-1' }, { auth: { userId: 'test-user' } });
   console.log('deleted:', del);
+
+  console.log('\n=== Testing getImage resolver ===');
+  const singleImg = await imageResolvers.Query.getImage(null, { id: 'mock-id-1' }, { auth: { userId: 'test-user' } });
+  console.log('getImage result:', singleImg);
 }
 
 run().catch(err => {
