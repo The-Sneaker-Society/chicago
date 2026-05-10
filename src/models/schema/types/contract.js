@@ -44,6 +44,21 @@ const contractTypeDefs = gql`
     date: String
   }
 
+  type PhotoDetail {
+    url: String!
+    note: String
+  }
+
+  type PhotoDetails {
+    leftSide: [PhotoDetail]
+    rightSide: [PhotoDetail]
+    topView: [PhotoDetail]
+    bottomView: [PhotoDetail]
+    frontView: [PhotoDetail]
+    backView: [PhotoDetail]
+    other: [PhotoDetail]
+  }
+
   type ShoeDetails {
     brand: String
     model: String
@@ -51,7 +66,7 @@ const contractTypeDefs = gql`
     size: String
     soleCondition: String
     material: String
-    photos: [String]
+    photos: PhotoDetails
   }
 
   type RepairDetails {
@@ -75,14 +90,19 @@ const contractTypeDefs = gql`
     photos: PhotoInput
   }
 
+  input PhotoInputItem {
+    url: String!
+    note: String
+  }
+
   input PhotoInput {
-    leftSide: [String]
-    rightSide: [String]
-    topView: [String]
-    bottomView: [String]
-    frontView: [String]
-    backView: [String]
-    other: [String]
+    leftSide: [PhotoInputItem]
+    rightSide: [PhotoInputItem]
+    topView: [PhotoInputItem]
+    bottomView: [PhotoInputItem]
+    frontView: [PhotoInputItem]
+    backView: [PhotoInputItem]
+    other: [PhotoInputItem]
   }
 
   input CreateContractPriceInput {
