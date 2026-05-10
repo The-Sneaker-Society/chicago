@@ -9,6 +9,8 @@ const groupTypeDefs = gql`
     members: [Member!]!
     createdAt: String
     updatedAt: String
+    createdBy: Member!
+    admins: [Member!]!
   }
 
   type User {
