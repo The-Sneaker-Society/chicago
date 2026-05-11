@@ -66,6 +66,11 @@ const contractTypeDefs = gql`
     size: String
     soleCondition: String
     material: String
+    year: String
+    returnTimeframe: String
+    odorLevel: String
+    previousRepairs: Boolean
+    previousRepairsNotes: String
     photos: PhotoDetails
   }
 
@@ -87,6 +92,11 @@ const contractTypeDefs = gql`
     size: String
     soleCondition: String
     material: String
+    year: String
+    returnTimeframe: String
+    odorLevel: String
+    previousRepairs: Boolean
+    previousRepairsNotes: String
     photos: PhotoInput
   }
 

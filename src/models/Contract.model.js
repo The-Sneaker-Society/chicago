@@ -20,6 +20,11 @@ const ContractSchema = new mongoose.Schema(
       size: { type: String },
       soleCondition: { type: String },
       material: { type: String },
+      year: { type: String },
+      returnTimeframe: { type: String },
+      odorLevel: { type: String },
+      previousRepairs: { type: Boolean, default: false },
+      previousRepairsNotes: { type: String },
       photos: {
         leftSide: [{ url: { type: String }, note: { type: String } }],
         rightSide: [{ url: { type: String }, note: { type: String } }],
