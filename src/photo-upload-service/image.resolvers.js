@@ -13,12 +13,21 @@ const Mutation = {
     const ownerDbId = ctx.dbUser?._id?.toString() || ctx?.auth?.dbUser?._id?.toString() || clerkUserId;
     const res = await imageService.saveImagePointer(ownerDbId, key, filename, fileType);
     const doc = typeof res.toObject === 'function' ? res.toObject() : res;
-    return {
-      ...doc,
-      id: doc._id ? doc._id.toString() : doc.id,
-    };
-  }
-  ,
+    const idVal = doc._id ? doc._id.toString() : doc.id;
+
+    let url;
+    try {
+      url = await imageService.getMockViewUrl(clerkUserId, doc.key);
+    } catch {
+      try {
+        url = await imageService.getMockViewUrl(ownerDbId, doc.key);
+      } catch {
+        url = `https://placehold.co/600x400?text=Unavailable`;
+      }
+    }
+
+    return { ...doc, id: idVal, url };
+  },
   updateImage: async (_, { id, filename, fileType }, ctx) => {
     const clerkUserId = ctx?.userId || ctx?.auth?.userId;
     if (!clerkUserId) throw new Error("Unauthorized");
