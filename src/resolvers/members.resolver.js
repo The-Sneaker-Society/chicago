@@ -83,6 +83,31 @@ const Query = {
       throw new Error(e);
     }
   },
+
+  async getDiscoverMembers(parent, args, ctx) {
+    try {
+      const limit = args.limit ?? 10;
+      const offset = args.offset ?? 0;
+
+      // Exclude the requesting member from their own discover feed
+      const currentMember = await MemberModel.findOne({ clerkId: ctx.userId });
+      const excludeId = currentMember?._id;
+
+      const filter = excludeId ? { _id: { $ne: excludeId } } : {};
+
+      const [items, totalCount] = await Promise.all([
+        MemberModel.find(filter).skip(offset).limit(limit),
+        MemberModel.countDocuments(filter),
+      ]);
+
+      const hasMore = offset + items.length < totalCount;
+      const nextOffset = hasMore ? offset + limit : null;
+
+      return { items, totalCount, hasMore, nextOffset };
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
 };
 
 const Mutation = {
