@@ -86,6 +86,13 @@ const memberTypeDefs = gql`
     isNewUser: Boolean
   }
 
+  type DiscoverMemberPage {
+    items: [Member!]!
+    totalCount: Int!
+    hasMore: Boolean!
+    nextOffset: Int
+  }
+
   # Queries
   type Query {
     members: [Member!]!
@@ -94,6 +101,7 @@ const memberTypeDefs = gql`
     memberQrWidget: QrWidgetData!
     stripeWidgetData: StripeWidgetData!
     subscriptionDetails: SubscriptionDetails!
+    getDiscoverMembers(limit: Int, offset: Int): DiscoverMemberPage!
   }
 
   # Mutations
