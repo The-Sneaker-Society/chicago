@@ -2,7 +2,6 @@ import { gql } from "apollo-server-core";
 
 const memberTypeDefs = gql`
   type Member {
-    acceptedTos: Boolean!
     addressLineOne: String
     addressLineTwo: String
     businessName: String
@@ -13,21 +12,19 @@ const memberTypeDefs = gql`
     createdAt: String!
     deletedAt: String
     email: String!
-    firstName: String!
-    firebaseId: String!
+    firstName: String
     id: ID!
     isActive: Boolean!
     isNewUser: Boolean!
     isOnboardedWithStripe: Boolean!
     isSubscribed: Boolean!
-    lastName: String!
+    lastName: String
     phoneNumber: String
     products: [Product]!
     qrWidgetData: QrWidgetData!
     state: String
     stripeConnectAccountId: String!
     stripeCustomerId: String
-    subscriptionId: ID
     updatedAt: String!
     zipcode: String
   }
