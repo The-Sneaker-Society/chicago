@@ -144,6 +144,18 @@ const Query = {
           },
         },
         { $sort: { _score: -1, createdAt: -1 } },
+        // Only return fields defined on PublicMember — no PII, no billing data
+        {
+          $project: {
+            _id: 1,
+            firstName: 1,
+            lastName: 1,
+            businessName: 1,
+            state: 1,
+            isActive: 1,
+            subscriptionStatus: 1,
+          },
+        },
       ];
 
       const [countResult, items] = await Promise.all([
@@ -475,7 +487,9 @@ const Member = {
   async following(parent) {
     try {
       if (!parent.following?.length) return [];
-      return MemberModel.find({ _id: { $in: parent.following } });
+      return MemberModel.find({ _id: { $in: parent.following } }).select(
+        "firstName lastName businessName state isActive subscriptionStatus"
+      );
     } catch (e) {
       throw new Error(e);
     }
@@ -484,7 +498,9 @@ const Member = {
   async followers(parent) {
     try {
       if (!parent.followers?.length) return [];
-      return MemberModel.find({ _id: { $in: parent.followers } });
+      return MemberModel.find({ _id: { $in: parent.followers } }).select(
+        "firstName lastName businessName state isActive subscriptionStatus"
+      );
     } catch (e) {
       throw new Error(e);
     }

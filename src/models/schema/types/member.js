@@ -1,6 +1,17 @@
 import { gql } from "apollo-server-core";
 
 const memberTypeDefs = gql`
+  # Fields safe to expose to other members (no PII, no billing data)
+  type PublicMember {
+    id: ID!
+    firstName: String
+    lastName: String
+    businessName: String
+    state: String
+    isActive: Boolean!
+    subscriptionStatus: String
+  }
+
   type Member {
     addressLineOne: String
     addressLineTwo: String
@@ -13,8 +24,8 @@ const memberTypeDefs = gql`
     deletedAt: String
     email: String!
     firstName: String
-    followers: [Member!]!
-    following: [Member!]!
+    followers: [PublicMember!]!
+    following: [PublicMember!]!
     id: ID!
     isActive: Boolean!
     isNewUser: Boolean!
@@ -86,7 +97,7 @@ const memberTypeDefs = gql`
   }
 
   type DiscoverMemberPage {
-    items: [Member!]!
+    items: [PublicMember!]!
     totalCount: Int!
     hasMore: Boolean!
     nextOffset: Int
