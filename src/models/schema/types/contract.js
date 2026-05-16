@@ -30,6 +30,12 @@ const contractTypeDefs = gql`
     timeline: TimelineDetails
     shippingCarrier: String
     paymentStatus: String
+    stripePaymentIntentId: String
+    stripeTransferId: String
+    payoutStatus: String
+    payoutAmount: Float
+    platformFee: Float
+    paidAt: String
     createdAt: String
     updatedAt: String
   }
@@ -165,6 +171,7 @@ const contractTypeDefs = gql`
     createContract(data: CreateContractInput!): Contract!
     createContractPrice(data: CreateContractPriceInput): String!
     updateContract(id: ID!, data: UpdateContractInput!): Boolean!
+    releasePayout(contractId: ID!): Boolean!
   }
 `;
 

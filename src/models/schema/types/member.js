@@ -41,15 +41,32 @@ const memberTypeDefs = gql`
 
   type StripeWidgetData {
     percentChange: Float!
-    nextPayoutDate: String!
+    nextPayoutDate: String
     payoutAmount: String!
     stripeConnectAccountId: String
+    previousPayoutAmount: String
+    accountStatus: String
+    pendingCount: Int
+  }
+
+  type RevenueMonthData {
+    month: String!
+    revenue: Float!
+    newContracts: Int!
+    completed: Int!
+  }
+
+  type RevenueSummaryData {
+    months: [RevenueMonthData!]!
+    percentChange: Float!
   }
 
   type SubscriptionDetails {
     status: String
     currentPeriodEnd: String
     paymentMethod: PaymentMethod
+    cancelAtPeriodEnd: Boolean
+    isPaused: Boolean
   }
 
   type PaymentMethod {
@@ -98,6 +115,7 @@ const memberTypeDefs = gql`
     memberQrWidget: QrWidgetData!
     stripeWidgetData: StripeWidgetData!
     subscriptionDetails: SubscriptionDetails!
+    revenueSummary: RevenueSummaryData!
     getDiscoverMembers(limit: Int, offset: Int): DiscoverMemberPage!
   }
 
@@ -106,6 +124,7 @@ const memberTypeDefs = gql`
     createMember(data: CreateMemberInput!): Member!
     createMemberSubsctiprion: String
     cancelSubscription: Boolean!
+    pauseSubscription: Boolean!
     updateMember(data: UpdateMemberInput!): Boolean!
     reactivateSubscription: Boolean!
     onboardMemberToStripe: String!
