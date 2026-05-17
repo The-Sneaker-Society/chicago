@@ -1,7 +1,7 @@
 import MemberModel from "../models/Member.model";
 import UserModel from "../models/User.model";
 import ContractModel from "../models/Contract.model";
-import { createPaymentIntent } from "../stripe/stripe.service";
+import { createPaymentIntent, releasePayoutToMember } from "../stripe/stripe.service";
 import mongoose from "mongoose";
 
 const Query = {
@@ -183,6 +183,40 @@ const Mutation = {
         }
       });
       await contract.save();
+      return true;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+  async releasePayout(parent, args, ctx, info) {
+    try {
+      const { contractId } = args;
+
+      const contract = await ContractModel.findById(contractId);
+      if (!contract) throw new Error("Contract not found");
+      if (contract.payoutStatus !== "pending") {
+        throw new Error("No pending payout for this contract");
+      }
+
+      const member = await MemberModel.findById(contract.memberId);
+      if (!member?.stripeConnectAccountId) {
+        throw new Error("Member is not connected to Stripe");
+      }
+
+      const amountCents = Math.round(contract.payoutAmount * 100);
+      const transfer = await releasePayoutToMember(
+        member.stripeConnectAccountId,
+        amountCents,
+        contractId
+      );
+
+      await ContractModel.findByIdAndUpdate(contractId, {
+        payoutStatus: "paid",
+        stripeTransferId: transfer.id,
+        paidAt: new Date(),
+        $push: { timeline: { event: "PAYOUT_RELEASED", date: new Date() } },
+      });
+
       return true;
     } catch (e) {
       throw new Error(e);

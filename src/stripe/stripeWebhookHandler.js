@@ -1,8 +1,11 @@
 import { syncStripeDataToKV } from "../utils/redis/stripeSubscritpitonCache";
 import dotenv from "dotenv";
 import { stripe } from "./config";
+import ContractModel from "../models/Contract.model";
 
 dotenv.config({ path: "config.env" });
+
+const PLATFORM_FEE_CENTS = 1200; // $12 platform fee per contract
 
 const allowedEvents = [
   "checkout.session.completed",
@@ -66,6 +69,18 @@ export async function handleStripeWebhook(request, response, next) {
 
 async function handleStripeEvent(event) {
   try {
+    // --- Contract payment branch ---
+    // A checkout session with a contractId in metadata is a one-time contract
+    // payment — not a subscription event. Handle it separately before any
+    // customerId-based subscription sync.
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      if (session.metadata?.contractId) {
+        await handleContractPayment(session);
+        return;
+      }
+    }
+
     let customerId;
 
     // Extract customerId (handle different event structures)
@@ -113,6 +128,28 @@ async function handleStripeEvent(event) {
     console.error("Error handling Stripe event:", error);
     throw error; // Propagate the error for handling in the webhook handler
   }
+}
+
+// Handles a completed Stripe Checkout session for a contract payment.
+// Funds land in the platform account. The contract is marked STARTED and
+// payoutStatus set to "pending" until the member manually triggers releasePayout.
+async function handleContractPayment(session) {
+  const { contractId } = session.metadata;
+
+  const payoutAmount = (session.amount_total - PLATFORM_FEE_CENTS) / 100;
+  const platformFee = PLATFORM_FEE_CENTS / 100;
+
+  await ContractModel.findByIdAndUpdate(contractId, {
+    stripePaymentIntentId: session.payment_intent,
+    paymentStatus: "paid",
+    status: "STARTED",
+    payoutStatus: "pending",
+    payoutAmount,
+    platformFee,
+    $push: { timeline: { event: "PAYMENT_RECEIVED", date: new Date() } },
+  });
+
+  console.log(`[STRIPE HOOK] Contract ${contractId} payment received. Payout pending: $${payoutAmount}`);
 }
 
 // Function to get the raw body (important for signature verification)
