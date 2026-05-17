@@ -46,26 +46,65 @@ const Query = {
   },
   async stripeWidgetData(parent, args, ctx, info) {
     try {
-      const { stripeConnectAccountId } = ctx.dbUser;
+      const { stripeConnectAccountId, _id: memberId } = ctx.dbUser;
 
       if (!stripeConnectAccountId) {
         throw new Error("Not synced with stripe");
       }
-      const { payoutAmount, arrivalDate } =
-        await stripeService.getPayoutInfoMember(
-          ctx.dbUser.stripeConnectAccountId,
-        );
+
+      // Sum all pending payouts from the contract ledger — no Stripe balance call.
+      const pendingAgg = await ContractModel.aggregate([
+        { $match: { memberId: memberId, payoutStatus: "pending" } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$payoutAmount" },
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const pendingAmount = pendingAgg[0]?.total ?? 0;
+      const pendingCount = pendingAgg[0]?.count ?? 0;
+
+      // Most recent paid contract as the "previous payout" reference.
+      const lastPaidContract = await ContractModel.findOne(
+        { memberId: memberId, payoutStatus: "paid" },
+        { payoutAmount: 1 },
+        { sort: { paidAt: -1 } },
+      );
+
+      const prevRaw = lastPaidContract?.payoutAmount ?? null;
+      const prevFormatted =
+        prevRaw != null
+          ? new Intl.NumberFormat("en-US", {
+              style: "currency",
+              currency: "USD",
+            }).format(prevRaw)
+          : null;
+
+      const percentChange =
+        prevRaw && prevRaw > 0
+          ? Math.round(((pendingAmount - prevRaw) / prevRaw) * 100)
+          : 0;
 
       const formattedPayoutAmount = new Intl.NumberFormat("en-US", {
         style: "currency",
         currency: "USD",
-      }).format(payoutAmount);
+      }).format(pendingAmount);
+
+      const accountStatus = await stripeService.getAccountStatus(
+        stripeConnectAccountId,
+      );
 
       return {
-        stripeConnectAccountId: stripeConnectAccountId ?? "",
-        percentChange: 0,
-        nextPayoutDate: arrivalDate,
-        payoutAmount: formattedPayoutAmount ?? "0",
+        stripeConnectAccountId,
+        percentChange,
+        nextPayoutDate: null, // manual release model — no scheduled date
+        payoutAmount: formattedPayoutAmount,
+        previousPayoutAmount: prevFormatted,
+        accountStatus,
+        pendingCount,
       };
     } catch (e) {
       throw new Error(e);
@@ -79,6 +118,66 @@ const Query = {
         await stripeService.getMemberSubscriptionDetails(stripeCustomerId);
 
       return details;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+
+  async revenueSummary(parent, args, ctx, info) {
+    try {
+      const contractIds = ctx.dbUser.contracts;
+
+      if (!contractIds || contractIds.length === 0) {
+        const emptyMonths = buildEmptyMonths();
+        return { months: emptyMonths, percentChange: 0 };
+      }
+
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+      sixMonthsAgo.setDate(1);
+      sixMonthsAgo.setHours(0, 0, 0, 0);
+
+      const contracts = await ContractModel.find({
+        _id: { $in: contractIds },
+        createdAt: { $gte: sixMonthsAgo },
+      }).sort({ createdAt: 1 });
+
+      const months = [];
+      const now = new Date();
+      for (let i = 5; i >= 0; i--) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const monthStr = date.toLocaleString("default", { month: "short" });
+
+        const monthContracts = contracts.filter((c) => {
+          const created = new Date(Number(c.createdAt));
+          return (
+            created.getMonth() === date.getMonth() &&
+            created.getFullYear() === date.getFullYear()
+          );
+        });
+
+        const revenue = monthContracts
+          .filter((c) => c.status === "FINISHED")
+          .reduce((sum, c) => sum + (c.price || 0), 0);
+
+        months.push({
+          month: monthStr,
+          revenue,
+          newContracts: monthContracts.length,
+          completed: monthContracts.filter((c) => c.status === "FINISHED")
+            .length,
+        });
+      }
+
+      const lastMonthRev = months[months.length - 1]?.revenue || 0;
+      const prevMonthRev = months[months.length - 2]?.revenue || 0;
+      const percentChange =
+        prevMonthRev > 0
+          ? Math.round(((lastMonthRev - prevMonthRev) / prevMonthRev) * 100) /
+            100
+          : 0;
+
+      return { months, percentChange };
     } catch (e) {
       throw new Error(e);
     }
@@ -255,16 +354,23 @@ const Mutation = {
   async cancelSubscription(parent, args, ctx, info) {
     try {
       const { stripeCustomerId } = ctx.dbUser;
-
-      if (!stripeCustomerId) {
+      if (!stripeCustomerId)
         throw new Error("Stripe customer ID not found for this user.");
-      }
-
       await stripeService.cancelMemberSubscription(stripeCustomerId);
-
       return true;
     } catch {
       throw new Error("Failed to cancel subscription");
+    }
+  },
+  async pauseSubscription(parent, args, ctx, info) {
+    try {
+      const { stripeCustomerId } = ctx.dbUser;
+      if (!stripeCustomerId)
+        throw new Error("Stripe customer ID not found for this user.");
+      await stripeService.pauseMemberSubscription(stripeCustomerId);
+      return true;
+    } catch {
+      throw new Error("Failed to pause subscription");
     }
   },
   async reactivateSubscription(parent, args, ctx, info) {
@@ -369,3 +475,14 @@ const Member = {
   },
 };
 export default { Query, Mutation, Member };
+
+function buildEmptyMonths() {
+  const months = [];
+  const now = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthStr = date.toLocaleString("default", { month: "short" });
+    months.push({ month: monthStr, revenue: 0, newContracts: 0, completed: 0 });
+  }
+  return months;
+}

@@ -49,6 +49,15 @@ const ContractSchema = new mongoose.Schema(
       carrier: { type: String },
     },
     paymentStatus: { type: String },
+    stripePaymentIntentId: { type: String },
+    stripeTransferId: { type: String },
+    payoutStatus: {
+      type: String,
+      enum: ["pending", "paid", "cancelled"],
+    },
+    payoutAmount: { type: Number },
+    platformFee: { type: Number },
+    paidAt: { type: Date },
     timeline: [
       {
         event: { type: String },
