@@ -78,6 +78,18 @@ const MemberSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    following: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Member",
+      },
+    ],
+    followers: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Member",
+      },
+    ],
   },
   {
     collection: "members",

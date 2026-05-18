@@ -187,17 +187,80 @@ const Query = {
       const limit = args.limit ?? 10;
       const offset = args.offset ?? 0;
 
-      // Exclude the requesting member from their own discover feed
       const currentMember = await MemberModel.findOne({ clerkId: ctx.userId });
-      const excludeId = currentMember?._id;
 
-      const filter = excludeId ? { _id: { $ne: excludeId } } : {};
+      // IDs to exclude: self + already-followed members
+      const excludeIds = currentMember
+        ? [currentMember._id, ...(currentMember.following || [])]
+        : [];
 
-      const [items, totalCount] = await Promise.all([
-        MemberModel.find(filter).skip(offset).limit(limit),
-        MemberModel.countDocuments(filter),
+      // IDs the current member already follows — used for mutual connection scoring
+      const followingIds = currentMember?.following?.map(String) || [];
+
+      const matchStage = {
+        isActive: true,
+        deletedAt: null,
+        ...(excludeIds.length > 0 && { _id: { $nin: excludeIds } }),
+      };
+
+      // Aggregation pipeline:
+      // 1. Filter active, non-deleted, non-followed, non-self members
+      // 2. Compute a relevance score from community signals:
+      //    - mutualCount  (×3): followers who the current user also follows
+      //    - followerCount (×1): established presence in the community
+      //    - isPro         (+2): active subscription signals engagement
+      // 3. Sort by score desc, then createdAt desc as a tiebreaker
+      // 4. Get total before slicing, then apply skip/limit
+      const pipeline = [
+        { $match: matchStage },
+        {
+          $addFields: {
+            mutualCount: followingIds.length
+              ? {
+                  $size: {
+                    $setIntersection: [
+                      { $map: { input: "$followers", as: "f", in: { $toString: "$$f" } } },
+                      followingIds,
+                    ],
+                  },
+                }
+              : 0,
+            followerCount: { $size: { $ifNull: ["$followers", []] } },
+            isPro: { $eq: ["$subscriptionStatus", "active"] },
+          },
+        },
+        {
+          $addFields: {
+            _score: {
+              $add: [
+                { $multiply: ["$mutualCount", 3] },
+                "$followerCount",
+                { $cond: ["$isPro", 2, 0] },
+              ],
+            },
+          },
+        },
+        { $sort: { _score: -1, createdAt: -1 } },
+        // Only return fields defined on PublicMember — no PII, no billing data
+        {
+          $project: {
+            _id: 1,
+            firstName: 1,
+            lastName: 1,
+            businessName: 1,
+            state: 1,
+            isActive: 1,
+            subscriptionStatus: 1,
+          },
+        },
+      ];
+
+      const [countResult, items] = await Promise.all([
+        MemberModel.aggregate([...pipeline, { $count: "total" }]),
+        MemberModel.aggregate([...pipeline, { $skip: offset }, { $limit: limit }]),
       ]);
 
+      const totalCount = countResult[0]?.total ?? 0;
       const hasMore = offset + items.length < totalCount;
       const nextOffset = hasMore ? offset + limit : null;
 
@@ -385,6 +448,57 @@ const Mutation = {
       throw new Error("Failed to reactivate subscription");
     }
   },
+
+  async followMember(parent, args, ctx) {
+    try {
+      const currentMember = await MemberModel.findOne({ clerkId: ctx.userId });
+      if (!currentMember) throw new Error("Member not found");
+
+      const targetId = args.memberId;
+      if (String(currentMember._id) === String(targetId)) {
+        throw new Error("Cannot follow yourself");
+      }
+
+      const target = await MemberModel.findById(targetId);
+      if (!target) throw new Error("Target member not found");
+
+      // Keep both sides of the relationship in sync atomically
+      await Promise.all([
+        MemberModel.findByIdAndUpdate(currentMember._id, {
+          $addToSet: { following: targetId },
+        }),
+        MemberModel.findByIdAndUpdate(targetId, {
+          $addToSet: { followers: currentMember._id },
+        }),
+      ]);
+
+      return true;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+
+  async unfollowMember(parent, args, ctx) {
+    try {
+      const currentMember = await MemberModel.findOne({ clerkId: ctx.userId });
+      if (!currentMember) throw new Error("Member not found");
+
+      const targetId = args.memberId;
+
+      await Promise.all([
+        MemberModel.findByIdAndUpdate(currentMember._id, {
+          $pull: { following: targetId },
+        }),
+        MemberModel.findByIdAndUpdate(targetId, {
+          $pull: { followers: currentMember._id },
+        }),
+      ]);
+
+      return true;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
 };
 
 const Member = {
@@ -469,6 +583,28 @@ const Member = {
       return result;
     } catch (error) {
       throw new Error(error);
+    }
+  },
+
+  async following(parent) {
+    try {
+      if (!parent.following?.length) return [];
+      return MemberModel.find({ _id: { $in: parent.following } }).select(
+        "firstName lastName businessName state isActive subscriptionStatus"
+      );
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+
+  async followers(parent) {
+    try {
+      if (!parent.followers?.length) return [];
+      return MemberModel.find({ _id: { $in: parent.followers } }).select(
+        "firstName lastName businessName state isActive subscriptionStatus"
+      );
+    } catch (e) {
+      throw new Error(e);
     }
   },
 };
