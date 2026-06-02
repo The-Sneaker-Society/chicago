@@ -20,11 +20,11 @@ const postTypeDefs = gql`
     nextOffset: Int
   }
 
-  type Query {
+  extend type Query {
     getPostsByGroup(groupId: ID!, limit: Int = 10, offset: Int = 0): PostPage!
   }
 
-  type Mutation {
+  extend type Mutation {
     createPost(groupId: ID!, content: String!, images: [String!]): Post
     updatePost(postId: ID!, content: String!, images: [String!]): Post
     deletePost(postId: ID!): Boolean

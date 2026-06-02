@@ -15,7 +15,7 @@ const commentTypeDefs = gql`
     nextOffset: Int
   }
 
-  type Mutation {
+  extend type Mutation {
     addComment(postId: ID!, content: String!): PostComment
     updateComment(postId: ID!, commentId: ID!, content: String!): PostComment
     deleteComment(postId: ID!, commentId: ID!): Boolean
