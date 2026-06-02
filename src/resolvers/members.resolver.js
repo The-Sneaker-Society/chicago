@@ -51,42 +51,10 @@ const Query = {
       if (!stripeConnectAccountId) {
         throw new Error("Not synced with stripe");
       }
-
-      // Sum all pending payouts from the contract ledger — no Stripe balance call.
-      const pendingAgg = await ContractModel.aggregate([
-        { $match: { memberId: memberId, payoutStatus: "pending" } },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: "$payoutAmount" },
-            count: { $sum: 1 },
-          },
-        },
-      ]);
-
-      const pendingAmount = pendingAgg[0]?.total ?? 0;
-      const pendingCount = pendingAgg[0]?.count ?? 0;
-
-      // Most recent paid contract as the "previous payout" reference.
-      const lastPaidContract = await ContractModel.findOne(
-        { memberId: memberId, payoutStatus: "paid" },
-        { payoutAmount: 1 },
-        { sort: { paidAt: -1 } },
-      );
-
-      const prevRaw = lastPaidContract?.payoutAmount ?? null;
-      const prevFormatted =
-        prevRaw != null
-          ? new Intl.NumberFormat("en-US", {
-              style: "currency",
-              currency: "USD",
-            }).format(prevRaw)
-          : null;
-
-      const percentChange =
-        prevRaw && prevRaw > 0
-          ? Math.round(((pendingAmount - prevRaw) / prevRaw) * 100)
-          : 0;
+      const { payoutAmount, arrivalDate } =
+        await stripeService.getPayoutInfoMember(
+          ctx.dbUser.stripeConnectAccountId,
+        );
 
       const formattedPayoutAmount = new Intl.NumberFormat("en-US", {
         style: "currency",
@@ -220,7 +188,13 @@ const Query = {
               ? {
                   $size: {
                     $setIntersection: [
-                      { $map: { input: "$followers", as: "f", in: { $toString: "$$f" } } },
+                      {
+                        $map: {
+                          input: "$followers",
+                          as: "f",
+                          in: { $toString: "$$f" },
+                        },
+                      },
                       followingIds,
                     ],
                   },
@@ -258,7 +232,11 @@ const Query = {
 
       const [countResult, items] = await Promise.all([
         MemberModel.aggregate([...pipeline, { $count: "total" }]),
-        MemberModel.aggregate([...pipeline, { $skip: offset }, { $limit: limit }]),
+        MemberModel.aggregate([
+          ...pipeline,
+          { $skip: offset },
+          { $limit: limit },
+        ]),
       ]);
 
       const totalCount = countResult[0]?.total ?? 0;
@@ -592,7 +570,7 @@ const Member = {
     try {
       if (!parent.following?.length) return [];
       return MemberModel.find({ _id: { $in: parent.following } }).select(
-        "firstName lastName businessName state isActive subscriptionStatus"
+        "firstName lastName businessName state isActive subscriptionStatus",
       );
     } catch (e) {
       throw new Error(e);
@@ -603,7 +581,7 @@ const Member = {
     try {
       if (!parent.followers?.length) return [];
       return MemberModel.find({ _id: { $in: parent.followers } }).select(
-        "firstName lastName businessName state isActive subscriptionStatus"
+        "firstName lastName businessName state isActive subscriptionStatus",
       );
     } catch (e) {
       throw new Error(e);
