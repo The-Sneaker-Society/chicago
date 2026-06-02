@@ -53,7 +53,7 @@ const Query = {
       }
       const { payoutAmount, arrivalDate } =
         await stripeService.getPayoutInfoMember(
-          ctx.dbUser.stripeConnectAccountId
+          ctx.dbUser.stripeConnectAccountId,
         );
 
       const formattedPayoutAmount = new Intl.NumberFormat("en-US", {
@@ -75,9 +75,8 @@ const Query = {
     try {
       const { stripeCustomerId } = ctx.dbUser;
 
-      const details = await stripeService.getMemberSubscriptionDetails(
-        stripeCustomerId
-      );
+      const details =
+        await stripeService.getMemberSubscriptionDetails(stripeCustomerId);
 
       return details;
     } catch (e) {
@@ -110,7 +109,7 @@ const Mutation = {
             errors: {
               email: "This email is taken.",
             },
-          }
+          },
         );
       }
 
@@ -141,7 +140,7 @@ const Mutation = {
       await MemberModel.findByIdAndUpdate(
         ctx.dbUser._id,
         { ...args.data },
-        { new: true }
+        { new: true },
       );
       return true;
     } catch (error) {
@@ -153,7 +152,7 @@ const Mutation = {
       await MemberModel.findByIdAndUpdate(
         ctx.id,
         { deletedAt: Date.now() },
-        { new: true }
+        { new: true },
       );
       return true; // test
     } catch (e) {
@@ -163,16 +162,16 @@ const Mutation = {
   async onboardMemberToStripe(parent, args, ctx, info) {
     try {
       const createdStripeAccountId = await stripeService.createExpressaccount(
-        ctx.userId
+        ctx.userId,
       );
       const member = await MemberModel.findByIdAndUpdate(
         ctx.dbUser.id,
         { stripeConnectAccountId: createdStripeAccountId.id },
-        { new: true }
+        { new: true },
       );
 
       const { url } = await stripeService.createAccountLink(
-        member.stripeConnectAccountId
+        member.stripeConnectAccountId,
       );
 
       return url;
@@ -185,7 +184,7 @@ const Mutation = {
       const member = await MemberModel.findById(ctx.dbUser.id);
 
       const { url } = await stripeService.createAccountLink(
-        member.stripeConnectAccountId
+        member.stripeConnectAccountId,
       );
 
       return url;
@@ -219,7 +218,7 @@ const Mutation = {
         await MemberModel.findByIdAndUpdate(
           ctx.dbUser._id,
           { isNewUser: false },
-          { new: true }
+          { new: true },
         );
       }
 
@@ -305,7 +304,7 @@ const Member = {
       return {
         url: memberConractUrl,
         image: qrImage,
-        contractsDisabled: contractsDisabled 
+        contractsDisabled: contractsDisabled,
       };
     } catch (error) {
       throw new Error(error);
@@ -323,9 +322,8 @@ const Member = {
   async isSubscribed(parent, args, ctx, info) {
     try {
       const { stripeCustomerId } = parent;
-      const status = await stripeService.getMemberSubscriptionStatus(
-        stripeCustomerId
-      );
+      const status =
+        await stripeService.getMemberSubscriptionStatus(stripeCustomerId);
       return status;
     } catch (error) {
       throw new Error(error);
@@ -336,7 +334,7 @@ const Member = {
       const { stripeConnectAccountId } = parent;
 
       const result = await stripeService.getOnboardingStatus(
-        stripeConnectAccountId
+        stripeConnectAccountId,
       );
 
       return result;
