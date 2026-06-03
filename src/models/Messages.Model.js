@@ -19,6 +19,19 @@ const MessageSchema = new mongoose.Schema(
       enum: ["MEMBER", "USER"],
       required: true,
     },
+    type: {
+      type: String,
+      enum: ["TEXT", "PRICE_PROPOSAL"],
+      default: "TEXT",
+    },
+    metadata: {
+      price: Number,
+      checkoutUrl: String,
+      status: {
+        type: String,
+        enum: ["pending", "paid", "expired"],
+      },
+    },
   },
   {
     timestamps: true,

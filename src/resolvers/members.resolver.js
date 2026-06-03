@@ -158,14 +158,14 @@ const Query = {
         });
 
         const revenue = monthContracts
-          .filter((c) => c.status === "FINISHED")
+          .filter((c) => c.status === "PAYOUT_RELEASED")
           .reduce((sum, c) => sum + (c.price || 0), 0);
 
         months.push({
           month: monthStr,
           revenue,
           newContracts: monthContracts.length,
-          completed: monthContracts.filter((c) => c.status === "FINISHED").length,
+          completed: monthContracts.filter((c) => c.status === "PAYOUT_RELEASED").length,
         });
       }
 
@@ -554,7 +554,7 @@ const Member = {
   },
   async chats(parent, args, ctx, info) {
     try {
-      const { _id } = ctx;
+      const { _id } = parent;
       const chats = await ChatModel.find({ memberId: _id });
       return chats;
     } catch (error) {

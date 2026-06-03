@@ -131,7 +131,7 @@ async function handleStripeEvent(event) {
 }
 
 // Handles a completed Stripe Checkout session for a contract payment.
-// Funds land in the platform account. The contract is marked STARTED and
+// Funds land in the platform account. The contract is marked PRICE_ACCEPTED and
 // payoutStatus set to "pending" until the member manually triggers releasePayout.
 async function handleContractPayment(session) {
   const { contractId } = session.metadata;
@@ -142,7 +142,7 @@ async function handleContractPayment(session) {
   await ContractModel.findByIdAndUpdate(contractId, {
     stripePaymentIntentId: session.payment_intent,
     paymentStatus: "paid",
-    status: "STARTED",
+    status: "PRICE_ACCEPTED",
     payoutStatus: "pending",
     payoutAmount,
     platformFee,

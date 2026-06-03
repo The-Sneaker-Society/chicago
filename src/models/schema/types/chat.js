@@ -6,9 +6,21 @@ const chatTypeDefs = gql`
     MEMBER
   }
 
+  enum MessageType {
+    TEXT
+    PRICE_PROPOSAL
+  }
+
+  type PriceProposalMetadata {
+    price: Float
+    checkoutUrl: String
+    status: String
+  }
+
   type Chat {
     id: ID!
     name: String!
+    contractId: ID
     member: Member!
     user: User!
     messages: [Message!]!
@@ -21,6 +33,8 @@ const chatTypeDefs = gql`
     senderId: String!
     createdAt: String!
     senderType: MessageSenderType!
+    type: MessageType
+    metadata: PriceProposalMetadata
   }
 
   input CreateChatInput {
@@ -32,6 +46,9 @@ const chatTypeDefs = gql`
     chatId: String!
     content: String!
     senderType: MessageSenderType!
+    type: MessageType
+    price: Float
+    checkoutUrl: String
   }
 
   input SubscribeToChatInput {
@@ -46,6 +63,7 @@ const chatTypeDefs = gql`
   type Mutation {
     createChat(data: CreateChatInput): Boolean!
     createMessage(data: CreateMessageInput): Message!
+    proposePriceInChat(contractId: ID!, price: Float!): Message!
   }
 
   type Subscription {
