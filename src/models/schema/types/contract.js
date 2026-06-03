@@ -158,6 +158,7 @@ const contractTypeDefs = gql`
 
   input RepairDetailsInput {
     clientNotes: String
+    memberNotes: String
   }
 
   input UpdateContractInput {
@@ -208,6 +209,7 @@ const contractTypeDefs = gql`
     createContractPrice(data: CreateContractPriceInput): String!
     updateContract(id: ID!, data: UpdateContractInput!): Boolean!
     releasePayout(contractId: ID!): Boolean!
+    initiateContractChat(contractId: ID!): Chat!
   }
 `;
 

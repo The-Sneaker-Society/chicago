@@ -2,6 +2,8 @@ import MessageModel from "../../models/Messages.Model";
 import UserModel from "../../models/User.model";
 import MemberModel from "../../models/Member.model";
 import ChatModel from "../../models/Chat.model";
+import ContractModel from "../../models/Contract.model";
+import { createPaymentIntent } from "../../stripe/stripe.service";
 import { PubSub } from "graphql-subscriptions";
 
 const pubsub = new PubSub();
@@ -18,6 +20,8 @@ const Query = {
           senderId: message.senderId,
           content: message.content,
           senderType: message.senderType,
+          type: message.type || "TEXT",
+          metadata: message.metadata,
           createdAt: new Date(message.createdAt),
         };
       });
@@ -54,17 +58,23 @@ const Mutation = {
   async createMessage(parent, args, ctx, info) {
     try {
       const { _id } = ctx.dbUser;
-      const { content, senderType, chatId } = args.data;
+      const { content, senderType, chatId, type, price, checkoutUrl } = args.data;
 
       const chat = await ChatModel.findById(chatId);
 
       if (chat) {
-        const newMessage = new MessageModel({
+        const messageData = {
           senderId: _id,
           content,
           senderType,
           chatId,
-        });
+          type: type || "TEXT",
+        };
+        if (type === "PRICE_PROPOSAL") {
+          messageData.metadata = { price, checkoutUrl, status: "pending" };
+        }
+
+        const newMessage = new MessageModel(messageData);
 
         const res = await newMessage.save();
 
@@ -79,6 +89,8 @@ const Mutation = {
             senderId: res.senderId,
             content: res.content,
             senderType: res.senderType,
+            type: res.type,
+            metadata: res.metadata,
             createdAt: res.createdAt,
           },
         });
@@ -89,6 +101,84 @@ const Mutation = {
       }
     } catch (e) {
       throw e;
+    }
+  },
+  async proposePriceInChat(parent, args, ctx, info) {
+    try {
+      const { contractId, price } = args;
+      const memberId = ctx.dbUser?._id;
+
+      if (!memberId) {
+        throw new Error("Unauthorized");
+      }
+
+      const contract = await ContractModel.findById(contractId);
+      if (!contract) {
+        throw new Error("Contract not found");
+      }
+      if (contract.memberId.toString() !== memberId.toString()) {
+        throw new Error("Unauthorized: Contract does not belong to this member");
+      }
+
+      if (!contract.chatId) {
+        throw new Error("No chat exists for this contract");
+      }
+
+      const stripeConnectAccountId = ctx.dbUser?.stripeConnectAccountId;
+      if (!stripeConnectAccountId) {
+        throw new Error("Stripe account not connected");
+      }
+
+      const brand = contract.shoeDetails?.brand || "";
+      const model = contract.shoeDetails?.model || "";
+      const shoeLabel = [brand, model].filter(Boolean).join(" ") || "Sneaker";
+      const productName = `Sneaker Society - ${shoeLabel}`;
+
+      const checkoutUrl = await createPaymentIntent(
+        stripeConnectAccountId,
+        price,
+        contractId,
+        productName
+      );
+
+      await ContractModel.findByIdAndUpdate(contractId, {
+        proposedPrice: price,
+        status: "PRICE_PROPOSED",
+        $push: { timeline: { event: "PRICE_PROPOSED", date: new Date() } },
+      });
+
+      const messageData = {
+        senderId: memberId,
+        content: `Price proposal: $${price}`,
+        senderType: "MEMBER",
+        chatId: contract.chatId,
+        type: "PRICE_PROPOSAL",
+        metadata: { price, checkoutUrl, status: "pending" },
+      };
+
+      const newMessage = new MessageModel(messageData);
+      const res = await newMessage.save();
+
+      await ChatModel.findByIdAndUpdate(contract.chatId, {
+        $push: { messages: res._id },
+      });
+
+      pubsub.publish(`MESSAGE_CREATED ${contract.chatId}`, {
+        subscribeToChat: {
+          id: res._id,
+          chatId: res.chatId,
+          senderId: res.senderId,
+          content: res.content,
+          senderType: res.senderType,
+          type: res.type,
+          metadata: res.metadata,
+          createdAt: res.createdAt,
+        },
+      });
+
+      return res;
+    } catch (e) {
+      throw new Error(e);
     }
   },
 };

@@ -16,6 +16,10 @@ const ChatSchema = new mongoose.Schema(
       ref: "Users",
       required: true,
     },
+    contractId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Contracts",
+    },
     messages: [
       {
         type: mongoose.Schema.Types.ObjectId,

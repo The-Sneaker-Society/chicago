@@ -554,7 +554,7 @@ const Member = {
   },
   async chats(parent, args, ctx, info) {
     try {
-      const { _id } = ctx;
+      const { _id } = parent;
       const chats = await ChatModel.find({ memberId: _id });
       return chats;
     } catch (error) {
