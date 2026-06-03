@@ -4,16 +4,31 @@ import { gql } from "apollo-server-core";
 
 const contractTypeDefs = gql`
   enum StageType {
-    NOT_STARTED
     PENDING_REVIEW
-    STARTED
-    FINISHED
+    PRICE_PROPOSED
+    PRICE_ACCEPTED
+    WAITING_SHIPMENT
+    SHIPPED
+    ARRIVED_AT_MEMBER
+    WORK_IN_PROGRESS
+    PROCESSING_RETURN
+    SHIPPED_BACK
+    USER_RECEIVED
+    PAYOUT_RELEASED
   }
 
   type MemberContractStatus {
-    notStarted: String!
-    started: String!
-    finished: String!
+    pendingReview: String!
+    priceProposed: String!
+    priceAccepted: String!
+    waitingShipment: String!
+    shipped: String!
+    arrivedAtMember: String!
+    workInProgress: String!
+    processingReturn: String!
+    shippedBack: String!
+    userReceived: String!
+    payoutReleased: String!
   }
 
   type Contract {
@@ -21,13 +36,19 @@ const contractTypeDefs = gql`
     client: Client!
     member: Member!
     chatId: ID
+    declaredMarketValue: Float
+    boxIncluded: Boolean
     shoeDetails: ShoeDetails
     repairDetails: RepairDetails
     proposedPrice: Float
     price: Float
     status: String
-    trackingNumber: TrackingDetails
-    timeline: TimelineDetails
+    inboundTracking: TrackingDetails
+    outboundTracking: TrackingDetails
+    unboxingPhotos: [String]
+    completionPhotos: [String]
+    afterFormNotes: String
+    timeline: [TimelineEvent]
     shippingCarrier: String
     paymentStatus: String
     stripePaymentIntentId: String
@@ -35,6 +56,7 @@ const contractTypeDefs = gql`
     payoutStatus: String
     payoutAmount: Float
     platformFee: Float
+    payoutEligibleAt: String
     paidAt: String
     createdAt: String
     updatedAt: String
@@ -45,7 +67,7 @@ const contractTypeDefs = gql`
     trackingNumber: String
   }
 
-  type TimelineDetails {
+  type TimelineEvent {
     event: String
     date: String
   }
@@ -62,6 +84,9 @@ const contractTypeDefs = gql`
     bottomView: [PhotoDetail]
     frontView: [PhotoDetail]
     backView: [PhotoDetail]
+    inside: [PhotoDetail]
+    tongue: [PhotoDetail]
+    box: [PhotoDetail]
     other: [PhotoDetail]
   }
 
@@ -87,6 +112,8 @@ const contractTypeDefs = gql`
 
   input CreateContractInput {
     memberId: ID!
+    declaredMarketValue: Float
+    boxIncluded: Boolean
     shoeDetails: ShoeDetailsInput!
     repairDetails: RepairDetailsInput!
   }
@@ -118,6 +145,9 @@ const contractTypeDefs = gql`
     bottomView: [PhotoInputItem]
     frontView: [PhotoInputItem]
     backView: [PhotoInputItem]
+    inside: [PhotoInputItem]
+    tongue: [PhotoInputItem]
+    box: [PhotoInputItem]
     other: [PhotoInputItem]
   }
 
@@ -132,12 +162,18 @@ const contractTypeDefs = gql`
 
   input UpdateContractInput {
     memberId: ID
+    declaredMarketValue: Float
+    boxIncluded: Boolean
     shoeDetails: ShoeDetailsInput
     repairDetails: RepairDetailsInput
     proposedPrice: Float
     price: Float
     status: String
-    trackingNumber: TrackingDetailsInput
+    inboundTracking: TrackingDetailsInput
+    outboundTracking: TrackingDetailsInput
+    unboxingPhotos: [String]
+    completionPhotos: [String]
+    afterFormNotes: String
     timeline: [TimelineDetailsInput]
     shippingCarrier: String
     paymentStatus: String

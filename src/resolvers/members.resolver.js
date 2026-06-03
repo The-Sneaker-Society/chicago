@@ -158,14 +158,14 @@ const Query = {
         });
 
         const revenue = monthContracts
-          .filter((c) => c.status === "FINISHED")
+          .filter((c) => c.status === "PAYOUT_RELEASED")
           .reduce((sum, c) => sum + (c.price || 0), 0);
 
         months.push({
           month: monthStr,
           revenue,
           newContracts: monthContracts.length,
-          completed: monthContracts.filter((c) => c.status === "FINISHED").length,
+          completed: monthContracts.filter((c) => c.status === "PAYOUT_RELEASED").length,
         });
       }
 

@@ -1,5 +1,19 @@
 import mongoose from "mongoose";
 
+const CONTRACT_STATUSES = [
+  "PENDING_REVIEW",
+  "PRICE_PROPOSED",
+  "PRICE_ACCEPTED",
+  "WAITING_SHIPMENT",
+  "SHIPPED",
+  "ARRIVED_AT_MEMBER",
+  "WORK_IN_PROGRESS",
+  "PROCESSING_RETURN",
+  "SHIPPED_BACK",
+  "USER_RECEIVED",
+  "PAYOUT_RELEASED",
+];
+
 const ContractSchema = new mongoose.Schema(
   {
     clientId: {
@@ -13,6 +27,8 @@ const ContractSchema = new mongoose.Schema(
       required: true,
     },
     chatId: { type: mongoose.Schema.Types.ObjectId, ref: "Chats" },
+    declaredMarketValue: { type: Number },
+    boxIncluded: { type: Boolean, default: false },
     shoeDetails: {
       brand: { type: String },
       model: { type: String },
@@ -32,6 +48,9 @@ const ContractSchema = new mongoose.Schema(
         bottomView: [{ url: { type: String }, note: { type: String } }],
         frontView: [{ url: { type: String }, note: { type: String } }],
         backView: [{ url: { type: String }, note: { type: String } }],
+        inside: [{ url: { type: String }, note: { type: String } }],
+        tongue: [{ url: { type: String }, note: { type: String } }],
+        box: [{ url: { type: String }, note: { type: String } }],
         other: [{ url: { type: String }, note: { type: String } }],
       },
     },
@@ -43,11 +62,20 @@ const ContractSchema = new mongoose.Schema(
     price: { type: Number },
     status: {
       type: String,
+      enum: CONTRACT_STATUSES,
+      default: "PENDING_REVIEW",
     },
-    trackingDetails: {
+    inboundTracking: {
       trackingNumber: { type: String },
       carrier: { type: String },
     },
+    outboundTracking: {
+      trackingNumber: { type: String },
+      carrier: { type: String },
+    },
+    unboxingPhotos: [{ type: String }],
+    completionPhotos: [{ type: String }],
+    afterFormNotes: { type: String },
     paymentStatus: { type: String },
     stripePaymentIntentId: { type: String },
     stripeTransferId: { type: String },
@@ -57,6 +85,7 @@ const ContractSchema = new mongoose.Schema(
     },
     payoutAmount: { type: Number },
     platformFee: { type: Number },
+    payoutEligibleAt: { type: Date },
     paidAt: { type: Date },
     timeline: [
       {

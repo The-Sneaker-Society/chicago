@@ -5,9 +5,20 @@ import { createPaymentIntent, releasePayoutToMember } from "../stripe/stripe.ser
 import mongoose from "mongoose";
 
 const Query = {
-  async contracts() {
+  async contracts(parent, args, ctx, info) {
     try {
-      const contracts = await ContractModel.find();
+      if (!ctx.dbUser) {
+        return [];
+      }
+
+      const filter = {};
+      if (ctx.role === "member") {
+        filter.memberId = ctx.dbUser._id;
+      } else if (ctx.role === "client") {
+        filter.clientId = ctx.dbUser._id;
+      }
+
+      const contracts = await ContractModel.find(filter);
       return contracts;
     } catch (e) {
       throw new Error(e);
@@ -28,7 +39,6 @@ const Query = {
   },
   async memberContractStatus(parent, args, ctx, info) {
     try {
-      // Validate that the context contains a valid member ID
       if (!ctx.dbUser) {
         throw new Error("Unauthorized: Member ID is missing in the context.");
       }
@@ -39,7 +49,6 @@ const Query = {
         ? mongoose.Types.ObjectId(id)
         : id;
 
-      // Aggregate contract counts by stage
       const contractCounts = await ContractModel.aggregate([
         {
           $match: { memberId: memberId },
@@ -51,19 +60,33 @@ const Query = {
           },
         },
       ]);
-  
+
       const statusCounts = {
-        notStarted: 0,
         pendingReview: 0,
-        started: 0,
-        finished: 0,
+        priceProposed: 0,
+        priceAccepted: 0,
+        waitingShipment: 0,
+        shipped: 0,
+        arrivedAtMember: 0,
+        workInProgress: 0,
+        processingReturn: 0,
+        shippedBack: 0,
+        userReceived: 0,
+        payoutReleased: 0,
       };
 
-      // Map database stages to status counts
       const STAGE_MAP = {
-        PENDING_REVIEW: "notStarted",
-        STARTED: "started",
-        FINISHED: "finished",
+        PENDING_REVIEW: "pendingReview",
+        PRICE_PROPOSED: "priceProposed",
+        PRICE_ACCEPTED: "priceAccepted",
+        WAITING_SHIPMENT: "waitingShipment",
+        SHIPPED: "shipped",
+        ARRIVED_AT_MEMBER: "arrivedAtMember",
+        WORK_IN_PROGRESS: "workInProgress",
+        PROCESSING_RETURN: "processingReturn",
+        SHIPPED_BACK: "shippedBack",
+        USER_RECEIVED: "userReceived",
+        PAYOUT_RELEASED: "payoutReleased",
       };
 
       contractCounts.forEach((stage) => {
@@ -102,7 +125,7 @@ const Query = {
 const Mutation = {
   async createContract(parent, args, ctx, info) {
     try {
-      const { memberId, shoeDetails, repairDetails } = args.data;
+      const { memberId, shoeDetails, repairDetails, declaredMarketValue, boxIncluded } = args.data;
       const clientId = ctx.dbUser._id;
 
       const member = await MemberModel.findById(memberId);
@@ -114,6 +137,8 @@ const Mutation = {
       const newContract = new ContractModel({
         clientId,
         memberId,
+        declaredMarketValue,
+        boxIncluded,
         shoeDetails,
         repairDetails: {
           ...repairDetails,
@@ -123,8 +148,6 @@ const Mutation = {
         price: null,
         chatId: null,
         status: "PENDING_REVIEW",
-        trackingNumber: null,
-        shippingCarrier: null,
         paymentStatus: null,
         timeline: [
           {
@@ -159,6 +182,12 @@ const Mutation = {
         price,
         contractId
       );
+
+      await ContractModel.findByIdAndUpdate(contractId, {
+        proposedPrice: price,
+        status: "PRICE_PROPOSED",
+      });
+
       return url;
     } catch (err) {
       throw new Error(err);
@@ -171,12 +200,10 @@ const Mutation = {
       if (!contract) {
         throw new Error("Contract not found");
       }
-      // Check if contract belongs to the member in context
       const memberId = ctx.dbUser?._id?.toString();
       if (memberId && contract.memberId.toString() !== memberId) {
         throw new Error("Unauthorized: Contract does not belong to this member");
       }
-      // Only update fields provided in data
       Object.keys(data).forEach((key) => {
         if (data[key] !== undefined) {
           contract[key] = data[key];
@@ -214,6 +241,7 @@ const Mutation = {
         payoutStatus: "paid",
         stripeTransferId: transfer.id,
         paidAt: new Date(),
+        status: "PAYOUT_RELEASED",
         $push: { timeline: { event: "PAYOUT_RELEASED", date: new Date() } },
       });
 
