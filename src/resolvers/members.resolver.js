@@ -60,12 +60,16 @@ const Query = {
             _id: null,
             total: { $sum: "$payoutAmount" },
             count: { $sum: 1 },
+            totalFees: { $sum: "$platformFee" },
+            totalGross: { $sum: "$proposedPrice" },
           },
         },
       ]);
 
       const pendingAmount = pendingAgg[0]?.total ?? 0;
       const pendingCount = pendingAgg[0]?.count ?? 0;
+      const totalFees = pendingAgg[0]?.totalFees ?? 0;
+      const totalGross = pendingAgg[0]?.totalGross ?? 0;
 
       // Most recent paid contract as the "previous payout" reference.
       const lastPaidContract = await ContractModel.findOne(
@@ -100,11 +104,13 @@ const Query = {
       return {
         stripeConnectAccountId,
         percentChange,
-        nextPayoutDate: null, // manual release model — no scheduled date
+        nextPayoutDate: null,
         payoutAmount: formattedPayoutAmount,
         previousPayoutAmount: prevFormatted,
         accountStatus,
         pendingCount,
+        totalFees,
+        totalGross,
       };
     } catch (e) {
       throw new Error(e);

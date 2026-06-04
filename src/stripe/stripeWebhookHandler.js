@@ -2,13 +2,18 @@ import { syncStripeDataToKV } from "../utils/redis/stripeSubscritpitonCache";
 import dotenv from "dotenv";
 import { stripe } from "./config";
 import ContractModel from "../models/Contract.model";
+import MessageModel from "../models/Messages.Model";
+import { PubSub } from "graphql-subscriptions";
+
+const pubsub = new PubSub();
 
 dotenv.config({ path: "config.env" });
 
-const PLATFORM_FEE_CENTS = 1200; // $12 platform fee per contract
+const PLATFORM_FEE_CENTS = 1200; // $12 platform fee per contract — fallback only, see handleContractPayment
 
 const allowedEvents = [
   "checkout.session.completed",
+  "checkout.session.expired",
   "customer.subscription.created",
   "customer.subscription.updated",
   "customer.subscription.deleted",
@@ -81,6 +86,16 @@ async function handleStripeEvent(event) {
       }
     }
 
+    if (event.type === "checkout.session.expired") {
+      const session = event.data.object;
+      if (session.id) {
+        await MessageModel.findOneAndUpdate(
+          { "metadata.checkoutSessionId": session.id },
+          { "metadata.status": "expired" },
+        );
+      }
+    }
+
     let customerId;
 
     // Extract customerId (handle different event structures)
@@ -133,11 +148,15 @@ async function handleStripeEvent(event) {
 // Handles a completed Stripe Checkout session for a contract payment.
 // Funds land in the platform account. The contract is marked PRICE_ACCEPTED and
 // payoutStatus set to "pending" until the member manually triggers releasePayout.
+// The platform fee is read from session metadata (set by createPaymentIntent at
+// session creation time) so that DB and Stripe share the same source of truth.
+// Falls back to PLATFORM_FEE_CENTS for legacy sessions missing the metadata field.
 async function handleContractPayment(session) {
-  const { contractId } = session.metadata;
+  const { contractId, platformFeeCents, stripeConnectAccountId } = session.metadata;
+  const feeCents = parseInt(platformFeeCents, 10) || PLATFORM_FEE_CENTS;
 
-  const payoutAmount = (session.amount_total - PLATFORM_FEE_CENTS) / 100;
-  const platformFee = PLATFORM_FEE_CENTS / 100;
+  const payoutAmount = (session.amount_total - feeCents) / 100;
+  const platformFee = feeCents / 100;
 
   await ContractModel.findByIdAndUpdate(contractId, {
     stripePaymentIntentId: session.payment_intent,
@@ -148,6 +167,28 @@ async function handleContractPayment(session) {
     platformFee,
     $push: { timeline: { event: "PAYMENT_RECEIVED", date: new Date() } },
   });
+
+  // Mark the proposal message as paid
+  const updatedMessage = await MessageModel.findOneAndUpdate(
+    { "metadata.checkoutSessionId": session.id },
+    { "metadata.status": "paid" },
+    { new: true },
+  );
+
+  if (updatedMessage) {
+    pubsub.publish(`MESSAGE_UPDATED ${updatedMessage.chatId}`, {
+      messageUpdated: {
+        id: updatedMessage._id,
+        chatId: updatedMessage.chatId,
+        senderId: updatedMessage.senderId,
+        content: updatedMessage.content,
+        senderType: updatedMessage.senderType,
+        type: updatedMessage.type,
+        metadata: updatedMessage.metadata,
+        createdAt: updatedMessage.createdAt,
+      },
+    });
+  }
 
   console.log(`[STRIPE HOOK] Contract ${contractId} payment received. Payout pending: $${payoutAmount}`);
 }
