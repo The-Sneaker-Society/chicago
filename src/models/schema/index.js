@@ -9,6 +9,7 @@ import userTypeDefs from "./types/user";
 import chatTypeDefs from "./types/chat";
 import imageTypeDefs from "./types/image";
 import groupTypeDefs from "./types/group";
+import postTypeDefs from "./types/post";
 
 const typeDefs = gql`
   ${clientTypeDefs}
@@ -19,6 +20,7 @@ const typeDefs = gql`
   ${chatTypeDefs}
   ${imageTypeDefs}
   ${groupTypeDefs}
+  ${postTypeDefs}
 #   ${statsTypeDefs}
 #   ${emailSignUpTypeDefs}
 `;
