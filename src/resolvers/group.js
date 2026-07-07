@@ -1,4 +1,6 @@
 import GroupsModel from "../models/Groups.model";
+import PostModel from "../models/Post.model";
+
 import {
   requireAuthenticatedMember,
   requireGroupCreatorAccess,
@@ -87,8 +89,11 @@ const Mutation = {
   },
 
   async deleteGroup(parent, { id }, ctx) {
-    await requireGroupAdminAccess(id, ctx);
-    const result = await GroupsModel.findByIdAndDelete(id);
+    const { group } = await requireGroupAdminAccess(id, ctx);
+
+    await PostModel.deleteMany({ groupId: group._id });
+    const result = await GroupsModel.findByIdAndDelete(group._id);
+
     return !!result;
   },
 
