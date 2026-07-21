@@ -10,17 +10,9 @@ const Mutation = {
   confirmImageUpload: async (_, { key, filename, fileType }, ctx) => {
     const clerkUserId = ctx?.userId || ctx?.auth?.userId;
     if (!clerkUserId) throw new Error("Unauthorized");
-    const ownerDbId =
-      ctx.dbUser?._id?.toString() ||
-      ctx?.auth?.dbUser?._id?.toString() ||
-      clerkUserId;
-    const res = await imageService.saveImagePointer(
-      ownerDbId,
-      key,
-      filename,
-      fileType,
-    );
-    const doc = typeof res.toObject === "function" ? res.toObject() : res;
+    const ownerDbId = ctx.dbUser?._id?.toString() || ctx?.auth?.dbUser?._id?.toString() || clerkUserId;
+    const res = await imageService.saveImagePointer(ownerDbId, key, filename, fileType);
+    const doc = typeof res.toObject === 'function' ? res.toObject() : res;
     const idVal = doc._id ? doc._id.toString() : doc.id;
 
     let url;
@@ -82,16 +74,13 @@ const Query = {
   getImage: async (_, { id }, ctx) => {
     const clerkUserId = ctx?.userId || ctx?.auth?.userId;
     if (!clerkUserId) throw new Error("Unauthorized");
-    const ownerDbId =
-      ctx.dbUser?._id?.toString() ||
-      ctx?.auth?.dbUser?._id?.toString() ||
-      clerkUserId;
+    const ownerDbId = ctx.dbUser?._id?.toString() || ctx?.auth?.dbUser?._id?.toString() || clerkUserId;
 
     const img = await imageService.getImageById(id);
     if (!img) return null;
-    if (img.userId !== ownerDbId) throw new Error("Unauthorized");
+    if (img.userId !== ownerDbId) throw new Error('Unauthorized');
 
-    const doc = typeof img.toObject === "function" ? img.toObject() : img;
+    const doc = typeof img.toObject === 'function' ? img.toObject() : img;
     const idVal = doc._id ? doc._id.toString() : doc.id;
 
     let url;

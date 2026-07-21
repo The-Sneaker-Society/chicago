@@ -51,10 +51,42 @@ const Query = {
       if (!stripeConnectAccountId) {
         throw new Error("Not synced with stripe");
       }
-      const { payoutAmount, arrivalDate } =
-        await stripeService.getPayoutInfoMember(
-          ctx.dbUser.stripeConnectAccountId,
-        );
+
+      // Sum all pending payouts from the contract ledger — no Stripe balance call.
+      const pendingAgg = await ContractModel.aggregate([
+        { $match: { memberId: memberId, payoutStatus: "pending" } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$payoutAmount" },
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+
+      const pendingAmount = pendingAgg[0]?.total ?? 0;
+      const pendingCount = pendingAgg[0]?.count ?? 0;
+
+      // Most recent paid contract as the "previous payout" reference.
+      const lastPaidContract = await ContractModel.findOne(
+        { memberId: memberId, payoutStatus: "paid" },
+        { payoutAmount: 1 },
+        { sort: { paidAt: -1 } }
+      );
+
+      const prevRaw = lastPaidContract?.payoutAmount ?? null;
+      const prevFormatted =
+        prevRaw != null
+          ? new Intl.NumberFormat("en-US", {
+              style: "currency",
+              currency: "USD",
+            }).format(prevRaw)
+          : null;
+
+      const percentChange =
+        prevRaw && prevRaw > 0
+          ? Math.round(((pendingAmount - prevRaw) / prevRaw) * 100)
+          : 0;
 
       const formattedPayoutAmount = new Intl.NumberFormat("en-US", {
         style: "currency",
@@ -62,7 +94,7 @@ const Query = {
       }).format(pendingAmount);
 
       const accountStatus = await stripeService.getAccountStatus(
-        stripeConnectAccountId,
+        stripeConnectAccountId
       );
 
       return {
@@ -125,15 +157,14 @@ const Query = {
         });
 
         const revenue = monthContracts
-          .filter((c) => c.status === "FINISHED")
+          .filter((c) => c.status === "PAYOUT_RELEASED")
           .reduce((sum, c) => sum + (c.price || 0), 0);
 
         months.push({
           month: monthStr,
           revenue,
           newContracts: monthContracts.length,
-          completed: monthContracts.filter((c) => c.status === "FINISHED")
-            .length,
+          completed: monthContracts.filter((c) => c.status === "PAYOUT_RELEASED").length,
         });
       }
 
@@ -141,8 +172,7 @@ const Query = {
       const prevMonthRev = months[months.length - 2]?.revenue || 0;
       const percentChange =
         prevMonthRev > 0
-          ? Math.round(((lastMonthRev - prevMonthRev) / prevMonthRev) * 100) /
-            100
+          ? Math.round(((lastMonthRev - prevMonthRev) / prevMonthRev) * 100) / 100
           : 0;
 
       return { months, percentChange };
@@ -188,13 +218,7 @@ const Query = {
               ? {
                   $size: {
                     $setIntersection: [
-                      {
-                        $map: {
-                          input: "$followers",
-                          as: "f",
-                          in: { $toString: "$$f" },
-                        },
-                      },
+                      { $map: { input: "$followers", as: "f", in: { $toString: "$$f" } } },
                       followingIds,
                     ],
                   },
@@ -232,11 +256,7 @@ const Query = {
 
       const [countResult, items] = await Promise.all([
         MemberModel.aggregate([...pipeline, { $count: "total" }]),
-        MemberModel.aggregate([
-          ...pipeline,
-          { $skip: offset },
-          { $limit: limit },
-        ]),
+        MemberModel.aggregate([...pipeline, { $skip: offset }, { $limit: limit }]),
       ]);
 
       const totalCount = countResult[0]?.total ?? 0;
@@ -395,8 +415,7 @@ const Mutation = {
   async cancelSubscription(parent, args, ctx, info) {
     try {
       const { stripeCustomerId } = ctx.dbUser;
-      if (!stripeCustomerId)
-        throw new Error("Stripe customer ID not found for this user.");
+      if (!stripeCustomerId) throw new Error("Stripe customer ID not found for this user.");
       await stripeService.cancelMemberSubscription(stripeCustomerId);
       return true;
     } catch {
@@ -406,8 +425,7 @@ const Mutation = {
   async pauseSubscription(parent, args, ctx, info) {
     try {
       const { stripeCustomerId } = ctx.dbUser;
-      if (!stripeCustomerId)
-        throw new Error("Stripe customer ID not found for this user.");
+      if (!stripeCustomerId) throw new Error("Stripe customer ID not found for this user.");
       await stripeService.pauseMemberSubscription(stripeCustomerId);
       return true;
     } catch {
@@ -535,7 +553,7 @@ const Member = {
   },
   async chats(parent, args, ctx, info) {
     try {
-      const { _id } = ctx;
+      const { _id } = parent;
       const chats = await ChatModel.find({ memberId: _id });
       return chats;
     } catch (error) {
@@ -570,7 +588,7 @@ const Member = {
     try {
       if (!parent.following?.length) return [];
       return MemberModel.find({ _id: { $in: parent.following } }).select(
-        "firstName lastName businessName state isActive subscriptionStatus",
+        "firstName lastName businessName state isActive subscriptionStatus"
       );
     } catch (e) {
       throw new Error(e);
@@ -581,7 +599,7 @@ const Member = {
     try {
       if (!parent.followers?.length) return [];
       return MemberModel.find({ _id: { $in: parent.followers } }).select(
-        "firstName lastName businessName state isActive subscriptionStatus",
+        "firstName lastName businessName state isActive subscriptionStatus"
       );
     } catch (e) {
       throw new Error(e);

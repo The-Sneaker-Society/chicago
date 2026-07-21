@@ -1,13 +1,25 @@
 import MemberModel from "../models/Member.model";
 import UserModel from "../models/User.model";
 import ContractModel from "../models/Contract.model";
+import ChatModel from "../models/Chat.model";
 import { createPaymentIntent, releasePayoutToMember } from "../stripe/stripe.service";
 import mongoose from "mongoose";
 
 const Query = {
-  async contracts() {
+  async contracts(parent, args, ctx, info) {
     try {
-      const contracts = await ContractModel.find();
+      if (!ctx.dbUser) {
+        return [];
+      }
+
+      const filter = {};
+      if (ctx.role === "member") {
+        filter.memberId = ctx.dbUser._id;
+      } else if (ctx.role === "client") {
+        filter.clientId = ctx.dbUser._id;
+      }
+
+      const contracts = await ContractModel.find(filter);
       return contracts;
     } catch (e) {
       throw new Error(e);
@@ -28,7 +40,6 @@ const Query = {
   },
   async memberContractStatus(parent, args, ctx, info) {
     try {
-      // Validate that the context contains a valid member ID
       if (!ctx.dbUser) {
         throw new Error("Unauthorized: Member ID is missing in the context.");
       }
@@ -39,7 +50,6 @@ const Query = {
         ? mongoose.Types.ObjectId(id)
         : id;
 
-      // Aggregate contract counts by stage
       const contractCounts = await ContractModel.aggregate([
         {
           $match: { memberId: memberId },
@@ -51,19 +61,33 @@ const Query = {
           },
         },
       ]);
-  
+
       const statusCounts = {
-        notStarted: 0,
         pendingReview: 0,
-        started: 0,
-        finished: 0,
+        priceProposed: 0,
+        priceAccepted: 0,
+        waitingShipment: 0,
+        shipped: 0,
+        arrivedAtMember: 0,
+        workInProgress: 0,
+        processingReturn: 0,
+        shippedBack: 0,
+        userReceived: 0,
+        payoutReleased: 0,
       };
 
-      // Map database stages to status counts
       const STAGE_MAP = {
-        PENDING_REVIEW: "notStarted",
-        STARTED: "started",
-        FINISHED: "finished",
+        PENDING_REVIEW: "pendingReview",
+        PRICE_PROPOSED: "priceProposed",
+        PRICE_ACCEPTED: "priceAccepted",
+        WAITING_SHIPMENT: "waitingShipment",
+        SHIPPED: "shipped",
+        ARRIVED_AT_MEMBER: "arrivedAtMember",
+        WORK_IN_PROGRESS: "workInProgress",
+        PROCESSING_RETURN: "processingReturn",
+        SHIPPED_BACK: "shippedBack",
+        USER_RECEIVED: "userReceived",
+        PAYOUT_RELEASED: "payoutReleased",
       };
 
       contractCounts.forEach((stage) => {
@@ -102,7 +126,7 @@ const Query = {
 const Mutation = {
   async createContract(parent, args, ctx, info) {
     try {
-      const { memberId, shoeDetails, repairDetails } = args.data;
+      const { memberId, shoeDetails, repairDetails, declaredMarketValue, boxIncluded } = args.data;
       const clientId = ctx.dbUser._id;
 
       const member = await MemberModel.findById(memberId);
@@ -114,6 +138,8 @@ const Mutation = {
       const newContract = new ContractModel({
         clientId,
         memberId,
+        declaredMarketValue,
+        boxIncluded,
         shoeDetails,
         repairDetails: {
           ...repairDetails,
@@ -123,8 +149,6 @@ const Mutation = {
         price: null,
         chatId: null,
         status: "PENDING_REVIEW",
-        trackingNumber: null,
-        shippingCarrier: null,
         paymentStatus: null,
         timeline: [
           {
@@ -137,7 +161,8 @@ const Mutation = {
       const savedContract = await newContract.save();
 
       await UserModel.findByIdAndUpdate(clientId, {
-        $push: { contracts: savedContract._id, members: memberId },
+        $push: { contracts: savedContract._id },
+        $addToSet: { members: memberId },
       });
 
       await MemberModel.findByIdAndUpdate(memberId, {
@@ -154,11 +179,24 @@ const Mutation = {
       const { contractId, price } = args.data;
       const { stripeConnectAccountId } = ctx.dbUser;
 
+      const contract = await ContractModel.findById(contractId);
+      const brand = contract?.shoeDetails?.brand || "";
+      const model = contract?.shoeDetails?.model || "";
+      const shoeLabel = [brand, model].filter(Boolean).join(" ") || "Sneaker";
+      const productName = `Sneaker Society - ${shoeLabel}`;
+
       const url = await createPaymentIntent(
         stripeConnectAccountId,
         price,
-        contractId
+        contractId,
+        productName
       );
+
+      await ContractModel.findByIdAndUpdate(contractId, {
+        proposedPrice: price,
+        status: "PRICE_PROPOSED",
+      });
+
       return url;
     } catch (err) {
       throw new Error(err);
@@ -171,19 +209,69 @@ const Mutation = {
       if (!contract) {
         throw new Error("Contract not found");
       }
-      // Check if contract belongs to the member in context
       const memberId = ctx.dbUser?._id?.toString();
       if (memberId && contract.memberId.toString() !== memberId) {
         throw new Error("Unauthorized: Contract does not belong to this member");
       }
-      // Only update fields provided in data
+      const nestedPaths = ["repairDetails", "shoeDetails", "inboundTracking", "outboundTracking"];
       Object.keys(data).forEach((key) => {
-        if (data[key] !== undefined) {
+        if (data[key] === undefined) return;
+        if (nestedPaths.includes(key) && typeof data[key] === "object" && !Array.isArray(data[key])) {
+          Object.keys(data[key]).forEach((subKey) => {
+            if (data[key][subKey] !== undefined) {
+              contract[key][subKey] = data[key][subKey];
+            }
+          });
+        } else {
           contract[key] = data[key];
         }
       });
       await contract.save();
       return true;
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+  async initiateContractChat(parent, args, ctx, info) {
+    try {
+      const { contractId } = args;
+      const memberId = ctx.dbUser?._id;
+
+      if (!memberId) {
+        throw new Error("Unauthorized");
+      }
+
+      const contract = await ContractModel.findById(contractId);
+      if (!contract) {
+        throw new Error("Contract not found");
+      }
+      if (contract.memberId.toString() !== memberId.toString()) {
+        throw new Error("Unauthorized: Contract does not belong to this member");
+      }
+
+      if (contract.chatId) {
+        const existingChat = await ChatModel.findById(contract.chatId);
+        if (existingChat) {
+          return existingChat;
+        }
+      }
+
+      const clientName = `${contract.shoeDetails?.brand || ""} ${contract.shoeDetails?.model || ""}`.trim() || "Contract Chat";
+
+      const newChat = new ChatModel({
+        name: clientName,
+        memberId: memberId,
+        userId: contract.clientId,
+        contractId: contract._id,
+      });
+
+      const savedChat = await newChat.save();
+
+      contract.chatId = savedChat._id;
+      contract.timeline.push({ event: "CHAT_INITIATED", date: new Date() });
+      await contract.save();
+
+      return savedChat;
     } catch (e) {
       throw new Error(e);
     }
@@ -214,6 +302,7 @@ const Mutation = {
         payoutStatus: "paid",
         stripeTransferId: transfer.id,
         paidAt: new Date(),
+        status: "PAYOUT_RELEASED",
         $push: { timeline: { event: "PAYOUT_RELEASED", date: new Date() } },
       });
 
