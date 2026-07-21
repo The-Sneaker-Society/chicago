@@ -5,9 +5,17 @@ import { gql } from 'apollo-server-core';
 const statsTypeDefs = gql`
   type Stats {
     id: ID!
-    notStarted: Int!
-    started: Int!
-    finished: Int!
+    pendingReview: Int!
+    priceProposed: Int!
+    priceAccepted: Int!
+    waitingShipment: Int!
+    shipped: Int!
+    arrivedAtMember: Int!
+    workInProgress: Int!
+    processingReturn: Int!
+    shippedBack: Int!
+    userReceived: Int!
+    payoutReleased: Int!
   }
 `;
 

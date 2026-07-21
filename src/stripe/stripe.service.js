@@ -278,7 +278,8 @@ export const getAccountStatus = async (connectAccountId) => {
 export const createPaymentIntent = async (
   connectAccountId,
   amount,
-  contractId
+  contractId,
+  productName
 ) => {
   try {
     const session = await stripe.checkout.sessions.create({
@@ -287,7 +288,7 @@ export const createPaymentIntent = async (
           price_data: {
             currency: "usd",
             product_data: {
-              name: `Contract Payment - ${contractId}`,
+              name: productName || `Contract Payment - ${contractId}`,
             },
             unit_amount: amount * 100,
           },
