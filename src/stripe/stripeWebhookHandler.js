@@ -3,9 +3,7 @@ import dotenv from "dotenv";
 import { stripe } from "./config";
 import ContractModel from "../models/Contract.model";
 import MessageModel from "../models/Messages.Model";
-import { PubSub } from "graphql-subscriptions";
-
-const pubsub = new PubSub();
+import pubsub from "../pubsub";
 
 dotenv.config({ path: "config.env" });
 
@@ -72,6 +70,28 @@ export async function handleStripeWebhook(request, response, next) {
   }
 }
 
+async function expireProposal(checkoutSessionId) {
+  const msg = await MessageModel.findOneAndUpdate(
+    { "metadata.checkoutSessionId": checkoutSessionId },
+    { "metadata.status": "expired" },
+    { new: true },
+  );
+  if (msg) {
+    pubsub.publish(`MESSAGE_UPDATED ${msg.chatId}`, {
+      messageUpdated: {
+        id: msg._id,
+        chatId: msg.chatId,
+        senderId: msg.senderId,
+        content: msg.content,
+        senderType: msg.senderType,
+        type: msg.type,
+        metadata: msg.metadata,
+        createdAt: msg.createdAt,
+      },
+    });
+  }
+}
+
 async function handleStripeEvent(event) {
   try {
     // --- Contract payment branch ---
@@ -88,11 +108,15 @@ async function handleStripeEvent(event) {
 
     if (event.type === "checkout.session.expired") {
       const session = event.data.object;
-      if (session.id) {
-        await MessageModel.findOneAndUpdate(
-          { "metadata.checkoutSessionId": session.id },
-          { "metadata.status": "expired" },
-        );
+      if (session.id) await expireProposal(session.id);
+    }
+
+    if (event.type === "payment_intent.canceled") {
+      const pi = event.data.object;
+      if (pi.id) {
+        const sessions = await stripe.checkout.sessions.list({ payment_intent: pi.id, limit: 1 });
+        const session = sessions.data[0];
+        if (session?.id) await expireProposal(session.id);
       }
     }
 

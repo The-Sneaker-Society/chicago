@@ -5,9 +5,7 @@ import ChatModel from "../../models/Chat.model";
 import ContractModel from "../../models/Contract.model";
 import { createPaymentIntent } from "../../stripe/stripe.service";
 import { stripe } from "../../stripe/config";
-import { PubSub } from "graphql-subscriptions";
-
-const pubsub = new PubSub();
+import pubsub from "../../pubsub";
 
 const Query = {
   async messages() {
