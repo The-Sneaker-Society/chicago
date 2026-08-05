@@ -60,6 +60,8 @@ const memberTypeDefs = gql`
     previousPayoutAmount: String
     accountStatus: String
     pendingCount: Int
+    totalFees: Float
+    totalGross: Float
   }
 
   type RevenueMonthData {

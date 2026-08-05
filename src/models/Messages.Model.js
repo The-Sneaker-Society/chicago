@@ -27,9 +27,11 @@ const MessageSchema = new mongoose.Schema(
     metadata: {
       price: Number,
       checkoutUrl: String,
+      checkoutSessionId: String,
+      expiresAt: Date,
       status: {
         type: String,
-        enum: ["pending", "paid", "expired"],
+        enum: ["pending", "paid", "expired", "superseded"],
       },
     },
   },

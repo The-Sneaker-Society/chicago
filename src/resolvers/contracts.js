@@ -185,7 +185,7 @@ const Mutation = {
       const shoeLabel = [brand, model].filter(Boolean).join(" ") || "Sneaker";
       const productName = `Sneaker Society - ${shoeLabel}`;
 
-      const url = await createPaymentIntent(
+      const { url } = await createPaymentIntent(
         stripeConnectAccountId,
         price,
         contractId,

@@ -1,5 +1,7 @@
 import dotenv from "dotenv";
 import { stripe } from "./config";
+
+const PLATFORM_FEE_CENTS = 1200; // $12 platform fee per contract
 import MemberModel from "../models/Member.model";
 import redis from "../config/redis";
 import { syncStripeDataToKV } from "../utils/redis/stripeSubscritpitonCache";
@@ -296,13 +298,19 @@ export const createPaymentIntent = async (
         },
       ],
       mode: "payment",
+      expires_at: Math.floor(Date.now() / 1000) + 86400, // 24 hours
       success_url: `${process.env.REACT_APP_URL}/member/contracts`,
       cancel_url: `${process.env.REACT_APP_URL}/member/contracts`,
       // Funds land in the platform account — no transfer_data or application_fee_amount.
       // Payout to the member is triggered manually via releasePayout after work is done.
-      metadata: { contractId },
+      // Platform fee is embedded in metadata so the webhook reads it off the Stripe session,
+      // keeping the DB + Stripe in sync.
+      metadata: { contractId, platformFeeCents: String(PLATFORM_FEE_CENTS), stripeConnectAccountId: connectAccountId },
+      payment_intent_data: {
+        metadata: { contractId, platformFeeCents: String(PLATFORM_FEE_CENTS), stripeConnectAccountId: connectAccountId },
+      },
     });
-    return session.url;
+    return { url: session.url, id: session.id, expiresAt: new Date(session.expires_at * 1000) };
   } catch (error) {
     console.error("Error creating payment intent and checkout session:", error);
     throw error;

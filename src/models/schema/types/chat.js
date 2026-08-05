@@ -14,6 +14,8 @@ const chatTypeDefs = gql`
   type PriceProposalMetadata {
     price: Float
     checkoutUrl: String
+    checkoutSessionId: String
+    expiresAt: String
     status: String
   }
 
@@ -68,6 +70,7 @@ const chatTypeDefs = gql`
 
   type Subscription {
     subscribeToChat(data: SubscribeToChatInput): Message!
+    messageUpdated(data: SubscribeToChatInput): Message!
     hello: String!
   }
 `;

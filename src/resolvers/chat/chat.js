@@ -4,9 +4,8 @@ import MemberModel from "../../models/Member.model";
 import ChatModel from "../../models/Chat.model";
 import ContractModel from "../../models/Contract.model";
 import { createPaymentIntent } from "../../stripe/stripe.service";
-import { PubSub } from "graphql-subscriptions";
-
-const pubsub = new PubSub();
+import { stripe } from "../../stripe/config";
+import pubsub from "../../pubsub";
 
 const Query = {
   async messages() {
@@ -134,12 +133,43 @@ const Mutation = {
       const shoeLabel = [brand, model].filter(Boolean).join(" ") || "Sneaker";
       const productName = `Sneaker Society - ${shoeLabel}`;
 
-      const checkoutUrl = await createPaymentIntent(
+      const checkoutSession = await createPaymentIntent(
         stripeConnectAccountId,
         price,
         contractId,
         productName
       );
+      const { url: checkoutUrl, id: checkoutSessionId, expiresAt } = checkoutSession;
+
+      // Expire any previous pending proposals for this contract
+      const previousProposals = await MessageModel.find({
+        chatId: contract.chatId,
+        type: "PRICE_PROPOSAL",
+        "metadata.status": "pending",
+      });
+      for (const prev of previousProposals) {
+        prev.metadata.status = "superseded";
+        await prev.save();
+        if (prev.metadata.checkoutSessionId) {
+          try {
+            await stripe.checkout.sessions.expire(prev.metadata.checkoutSessionId);
+          } catch (e) {
+            // Session may already be expired or paid — that's fine
+          }
+        }
+        pubsub.publish(`MESSAGE_UPDATED ${contract.chatId}`, {
+          messageUpdated: {
+            id: prev._id,
+            chatId: prev.chatId,
+            senderId: prev.senderId,
+            content: prev.content,
+            senderType: prev.senderType,
+            type: prev.type,
+            metadata: prev.metadata,
+            createdAt: prev.createdAt,
+          },
+        });
+      }
 
       await ContractModel.findByIdAndUpdate(contractId, {
         proposedPrice: price,
@@ -153,7 +183,7 @@ const Mutation = {
         senderType: "MEMBER",
         chatId: contract.chatId,
         type: "PRICE_PROPOSAL",
-        metadata: { price, checkoutUrl, status: "pending" },
+        metadata: { price, checkoutUrl, checkoutSessionId, expiresAt, status: "pending" },
       };
 
       const newMessage = new MessageModel(messageData);
@@ -224,6 +254,12 @@ const Subscription = {
     subscribe: (parent, args, ctx, info) => {
       const { chatId } = args.data;
       return pubsub.asyncIterator([`MESSAGE_CREATED ${chatId}`]);
+    },
+  },
+  messageUpdated: {
+    subscribe: (parent, args, ctx, info) => {
+      const { chatId } = args.data;
+      return pubsub.asyncIterator([`MESSAGE_UPDATED ${chatId}`]);
     },
   },
 };
