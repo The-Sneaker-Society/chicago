@@ -1,4 +1,4 @@
-import PostModel from "../models/Post.model";
+import GroupPostModel from "../models/GroupPost.model";
 import {
   DEFAULT_POST_LIMIT,
   MAX_POST_LIMIT,
@@ -19,7 +19,10 @@ const Query = {
   async getPostsByGroup(
     parent,
     { groupId, limit = DEFAULT_POST_LIMIT, offset = 0 },
+    ctx,
   ) {
+    await requireGroupMembership(groupId, ctx);
+
     const normalizedLimit = normalizeLimit(
       limit,
       DEFAULT_POST_LIMIT,
@@ -27,16 +30,16 @@ const Query = {
     );
     const normalizedOffset = normalizeOffset(offset);
 
-    const totalCount = await PostModel.countDocuments({ groupId });
+    const totalCount = await GroupPostModel.countDocuments({ groupId });
 
-    const rawItems = await PostModel.find({ groupId })
+    const rawItems = await GroupPostModel.find({ groupId })
       .populate("author")
       .populate("likes")
       .sort({ createdAt: -1 })
       .skip(normalizedOffset)
       .limit(normalizedLimit);
 
-    const items = rawItems.filter((post) => !!post.author);
+    const items = rawItems.filter((post) => Boolean(post.author));
 
     return buildPage({
       items,
@@ -46,7 +49,7 @@ const Query = {
   },
 };
 
-const Post = {
+const GroupPost = {
   commentCount(parent) {
     return parent.comments?.length || 0;
   },
@@ -58,21 +61,17 @@ const Post = {
       MAX_COMMENT_LIMIT,
     );
     const normalizedOffset = normalizeOffset(offset);
-
     const allComments = parent.comments || [];
     const totalCount = allComments.length;
-
     const slice = allComments.slice(
       normalizedOffset,
       normalizedOffset + normalizedLimit,
     );
 
-    await PostModel.populate(slice, { path: "author" });
-
-    const items = slice.filter((comment) => !!comment.author);
+    await GroupPostModel.populate(slice, { path: "author" });
 
     return buildPage({
-      items,
+      items: slice.filter((comment) => Boolean(comment.author)),
       totalCount,
       offset: normalizedOffset,
     });
@@ -83,11 +82,11 @@ const Mutation = {
   async createPost(parent, { groupId, content, images = [] }, ctx) {
     const { memberId } = await requireGroupMembership(groupId, ctx);
 
-    if (!content || !content.trim()) {
+    if (!content?.trim()) {
       throw new Error("Post content is required.");
     }
 
-    const post = new PostModel({
+    const post = new GroupPostModel({
       groupId,
       author: memberId,
       content: content.trim(),
@@ -97,20 +96,19 @@ const Mutation = {
     });
 
     const saved = await post.save();
-    return await getPopulatedPost(saved._id);
+    return getPopulatedPost(saved._id);
   },
 
   async updatePost(parent, { postId, content, images = [] }, ctx) {
     const memberId = requireAuthenticatedMember(ctx);
 
-    if (!content || !content.trim()) {
+    if (!content?.trim()) {
       throw new Error("Post content is required.");
     }
 
     const { post, group } = await getPostAndGroup(postId);
-    const isAuthor = String(post.author) === memberId;
 
-    if (!isAuthor) {
+    if (String(post.author) !== memberId) {
       throw new Error("Only the post author can edit this post.");
     }
 
@@ -126,13 +124,12 @@ const Mutation = {
     post.images = images;
     await post.save();
 
-    return await getPopulatedPost(post._id);
+    return getPopulatedPost(post._id);
   },
 
   async deletePost(parent, { postId }, ctx) {
     const memberId = requireAuthenticatedMember(ctx);
     const { post, group } = await getPostAndGroup(postId);
-
     const isAuthor = String(post.author) === memberId;
     const canManage = isGroupAdminOrCreator(group, memberId);
 
@@ -142,14 +139,13 @@ const Mutation = {
       );
     }
 
-    const result = await PostModel.findByIdAndDelete(postId);
-    return !!result;
+    const result = await GroupPostModel.findByIdAndDelete(postId);
+    return Boolean(result);
   },
 
   async likePost(parent, { postId }, ctx) {
     const memberId = requireAuthenticatedMember(ctx);
     const { post, group } = await getPostAndGroup(postId);
-
     const isMember = (group.members || []).some(
       (id) => String(id) === memberId,
     );
@@ -167,8 +163,8 @@ const Mutation = {
       : [...post.likes, memberId];
 
     await post.save();
-    return await getPopulatedPost(post._id);
+    return getPopulatedPost(post._id);
   },
 };
 
-export default { Query, Mutation, Post };
+export default { Query, Mutation, GroupPost };

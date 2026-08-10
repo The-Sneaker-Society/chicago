@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const PostCommentSchema = new mongoose.Schema(
+const GroupPostCommentSchema = new mongoose.Schema(
   {
     author: {
       type: mongoose.Schema.Types.ObjectId,
@@ -16,7 +16,7 @@ const PostCommentSchema = new mongoose.Schema(
   { timestamps: { createdAt: true, updatedAt: false } },
 );
 
-const PostSchema = new mongoose.Schema(
+const GroupPostSchema = new mongoose.Schema(
   {
     groupId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -36,11 +36,11 @@ const PostSchema = new mongoose.Schema(
     },
     images: [{ type: String }],
     likes: [{ type: mongoose.Schema.Types.ObjectId, ref: "Member" }],
-    comments: [PostCommentSchema],
+    comments: [GroupPostCommentSchema],
   },
   { timestamps: true },
 );
 
-PostSchema.index({ groupId: 1, createdAt: -1 });
+GroupPostSchema.index({ groupId: 1, createdAt: -1 });
 
-export default mongoose.model("Post", PostSchema);
+export default mongoose.model("GroupPost", GroupPostSchema);

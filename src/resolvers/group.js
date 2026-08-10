@@ -1,6 +1,5 @@
 import GroupsModel from "../models/Groups.model";
-import PostModel from "../models/Post.model";
-
+import GroupPostModel from "../models/GroupPost.model";
 import {
   requireAuthenticatedMember,
   requireGroupCreatorAccess,
@@ -10,18 +9,18 @@ import { getPopulatedGroup } from "../utils/groupQueries";
 
 const Query = {
   async getGroup(parent, { id }) {
-    return await getPopulatedGroup(id);
+    return getPopulatedGroup(id);
   },
 
   async getGroups() {
-    return await GroupsModel.find({})
+    return GroupsModel.find({})
       .populate("members")
       .populate("createdBy")
       .populate("admins");
   },
 
   async getGroupsForUser(parent, { userId }) {
-    return await GroupsModel.find({ members: userId })
+    return GroupsModel.find({ members: userId })
       .populate("members")
       .populate("createdBy")
       .populate("admins");
@@ -32,7 +31,7 @@ const Mutation = {
   async createGroup(parent, args, ctx) {
     const { name, description, avatar, memberIds = [] } = args;
 
-    if (!name || !name.trim()) {
+    if (!name?.trim()) {
       throw new Error("Group name is required.");
     }
 
@@ -49,7 +48,7 @@ const Mutation = {
     });
 
     const saved = await newGroup.save();
-    return await getPopulatedGroup(saved._id);
+    return getPopulatedGroup(saved._id);
   },
 
   async updateGroup(parent, { id, name, description, avatar, memberIds }, ctx) {
@@ -85,21 +84,26 @@ const Mutation = {
       throw new Error("Group not found");
     }
 
-    return await getPopulatedGroup(group._id);
+    return getPopulatedGroup(group._id);
   },
 
   async deleteGroup(parent, { id }, ctx) {
     const { group } = await requireGroupAdminAccess(id, ctx);
+    const deletedGroup = await GroupsModel.findByIdAndDelete(group._id);
 
-    await PostModel.deleteMany({ groupId: group._id });
-    const result = await GroupsModel.findByIdAndDelete(group._id);
+    if (!deletedGroup) {
+      throw new Error("Group not found");
+    }
 
-    return !!result;
+    await GroupPostModel.deleteMany({ groupId: group._id });
+    return true;
   },
 
   async joinGroup(parent, { groupId }, ctx) {
     const memberId = requireAuthenticatedMember(ctx);
 
+    // Intentional: groups are open in the current product phase.
+    // Add a visibility/join-policy guard here when private groups are introduced.
     const group = await GroupsModel.findByIdAndUpdate(
       groupId,
       { $addToSet: { members: memberId } },
@@ -110,7 +114,7 @@ const Mutation = {
       throw new Error("Group not found");
     }
 
-    return await getPopulatedGroup(group._id);
+    return getPopulatedGroup(group._id);
   },
 
   async leaveGroup(parent, { groupId }, ctx) {
@@ -131,13 +135,12 @@ const Mutation = {
       { new: true },
     );
 
-    return await getPopulatedGroup(updated._id);
+    return getPopulatedGroup(updated._id);
   },
 
   async addGroupAdmin(parent, { groupId, memberId }, ctx) {
     const { group } = await requireGroupCreatorAccess(groupId, ctx);
     const normalizedMemberId = String(memberId);
-
     const isMember = (group.members || []).some(
       (id) => String(id) === normalizedMemberId,
     );
@@ -146,13 +149,11 @@ const Mutation = {
       throw new Error("Only a current group member can be promoted to admin.");
     }
 
-    await GroupsModel.findByIdAndUpdate(
-      groupId,
-      { $addToSet: { admins: normalizedMemberId } },
-      { new: true },
-    );
+    await GroupsModel.findByIdAndUpdate(groupId, {
+      $addToSet: { admins: normalizedMemberId },
+    });
 
-    return await getPopulatedGroup(groupId);
+    return getPopulatedGroup(groupId);
   },
 
   async removeGroupAdmin(parent, { groupId, memberId }, ctx) {
@@ -160,7 +161,6 @@ const Mutation = {
       groupId,
       ctx,
     );
-
     const normalizedMemberId = String(memberId);
 
     if (normalizedMemberId === actingMemberId) {
@@ -169,19 +169,15 @@ const Mutation = {
       );
     }
 
-    const isCreatorTarget = String(group.createdBy) === normalizedMemberId;
-
-    if (isCreatorTarget) {
+    if (String(group.createdBy) === normalizedMemberId) {
       throw new Error("The group creator must remain an admin.");
     }
 
-    await GroupsModel.findByIdAndUpdate(
-      groupId,
-      { $pull: { admins: normalizedMemberId } },
-      { new: true },
-    );
+    await GroupsModel.findByIdAndUpdate(groupId, {
+      $pull: { admins: normalizedMemberId },
+    });
 
-    return await getPopulatedGroup(groupId);
+    return getPopulatedGroup(groupId);
   },
 
   async removeGroupMember(parent, { groupId, memberId }, ctx) {
@@ -200,13 +196,14 @@ const Mutation = {
       throw new Error("That member is not currently in the group.");
     }
 
-    await GroupsModel.findByIdAndUpdate(
-      groupId,
-      { $pull: { members: normalizedMemberId, admins: normalizedMemberId } },
-      { new: true },
-    );
+    await GroupsModel.findByIdAndUpdate(groupId, {
+      $pull: {
+        members: normalizedMemberId,
+        admins: normalizedMemberId,
+      },
+    });
 
-    return await getPopulatedGroup(groupId);
+    return getPopulatedGroup(groupId);
   },
 };
 
