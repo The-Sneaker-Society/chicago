@@ -1,4 +1,4 @@
-import PostModel from "../models/Post.model";
+import GroupGroupPostModel from "../models/GroupPost.model";
 import {
   requireAuthenticatedMember,
   isGroupAdminOrCreator,
@@ -25,7 +25,7 @@ const Mutation = {
     post.comments.push({ author: memberId, content: content.trim() });
     await post.save();
 
-    const updatedPost = await PostModel.findById(post._id).populate(
+    const updatedPost = await GroupGroupPostModel.findById(post._id).populate(
       "comments.author",
     );
 
@@ -61,7 +61,7 @@ const Mutation = {
     comment.content = content.trim();
     await post.save();
 
-    const updatedPost = await PostModel.findById(post._id).populate(
+    const updatedPost = await GroupGroupPostModel.findById(post._id).populate(
       "comments.author",
     );
 

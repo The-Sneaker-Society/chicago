@@ -5,7 +5,7 @@ import userResolvers from "./users";
 import chatResolvers from "./chat/chat";
 import imageResolvers from "../photo-upload-service/image.resolvers";
 import groupResolvers from "./group";
-import postResolvers from "./post";
+import groupPostResolvers from "./groupPost";
 import commentResolvers from "./comment";
 
 module.exports = {
@@ -17,7 +17,7 @@ module.exports = {
     ...chatResolvers.Query,
     ...imageResolvers.Query,
     ...groupResolvers.Query,
-    ...postResolvers.Query,
+    ...groupPostResolvers.Query,
   },
   Mutation: {
     ...memberResolvers.Mutation,
@@ -27,7 +27,7 @@ module.exports = {
     ...chatResolvers.Mutation,
     ...imageResolvers.Mutation,
     ...groupResolvers.Mutation,
-    ...postResolvers.Mutation,
+    ...groupPostResolvers.Mutation,
     ...commentResolvers.Mutation,
   },
   Member: {
@@ -48,7 +48,7 @@ module.exports = {
   Group: {
     ...(groupResolvers.Group || {}),
   },
-  Post: {
-    ...postResolvers.Post,
+  GroupPost: {
+    ...groupPostResolvers.Post,
   },
 };
