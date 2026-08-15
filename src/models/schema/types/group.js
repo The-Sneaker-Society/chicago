@@ -9,7 +9,7 @@ const groupTypeDefs = gql`
     members: [Member!]!
     createdAt: String
     updatedAt: String
-    createdBy: Member
+    createdBy: Member!
     admins: [Member!]!
   }
 

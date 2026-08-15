@@ -7,11 +7,13 @@ import {
   normalizeLimit,
   normalizeOffset,
   buildPage,
-} from "../utils/groupPagination";
+} from "../utils/pagination";
 import {
-  requireAuthenticatedMember,
+  getAuthenticatedMemberId,
+  isGroupAdmin,
+  isGroupCreator,
+  isGroupMember,
   requireGroupMembership,
-  isGroupAdminOrCreator,
 } from "../utils/groupPermissions";
 import { getPostAndGroup, getPopulatedPost } from "../utils/groupQueries";
 
@@ -100,8 +102,7 @@ const Mutation = {
   },
 
   async updatePost(parent, { postId, content, images = [] }, ctx) {
-    const memberId = requireAuthenticatedMember(ctx);
-
+    const memberId = getAuthenticatedMemberId(ctx);
     if (!content?.trim()) {
       throw new Error("Post content is required.");
     }
@@ -131,7 +132,8 @@ const Mutation = {
     const memberId = requireAuthenticatedMember(ctx);
     const { post, group } = await getPostAndGroup(postId);
     const isAuthor = String(post.author) === memberId;
-    const canManage = isGroupAdminOrCreator(group, memberId);
+    const canManage =
+      isGroupCreator(group, memberId) || isGroupAdmin(group, memberId);
 
     if (!isAuthor && !canManage) {
       throw new Error(
@@ -146,9 +148,7 @@ const Mutation = {
   async likePost(parent, { postId }, ctx) {
     const memberId = requireAuthenticatedMember(ctx);
     const { post, group } = await getPostAndGroup(postId);
-    const isMember = (group.members || []).some(
-      (id) => String(id) === memberId,
-    );
+    const isMember = isGroupMember(group, memberId);
 
     if (!isMember) {
       throw new Error("You must be a member of this group to like a post.");
