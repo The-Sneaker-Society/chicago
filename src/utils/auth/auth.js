@@ -1,6 +1,6 @@
 import { clerkClient } from "@clerk/express";
-import { userRepository } from "../users/user.repository";
-import { memberRepository } from "../members/member.repository";
+import { userRepository } from "../../users/user.repository";
+import { memberRepository } from "../../members/member.repository";
 
 export const clearkAuthorizeUser = async ({ req }) => {
   const { auth } = req;
