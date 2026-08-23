@@ -1,29 +1,15 @@
-import MessageModel from "../../models/Messages.Model";
-import UserModel from "../../models/User.model";
-import MemberModel from "../../models/Member.model";
-import ChatModel from "../../models/Chat.model";
-import ContractModel from "../../models/Contract.model";
-import { createPaymentIntent } from "../../stripe/stripe.service";
-import { stripe } from "../../stripe/config";
+import { UserInputError } from "apollo-server-core";
+
+import { chatService } from "../../chat/chat.service.js";
+
 import pubsub from "../../pubsub";
 
-const Query = {
-  async messages() {
-    try {
-      const messages = await MessageModel.find();
+const publish = (trigger, payload) => pubsub.publish(trigger, payload);
 
-      return messages.map((message) => {
-        return {
-          id: message._id,
-          chatId: message.chatId,
-          senderId: message.senderId,
-          content: message.content,
-          senderType: message.senderType,
-          type: message.type || "TEXT",
-          metadata: message.metadata,
-          createdAt: new Date(message.createdAt),
-        };
-      });
+const Query = {
+  async messages(parent, args, ctx, info) {
+    try {
+      return await chatService.getMessages();
     } catch (e) {
       throw e;
     }
@@ -31,8 +17,7 @@ const Query = {
   async getChatById(parent, args, ctx, info) {
     try {
       const { chatId } = args;
-      const foundChat = await ChatModel.findById(chatId);
-      return foundChat;
+      return await chatService.getChatById(chatId);
     } catch (e) {
       throw e;
     }
@@ -43,12 +28,7 @@ const Mutation = {
   async createChat(parent, args, ctx, info) {
     try {
       const { _id } = ctx.dbUser;
-      const { userId, name } = args.data;
-
-      const newChat = ChatModel({ name, memberId: _id, userId });
-
-      await newChat.save();
-
+      await chatService.createChat(_id, args.data);
       return true;
     } catch (e) {
       throw e;
@@ -57,48 +37,11 @@ const Mutation = {
   async createMessage(parent, args, ctx, info) {
     try {
       const { _id } = ctx.dbUser;
-      const { content, senderType, chatId, type, price, checkoutUrl } = args.data;
-
-      const chat = await ChatModel.findById(chatId);
-
-      if (chat) {
-        const messageData = {
-          senderId: _id,
-          content,
-          senderType,
-          chatId,
-          type: type || "TEXT",
-        };
-        if (type === "PRICE_PROPOSAL") {
-          messageData.metadata = { price, checkoutUrl, status: "pending" };
-        }
-
-        const newMessage = new MessageModel(messageData);
-
-        const res = await newMessage.save();
-
-        chat.messages.push(res._id);
-
-        await chat.save();
-
-        pubsub.publish(`MESSAGE_CREATED ${chatId}`, {
-          subscribeToChat: {
-            id: res._id,
-            chatId: res.chatId,
-            senderId: res.senderId,
-            content: res.content,
-            senderType: res.senderType,
-            type: res.type,
-            metadata: res.metadata,
-            createdAt: res.createdAt,
-          },
-        });
-
-        return res;
-      } else {
+      return await chatService.createMessage(_id, args.data, publish);
+    } catch (e) {
+      if (e.message === "CHAT_NOT_FOUND") {
         throw new UserInputError(" Chat does not exist");
       }
-    } catch (e) {
       throw e;
     }
   },
@@ -111,103 +54,28 @@ const Mutation = {
         throw new Error("Unauthorized");
       }
 
-      const contract = await ContractModel.findById(contractId);
-      if (!contract) {
-        throw new Error("Contract not found");
-      }
-      if (contract.memberId.toString() !== memberId.toString()) {
-        throw new Error("Unauthorized: Contract does not belong to this member");
-      }
-
-      if (!contract.chatId) {
-        throw new Error("No chat exists for this contract");
-      }
-
       const stripeConnectAccountId = ctx.dbUser?.stripeConnectAccountId;
       if (!stripeConnectAccountId) {
         throw new Error("Stripe account not connected");
       }
 
-      const brand = contract.shoeDetails?.brand || "";
-      const model = contract.shoeDetails?.model || "";
-      const shoeLabel = [brand, model].filter(Boolean).join(" ") || "Sneaker";
-      const productName = `Sneaker Society - ${shoeLabel}`;
-
-      const checkoutSession = await createPaymentIntent(
+      return await chatService.proposePriceInChat(
+        memberId,
         stripeConnectAccountId,
-        price,
         contractId,
-        productName
+        price,
+        publish
       );
-      const { url: checkoutUrl, id: checkoutSessionId, expiresAt } = checkoutSession;
-
-      // Expire any previous pending proposals for this contract
-      const previousProposals = await MessageModel.find({
-        chatId: contract.chatId,
-        type: "PRICE_PROPOSAL",
-        "metadata.status": "pending",
-      });
-      for (const prev of previousProposals) {
-        prev.metadata.status = "superseded";
-        await prev.save();
-        if (prev.metadata.checkoutSessionId) {
-          try {
-            await stripe.checkout.sessions.expire(prev.metadata.checkoutSessionId);
-          } catch (e) {
-            // Session may already be expired or paid — that's fine
-          }
-        }
-        pubsub.publish(`MESSAGE_UPDATED ${contract.chatId}`, {
-          messageUpdated: {
-            id: prev._id,
-            chatId: prev.chatId,
-            senderId: prev.senderId,
-            content: prev.content,
-            senderType: prev.senderType,
-            type: prev.type,
-            metadata: prev.metadata,
-            createdAt: prev.createdAt,
-          },
-        });
-      }
-
-      await ContractModel.findByIdAndUpdate(contractId, {
-        proposedPrice: price,
-        status: "PRICE_PROPOSED",
-        $push: { timeline: { event: "PRICE_PROPOSED", date: new Date() } },
-      });
-
-      const messageData = {
-        senderId: memberId,
-        content: `Price proposal: $${price}`,
-        senderType: "MEMBER",
-        chatId: contract.chatId,
-        type: "PRICE_PROPOSAL",
-        metadata: { price, checkoutUrl, checkoutSessionId, expiresAt, status: "pending" },
-      };
-
-      const newMessage = new MessageModel(messageData);
-      const res = await newMessage.save();
-
-      await ChatModel.findByIdAndUpdate(contract.chatId, {
-        $push: { messages: res._id },
-      });
-
-      pubsub.publish(`MESSAGE_CREATED ${contract.chatId}`, {
-        subscribeToChat: {
-          id: res._id,
-          chatId: res.chatId,
-          senderId: res.senderId,
-          content: res.content,
-          senderType: res.senderType,
-          type: res.type,
-          metadata: res.metadata,
-          createdAt: res.createdAt,
-        },
-      });
-
-      return res;
     } catch (e) {
+      if (e.message === "CONTRACT_NOT_FOUND") {
+        throw new Error("Contract not found");
+      }
+      if (e.message === "UNAUTHORIZED_CONTRACT") {
+        throw new Error("Unauthorized: Contract does not belong to this member");
+      }
+      if (e.message === "NO_CHAT_FOR_CONTRACT") {
+        throw new Error("No chat exists for this contract");
+      }
       throw new Error(e);
     }
   },
@@ -217,12 +85,7 @@ const Chat = {
   async messages(parent, args, ctx, info) {
     try {
       const { id: chatId } = parent;
-
-      const messages = await MessageModel.find({ chatId }).sort({
-        createdAt: 1,
-      });
-
-      return messages;
+      return await chatService.getMessagesForChat(chatId);
     } catch (error) {
       console.error("Error fetching messages:", error);
       throw error;
@@ -230,9 +93,7 @@ const Chat = {
   },
   async user(parent, args, ctx, info) {
     try {
-      const user = await UserModel.findById(parent.userId);
-
-      return user;
+      return await chatService.getUserForChat(parent.userId);
     } catch (e) {
       throw new Error(e);
     }
@@ -240,9 +101,7 @@ const Chat = {
 
   async member(parent, args, ctx, info) {
     try {
-      const member = await MemberModel.findById(parent.memberId);
-
-      return member;
+      return await chatService.getMemberForChat(parent.memberId);
     } catch (e) {
       throw new Error(e);
     }
