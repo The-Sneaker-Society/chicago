@@ -28,7 +28,7 @@ export const clientRepository = {
   },
 
   async findContractsByClient(clientId) {
-    return await ContractModel.find({ client: clientId });
+    return await ContractModel.find({ clientId });
   },
 
   // TODO(cross-domain): move to memberRepository when members refactor lands
