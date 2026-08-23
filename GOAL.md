@@ -41,13 +41,13 @@ Every domain refactor ships as its **own draft pull request off `main`**, so pro
 | Domain | Files | Goal | Status |
 |---|---|---|---|
 | Photo upload (reference impl) | `src/photo-upload-service/*` | — | Done (pre-existing) |
-| Users | `src/resolvers/users.js`, `src/users/*` | (this file, history below) | ✅ Done |
-| Contracts | `src/resolvers/contracts.js` | [goals/contracts.md](goals/contracts.md) | ⬜ Todo |
-| Chat & Messages | `src/resolvers/chat/chat.js` | [goals/chat.md](goals/chat.md) | ⬜ Todo |
-| Members | `src/resolvers/members.resolver.js` | [goals/members.md](goals/members.md) | ⬜ Todo |
-| Clients | `src/resolvers/clients.js` | [goals/clients.md](goals/clients.md) | ⬜ Todo |
-| Products | `src/resolvers/products.js` | [goals/products.md](goals/products.md) | ⬜ Todo |
-| Groups | `src/resolvers/group.js` | [goals/groups.md](goals/groups.md) | ⬜ Todo |
+| Users | `src/resolvers/users.js`, `src/users/*` | (history below) | ✅ Done |
+| Contracts | `src/resolvers/contracts.js` | [goals/contracts.md](goals/contracts.md) | 📝 Draft PR [#63](https://github.com/The-Sneaker-Society/chicago/pull/63) |
+| Clients | `src/resolvers/clients.js` | [goals/clients.md](goals/clients.md) | 📝 Draft PR [#64](https://github.com/The-Sneaker-Society/chicago/pull/64) |
+| Chat & Messages | `src/resolvers/chat/chat.js` | [goals/chat.md](goals/chat.md) | 📝 Draft PR [#65](https://github.com/The-Sneaker-Society/chicago/pull/65) |
+| Members | `src/resolvers/members.resolver.js` | [goals/members.md](goals/members.md) | 📝 Draft PR [#66](https://github.com/The-Sneaker-Society/chicago/pull/66) |
+| Products | `src/resolvers/products.js` | [goals/products.md](goals/products.md) | 📝 Draft PR [#67](https://github.com/The-Sneaker-Society/chicago/pull/67) |
+| Groups | `src/resolvers/group.js` | [goals/groups.md](goals/groups.md) | 📝 Draft PR [#68](https://github.com/The-Sneaker-Society/chicago/pull/68) |
 
 Suggested order: **contracts → clients → chat → members → products → groups**
 (contracts and clients share the fetch-all-filter bug pattern and are referenced by chat/members; groups is the smallest and already nearly layered.)
