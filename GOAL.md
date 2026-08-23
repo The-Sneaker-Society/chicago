@@ -49,6 +49,8 @@ Every domain refactor ships as its **own draft pull request off `main`**, so pro
 | Products | `src/resolvers/products.js` | [goals/products.md](goals/products.md) | 📝 Draft PR [#67](https://github.com/The-Sneaker-Society/chicago/pull/67) |
 | Groups | `src/resolvers/group.js` | [goals/groups.md](goals/groups.md) | 📝 Draft PR [#68](https://github.com/The-Sneaker-Society/chicago/pull/68) |
 
+**Integration:** all six drafts merged + cross-domain TODO shims consolidated + constants adopted → Draft PR [#69](https://github.com/The-Sneaker-Society/chicago/pull/69) (`refactor/integration-cleanup`). Use this branch for end-to-end frontend testing; it supersedes #63–#68 content-wise.
+
 Suggested order: **contracts → clients → chat → members → products → groups**
 (contracts and clients share the fetch-all-filter bug pattern and are referenced by chat/members; groups is the smallest and already nearly layered.)
 
