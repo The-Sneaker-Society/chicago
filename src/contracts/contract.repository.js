@@ -20,7 +20,7 @@ export const contractRepository = {
   },
 
   async findByClient(clientId) {
-    return await ContractModel.find({ client: clientId });
+    return await ContractModel.find({ clientId });
   },
 
   async create(data) {
