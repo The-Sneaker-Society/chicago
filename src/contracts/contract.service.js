@@ -1,19 +1,21 @@
 import { createPaymentIntent, releasePayoutToMember } from "../stripe/stripe.service";
 import { contractRepository } from "./contract.repository.js";
+import {
+  contractStatus,
+  payoutStatus,
+  timelineEvent,
+  contractErrors,
+} from "./contract.constants.js";
 
-const STAGE_MAP = {
-  PENDING_REVIEW: "pendingReview",
-  PRICE_PROPOSED: "priceProposed",
-  PRICE_ACCEPTED: "priceAccepted",
-  WAITING_SHIPMENT: "waitingShipment",
-  SHIPPED: "shipped",
-  ARRIVED_AT_MEMBER: "arrivedAtMember",
-  WORK_IN_PROGRESS: "workInProgress",
-  PROCESSING_RETURN: "processingReturn",
-  SHIPPED_BACK: "shippedBack",
-  USER_RECEIVED: "userReceived",
-  PAYOUT_RELEASED: "payoutReleased",
-};
+// Mongo status value -> camelCase response key, derived so it can never
+// drift out of sync with contractStatus.
+const STAGE_MAP = Object.fromEntries(
+  Object.entries(contractStatus).map(([key, value]) => [value, key])
+);
+
+const EMPTY_STATUS_COUNTS = Object.fromEntries(
+  Object.keys(contractStatus).map((key) => [key, 0])
+);
 
 const buildShoeProductName = (shoeDetails) => {
   const brand = shoeDetails?.brand || "";
@@ -41,7 +43,7 @@ export const contractService = {
   async getContractById(id) {
     const contract = await contractRepository.findById(id);
     if (!contract) {
-      throw new Error("CONTRACT_NOT_FOUND");
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
     }
     return contract;
   },
@@ -55,19 +57,7 @@ export const contractService = {
       memberId
     );
 
-    const statusCounts = {
-      pendingReview: 0,
-      priceProposed: 0,
-      priceAccepted: 0,
-      waitingShipment: 0,
-      shipped: 0,
-      arrivedAtMember: 0,
-      workInProgress: 0,
-      processingReturn: 0,
-      shippedBack: 0,
-      userReceived: 0,
-      payoutReleased: 0,
-    };
+    const statusCounts = { ...EMPTY_STATUS_COUNTS };
 
     contractCounts.forEach((stage) => {
       const statusKey = STAGE_MAP[stage._id];
@@ -100,7 +90,7 @@ export const contractService = {
 
     const member = await contractRepository.findMemberById(memberId);
     if (!member) {
-      throw new Error("MEMBER_NOT_FOUND");
+      throw new Error(contractErrors.MEMBER_NOT_FOUND);
     }
 
     const savedContract = await contractRepository.create({
@@ -116,11 +106,11 @@ export const contractService = {
       proposedPrice: null,
       price: null,
       chatId: null,
-      status: "PENDING_REVIEW",
+      status: contractStatus.pendingReview,
       paymentStatus: null,
       timeline: [
         {
-          event: "CONTRACT_CREATED",
+          event: timelineEvent.contractCreated,
           date: new Date(),
         },
       ],
@@ -141,7 +131,7 @@ export const contractService = {
   async proposePrice(stripeConnectAccountId, contractId, price) {
     const contract = await contractRepository.findById(contractId);
     if (!contract) {
-      throw new Error("CONTRACT_NOT_FOUND");
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
     }
 
     const productName = buildShoeProductName(contract.shoeDetails);
@@ -155,8 +145,8 @@ export const contractService = {
 
     await contractRepository.updateById(contractId, {
       proposedPrice: price,
-      status: "PRICE_PROPOSED",
-      $push: { timeline: { event: "PRICE_PROPOSED", date: new Date() } },
+      status: contractStatus.priceProposed,
+      $push: { timeline: { event: timelineEvent.priceProposed, date: new Date() } },
     });
 
     return url;
@@ -170,10 +160,10 @@ export const contractService = {
   async updateContract(requesterMemberId, id, data) {
     const contract = await contractRepository.findById(id);
     if (!contract) {
-      throw new Error("CONTRACT_NOT_FOUND");
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
     }
     if (requesterMemberId && contract.memberId.toString() !== requesterMemberId) {
-      throw new Error("UNAUTHORIZED");
+      throw new Error(contractErrors.UNAUTHORIZED);
     }
 
     const nestedPaths = ["repairDetails", "shoeDetails", "inboundTracking", "outboundTracking"];
@@ -201,10 +191,10 @@ export const contractService = {
   async initiateContractChat(memberId, contractId) {
     const contract = await contractRepository.findById(contractId);
     if (!contract) {
-      throw new Error("CONTRACT_NOT_FOUND");
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
     }
     if (!memberId || contract.memberId.toString() !== memberId.toString()) {
-      throw new Error("UNAUTHORIZED");
+      throw new Error(contractErrors.UNAUTHORIZED);
     }
 
     if (contract.chatId) {
@@ -226,7 +216,7 @@ export const contractService = {
     });
 
     contract.chatId = savedChat._id;
-    contract.timeline.push({ event: "CHAT_INITIATED", date: new Date() });
+    contract.timeline.push({ event: timelineEvent.chatInitiated, date: new Date() });
     await contractRepository.save(contract);
 
     return savedChat;
@@ -239,15 +229,15 @@ export const contractService = {
   async releasePayout(contractId) {
     const contract = await contractRepository.findById(contractId);
     if (!contract) {
-      throw new Error("CONTRACT_NOT_FOUND");
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
     }
-    if (contract.payoutStatus !== "pending") {
-      throw new Error("NO_PENDING_PAYOUT");
+    if (contract.payoutStatus !== payoutStatus.pending) {
+      throw new Error(contractErrors.NO_PENDING_PAYOUT);
     }
 
     const member = await contractRepository.findMemberById(contract.memberId);
     if (!member?.stripeConnectAccountId) {
-      throw new Error("MEMBER_STRIPE_NOT_CONNECTED");
+      throw new Error(contractErrors.MEMBER_STRIPE_NOT_CONNECTED);
     }
 
     const amountCents = Math.round(contract.payoutAmount * 100);
@@ -258,11 +248,11 @@ export const contractService = {
     );
 
     await contractRepository.updateById(contractId, {
-      payoutStatus: "paid",
+      payoutStatus: payoutStatus.paid,
       stripeTransferId: transfer.id,
       paidAt: new Date(),
-      status: "PAYOUT_RELEASED",
-      $push: { timeline: { event: "PAYOUT_RELEASED", date: new Date() } },
+      status: contractStatus.payoutReleased,
+      $push: { timeline: { event: timelineEvent.payoutReleased, date: new Date() } },
     });
 
     return true;
