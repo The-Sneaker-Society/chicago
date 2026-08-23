@@ -1,16 +1,11 @@
-import ProductsModel from "../models/Products.model";
-import {
-  createStripeProduct,
-  createSubscriptionForNewMember,
-  archiveStripeProduct,
-  createPaymentSessionLink,
-} from "../stripe/stripe.service";
+import { UserInputError } from "apollo-server-core";
+
+import { productService } from "../products/product.service.js";
 
 const Query = {
-  async products() {
+  async products(parent, args, ctx, info) {
     try {
-      const products = await ProductsModel.find();
-      return products;
+      return await productService.getProducts();
     } catch (e) {
       throw new Error(e);
     }
@@ -21,48 +16,41 @@ const Mutation = {
   async createProduct(parent, args, ctx, info) {
     const { name, price, description } = args;
     try {
-      const createdStripeProduct = await createStripeProduct(
-        name,
-        description,
-        price
-      );
+      // ctx.dbUser._id is the Mongo id of the authenticated member (owner of
+      // the product); it is the aligned id source across domains.
+      const memberId = ctx.dbUser._id;
 
-      // saving to DB
-      await ProductsModel.create({
+      return await productService.createProduct(memberId, {
         name,
         price,
         description,
-        member: ctx._id,
-        stripeProductId: createdStripeProduct.id,
-        stripePriceId: createdStripeProduct.default_price.id,
       });
-      return true;
     } catch (e) {
       throw new Error(e);
     }
   },
   async deleteProductById(parent, args, ctx, info) {
     try {
-      const dbProduct = await ProductsModel.findOneAndDelete({ _id: args.id });
-
-      await archiveStripeProduct(dbProduct.stripeProductId);
-      return true;
+      return await productService.deleteProductById(args.id);
     } catch (e) {
+      if (e.message === "PRODUCT_NOT_FOUND") {
+        throw new UserInputError("product not found");
+      }
       throw new Error(e);
     }
   },
   async createProductPaymentLink(parent, args, ctx, info) {
     try {
       const { productId } = args;
-      const foundProduct = await ProductsModel.findById(productId);
 
-      const paymentLink = await createPaymentSessionLink(
-        foundProduct.stripePriceId,
+      return await productService.createPaymentLink(
+        productId,
         ctx.stripeConnectAccountId
       );
-
-      return paymentLink;
     } catch (e) {
+      if (e.message === "PRODUCT_NOT_FOUND") {
+        throw new UserInputError("product not found");
+      }
       throw new Error(e);
     }
   },
