@@ -133,26 +133,34 @@ Use sparingly — explicit per-resolver wrapping is more greppable. Recommend: p
 
 ## Rollout
 
-Phase PRs, each independently shippable after #69 merges:
+Execution is grouped into **three waves**: a single foundation PR (Phases 0+1 land together — they modify the same context code and neither is independently testable), then parallel per-domain PRs branched off it, then directory lockdown.
+
+### Wave 1 — Auth foundation (ONE agent, ONE worktree, ONE PR)
 
 | Phase | Scope | Notes |
 |---|---|---|
-| 0 | **Role metadata migration** (decided: Clerk `unsafeMetadata` → `publicMetadata`) — see "Admin role & metadata migration" below | Must land before guards, since guards read the role from context |
-| 1 | `src/auth/guards.js` + context cleanup in `utils/auth/auth.js` | No resolver changes yet. Purely additive. Adds `admin` role recognition. |
-| 2 | Migrate `group.js` + `image.resolvers.js` | Delete `requireAuthenticatedMember`; collapse the `_id \|\| dbUser \|\| clerkId` chains now that context guarantees `dbUser`. |
-<<<<<<< Updated upstream
-| 3 | **Scoping**: chat domain (`getChatById`, `Chat.messages`, chat lists) + contract reads (`contractById`, `getContractList`, field resolvers) | New scoped repository methods + `<domain>.constants.js` error objects; NOT_FOUND-not-FORBIDDEN doctrine. Member-side mutations get guards here too. |
-| 4 | Client-side resolvers (`clients.js`, users queries) + remaining guards | `requireClient`; same scoping treatment for user-facing reads. |
-| 5 (deferred) | Directory queries (`Query.users/members/clients`) — remove or admin-gate | Blocked on product decision + admin role existing. |
+| 0 | **Role metadata migration** (decided: Clerk `unsafeMetadata` → `publicMetadata`) — see "Admin role & metadata migration" below; includes backfill script / user-recreation path | Must land with Phase 1; guards read the role from context |
+| 1 | `src/auth/guards.js` + rewrite of the context builder in `utils/auth/auth.js` (`publicMetadata.role`, admin recognition, `dbUser` fail-fast, repository-based lookups) | No resolver changes yet. Purely additive. |
 
-## Open questions (need product decision)
+**Why not parallel:** both phases rewrite `utils/auth/auth.js` (role source vs context guarantees) — guaranteed conflict in the code everything downstream depends on, and neither branch is testable alone.
 
-1. **Should list queries become authenticated?** Decided: yes, but scoping comes first (Phases 3–4) — a guard on an unscoped query just changes who can snoop, not whether the data leaks. Full removal/admin-gating of directory queries is deferred to Phase 5 pending admin-role work.
-2. **Role ≠ ownership stays split** — guards answer "are you a member/client"; scoped queries answer "is this row yours"; services keep domain errors for business-rule violations. Confirmed.
-=======
-| 3 | Migrate member-side mutations (`contracts`, `members`, `chat`) + **scoping**: chat domain (`getChatById`, `Chat.messages`, chat lists) and contract reads (`contractById`, `getContractList`, field resolvers) | New scoped repository methods + `<domain>.constants.js` error objects; NOT_FOUND-not-FORBIDDEN doctrine. |
-| 4 | Client-side resolvers (`clients.js`, users queries) + remaining guards | `requireClient`; same scoping treatment for user-facing reads. |
-| 5 | Directory queries → `requireAdmin`: `Query.users`, `Query.members`, `Query.clients`; decide delete-vs-admin for `Query.messages` (likely delete once chats are participant-scoped) | Uses the admin role from Phase 0. |
+### Wave 2 — Per-domain migrations (PARALLEL agents, one worktree each)
+
+Branched off Wave 1 after it merges. Disjoint resolver files, so worktrees don't stomp each other:
+
+| PR | Agent | Files | Scope |
+|---|---|---|---|
+| 2 | A | `src/resolvers/group.js`, `src/photo-upload-service/image.resolvers.js` | Delete `requireAuthenticatedMember`; collapse `_id \|\| dbUser \|\| clerkId` chains now that context guarantees `dbUser`. |
+| 3 | B | `src/resolvers/contracts.js`, `src/resolvers/members.resolver.js`, `src/resolvers/chat/chat.js` + their `src/<domain>/` layers | Member-side guards + **scoping**: chat domain (`getChatById`, `Chat.messages`, chat lists), contract reads (`contractById`, `getContractList`, field resolvers). Scoped repository methods + `<domain>.constants.js` error objects; NOT_FOUND-not-FORBIDDEN doctrine. |
+| 4 | C | `src/resolvers/clients.js`, `src/resolvers/users.js` + their domains | `requireClient` + same scoping treatment for user-facing reads. |
+
+Suggested scheduling: **PRs 2 and 3 simultaneously**, then **PR 4** (its review should see B's finished scoping patterns — the users-side reads sit on the traversal chain B closes).
+
+### Wave 3 — Directory lockdown (single small PR)
+
+| PR | Scope | Notes |
+|---|---|---|
+| 5 | Directory queries → `requireAdmin`: `Query.users`, `Query.members`, `Query.clients`; decide delete-vs-admin for `Query.messages` (likely delete once chats are participant-scoped) | Prereq: users recreated/backfilled with `publicMetadata.role`. Uses admin role from Wave 1. |
 
 ## Admin role & metadata migration (DECIDED — Option B)
 
@@ -166,33 +174,26 @@ Not live yet, so we migrate cleanly instead of carrying compatibility shims. Wip
 
 ## Open questions (need product decision)
 
-1. ~~Should list queries become authenticated?~~ **Decided:** yes — directory queries get `requireAdmin` in Phase 5; everything else gets role guards + query-level scoping in Phases 2–4.
-2. **Standardize error copy?** Wrappers centralize messages, so e.g. contracts' `"Unauthorized: Contract does not belong to this member"` (ownership, not role) stays separate — role guards ≠ ownership checks. Ownership checks stay in services as domain errors (`UNAUTHORIZED`); only *role* auth moves into guards. Don't conflate the two.
->>>>>>> Stashed changes
+1. ~~Should list queries become authenticated?~~ **Decided:** yes — directory queries get `requireAdmin` in Wave 3; everything else gets role guards + query-level scoping in Wave 2.
+2. ~~Standardize error copy?~~ **Decided:** role guards ≠ ownership checks. Guards answer "are you a member/client"; scoped queries answer "is this row yours"; services keep domain errors for business-rule violations.
 3. Does anything call the API without a Clerk session (webhooks, cron)? `src/cron-jobs/` bypasses GraphQL today, but verify before making everything `requireAuth`.
 
 ## Acceptance criteria
 
-Part A:
+Guards:
 1. Zero per-file auth helpers; all role checks flow through `src/auth/guards.js`.
 2. All auth failures return Apollo `ForbiddenError` with consistent `extensions.code`.
-<<<<<<< Updated upstream
-3. `utils/auth/auth.js` imports no Mongoose models (uses repositories).
+3. No code path reads role from `unsafeMetadata`; no client-side writer of role metadata remains.
 
-Part B:
+Scoping:
 4. Every repository read method either takes a requester id and scopes on it, or is explicitly documented as public-safe (e.g., discover projections).
 5. Id-based reads surface NOT_FOUND (never FORBIDDEN) for rows the requester doesn't own; codes defined in `<domain>.constants.js`.
 6. Traversal chains in the audit table are dead ends: no field resolver exposes another tenant's rows.
 
-Both parts:
+Both:
 7. No change to success-path behavior or resolver names/shapes for legitimate owners.
-8. Smoke test: resolver index loads Q:22 M:32; unauthenticated request to a guarded mutation returns FORBIDDEN, not 500.
-=======
-3. No code path reads role from `unsafeMetadata`; no client-side writer of role metadata remains.
-4. No change to success-path behavior or resolver names/shapes for legitimate owners.
-5. `utils/auth/auth.js` imports no Mongoose models (uses repositories).
-6. Smoke test: resolver index loads Q:22 M:32; unauthenticated request to a guarded mutation returns FORBIDDEN, not 500; directory queries reject non-admin roles with FORBIDDEN.
->>>>>>> Stashed changes
+8. `utils/auth/auth.js` imports no Mongoose models (uses repositories).
+9. Smoke test: resolver index loads Q:22 M:32; unauthenticated request to a guarded mutation returns FORBIDDEN, not 500; directory queries reject non-admin roles with FORBIDDEN.
 
 ## Out of scope
 
