@@ -1,4 +1,4 @@
-import GroupsModel from "../models/Groups.model";
+import { groupService } from "../groups/group.service.js";
 
 const requireAuthenticatedMember = (ctx) => {
   if (ctx.role !== "member" || !ctx.dbUser?._id) {
@@ -8,120 +8,75 @@ const requireAuthenticatedMember = (ctx) => {
   return String(ctx.dbUser._id);
 };
 
-const requireGroupAdminAccess = async (groupId, ctx) => {
-  const memberId = requireAuthenticatedMember(ctx);
-
-  const group = await GroupsModel.findById(groupId);
-  if (!group) {
-    throw new Error("Group not found");
+const translateDomainError = (error) => {
+  switch (error.message) {
+    case "GROUP_NOT_FOUND":
+      return new Error("Group not found");
+    case "FORBIDDEN":
+      return new Error(
+        "Only the group creator or an admin can perform this action.",
+      );
+    case "GROUP_NAME_REQUIRED":
+      return new Error("Group name is required.");
+    case "GROUP_NAME_EMPTY":
+      return new Error("Group name cannot be empty.");
+    case "CREATOR_MUST_REMAIN_MEMBER":
+      return new Error("The group creator must remain a member.");
+    default:
+      return error;
   }
-
-  const isCreator = String(group.createdBy) === memberId;
-  const isAdmin = (group.admins || []).some((id) => String(id) === memberId);
-
-  if (!isCreator && !isAdmin) {
-    throw new Error(
-      "Only the group creator or an admin can perform this action.",
-    );
-  }
-
-  return { group, memberId };
 };
 
 const Query = {
   async getGroup(parent, { id }, ctx, info) {
-    return await GroupsModel.findById(id)
-      .populate("members")
-      .populate("createdBy")
-      .populate("admins");
+    return await groupService.getGroup(id);
   },
 
   async getGroups() {
-    return await GroupsModel.find({})
-      .populate("members")
-      .populate("createdBy")
-      .populate("admins");
+    return await groupService.getGroups();
   },
 
   async getGroupsForUser(parent, { userId }) {
-    return await GroupsModel.find({ members: userId })
-      .populate("members")
-      .populate("createdBy")
-      .populate("admins");
+    return await groupService.getGroupsForUser(userId);
   },
 };
 
 const Mutation = {
   async createGroup(parent, args, ctx, info) {
-    const { name, description, avatar, memberIds = [] } = args;
-
-    if (!name || !name.trim()) {
-      throw new Error("Group name is required.");
+    try {
+      const creatorMemberId = requireAuthenticatedMember(ctx);
+      return await groupService.createGroup(creatorMemberId, {
+        name: args.name,
+        description: args.description,
+        avatar: args.avatar,
+        memberIds: args.memberIds,
+      });
+    } catch (error) {
+      throw translateDomainError(error);
     }
-
-    const creatorMemberId = requireAuthenticatedMember(ctx);
-
-    const members = [...new Set([creatorMemberId, ...memberIds.map(String)])];
-
-    const newGroup = new GroupsModel({
-      name: name.trim(),
-      description,
-      avatar,
-      members,
-      createdBy: creatorMemberId,
-      admins: [creatorMemberId],
-    });
-
-    const res = await newGroup.save();
-    return await GroupsModel.findById(res._id)
-      .populate("members")
-      .populate("createdBy")
-      .populate("admins");
   },
 
   async updateGroup(parent, { id, name, description, avatar, memberIds }, ctx) {
-    const { group: existingGroup } = await requireGroupAdminAccess(id, ctx);
-
-    const update = {};
-
-    if (name !== undefined) {
-      if (!name.trim()) {
-        throw new Error("Group name cannot be empty.");
-      }
-      update.name = name.trim();
+    try {
+      const requesterMemberId = requireAuthenticatedMember(ctx);
+      return await groupService.updateGroup(requesterMemberId, id, {
+        name,
+        description,
+        avatar,
+        memberIds,
+      });
+    } catch (error) {
+      throw translateDomainError(error);
     }
-
-    if (description !== undefined) update.description = description;
-    if (avatar !== undefined) update.avatar = avatar;
-
-    if (memberIds !== undefined) {
-      const nextMembers = [...new Set(memberIds.map(String))];
-      const creatorId = String(existingGroup.createdBy);
-
-      if (!nextMembers.includes(creatorId)) {
-        throw new Error("The group creator must remain a member.");
-      }
-
-      update.members = nextMembers;
-    }
-
-    const group = await GroupsModel.findByIdAndUpdate(id, update, {
-      new: true,
-    })
-      .populate("members")
-      .populate("createdBy")
-      .populate("admins");
-
-    if (!group) throw new Error("Group not found");
-
-    return group;
   },
 
   async deleteGroup(parent, { id }, ctx) {
-    await requireGroupAdminAccess(id, ctx);
-
-    const result = await GroupsModel.findByIdAndDelete(id);
-    return !!result;
+    try {
+      const requesterMemberId = requireAuthenticatedMember(ctx);
+      return await groupService.deleteGroup(requesterMemberId, id);
+    } catch (error) {
+      throw translateDomainError(error);
+    }
   },
 };
 
