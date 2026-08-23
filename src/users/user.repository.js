@@ -28,7 +28,7 @@ export const userRepository = {
   },
 
   async findContractsByClient(clientId) {
-    return await ContractModel.find({ client: clientId });
+    return await ContractModel.find({ clientId });
   },
 
   async findChatsByUserId(userId) {
