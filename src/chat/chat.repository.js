@@ -1,11 +1,5 @@
 import ChatModel from "../models/Chat.model";
 import MessageModel from "../models/Messages.Model";
-// TODO(cross-domain): move to UserRepository when users refactor lands
-import UserModel from "../models/User.model";
-// TODO(cross-domain): move to MemberRepository when members refactor lands
-import MemberModel from "../models/Member.model";
-// TODO(cross-domain): move to ContractRepository when contracts refactor lands
-import ContractModel from "../models/Contract.model";
 
 export const chatRepository = {
   // Chats
@@ -50,24 +44,7 @@ export const chatRepository = {
     return await doc.save();
   },
 
-  // Cross-domain reads
-  // TODO(cross-domain): move to UserRepository when users refactor lands
-  async findUserById(userId) {
-    return await UserModel.findById(userId);
-  },
-
-  // TODO(cross-domain): move to MemberRepository when members refactor lands
-  async findMemberById(memberId) {
-    return await MemberModel.findById(memberId);
-  },
-
-  // TODO(cross-domain): move to ContractRepository when contracts refactor lands
-  async findContractById(contractId) {
-    return await ContractModel.findById(contractId);
-  },
-
-  // TODO(cross-domain): move to ContractRepository when contracts refactor lands
-  async updateContractById(id, updates) {
-    return await ContractModel.findByIdAndUpdate(id, updates, { new: true });
+  async findChatsByMemberId(memberId) {
+    return await ChatModel.find({ memberId });
   },
 };

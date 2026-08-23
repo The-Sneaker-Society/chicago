@@ -1,4 +1,6 @@
 import { clientRepository } from "./client.repository.js";
+import { memberRepository } from "../members/member.repository.js";
+import { contractRepository } from "../contracts/contract.repository.js";
 
 export const clientService = {
   async getClients() {
@@ -36,7 +38,7 @@ export const clientService = {
       firebaseId,
     } = input;
 
-    const member = await clientRepository.findMemberById(memberId);
+    const member = await memberRepository.findById(memberId);
     if (!member) {
       throw new Error("MEMBER_NOT_FOUND");
     }
@@ -56,7 +58,7 @@ export const clientService = {
     });
 
     member.clients.push(created._id);
-    await clientRepository.save(member);
+    await memberRepository.save(member);
 
     return created;
   },
@@ -80,13 +82,13 @@ export const clientService = {
    * Members linked to the parent client (filtered at the DB level).
    */
   async getMembersForClient(parentId) {
-    return await clientRepository.findMembersByClient(parentId);
+    return await memberRepository.findMembersByClientId(parentId);
   },
 
   /**
    * Contracts where the parent is the client (filtered at the DB level).
    */
   async getContractsForClient(parentId) {
-    return await clientRepository.findContractsByClient(parentId);
+    return await contractRepository.findByClient(parentId);
   },
 };

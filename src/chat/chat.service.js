@@ -1,6 +1,13 @@
 import { chatRepository } from "./chat.repository.js";
+import { contractRepository } from "../contracts/contract.repository.js";
+import { memberRepository } from "../members/member.repository.js";
+import { userRepository } from "../users/user.repository.js";
 import { createPaymentIntent } from "../stripe/stripe.service";
 import { stripe } from "../stripe/config";
+import {
+  contractStatus,
+  timelineEvent,
+} from "../contracts/contract.constants.js";
 
 const toMessagePayload = (message) => {
   return {
@@ -95,7 +102,7 @@ export const chatService = {
    * - creates the proposal message and publishes MESSAGE_CREATED / MESSAGE_UPDATED
    */
   async proposePriceInChat(memberId, stripeConnectAccountId, contractId, price, publish) {
-    const contract = await chatRepository.findContractById(contractId);
+    const contract = await contractRepository.findById(contractId);
     if (!contract) {
       throw new Error("CONTRACT_NOT_FOUND");
     }
@@ -136,10 +143,10 @@ export const chatService = {
       });
     }
 
-    await chatRepository.updateContractById(contractId, {
+    await contractRepository.updateById(contractId, {
       proposedPrice: price,
-      status: "PRICE_PROPOSED",
-      $push: { timeline: { event: "PRICE_PROPOSED", date: new Date() } },
+      status: contractStatus.priceProposed,
+      $push: { timeline: { event: timelineEvent.priceProposed, date: new Date() } },
     });
 
     const messageData = {
@@ -170,10 +177,10 @@ export const chatService = {
   },
 
   async getUserForChat(userId) {
-    return await chatRepository.findUserById(userId);
+    return await userRepository.findById(userId);
   },
 
   async getMemberForChat(memberId) {
-    return await chatRepository.findMemberById(memberId);
+    return await memberRepository.findById(memberId);
   },
 };

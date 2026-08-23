@@ -1,5 +1,8 @@
 import { createPaymentIntent, releasePayoutToMember } from "../stripe/stripe.service";
 import { contractRepository } from "./contract.repository.js";
+import { memberRepository } from "../members/member.repository.js";
+import { userRepository } from "../users/user.repository.js";
+import { chatRepository } from "../chat/chat.repository.js";
 import {
   contractStatus,
   payoutStatus,
@@ -88,7 +91,7 @@ export const contractService = {
   async createContract(clientId, input) {
     const { memberId, shoeDetails, repairDetails, declaredMarketValue, boxIncluded } = input;
 
-    const member = await contractRepository.findMemberById(memberId);
+    const member = await memberRepository.findById(memberId);
     if (!member) {
       throw new Error(contractErrors.MEMBER_NOT_FOUND);
     }
@@ -116,8 +119,8 @@ export const contractService = {
       ],
     });
 
-    await contractRepository.pushContractToUser(clientId, savedContract._id, memberId);
-    await contractRepository.pushContractToMember(memberId, savedContract._id, clientId);
+    await userRepository.pushContractToUser(clientId, savedContract._id, memberId);
+    await memberRepository.pushContractToMember(memberId, savedContract._id, clientId);
 
     return savedContract;
   },
@@ -198,7 +201,7 @@ export const contractService = {
     }
 
     if (contract.chatId) {
-      const existingChat = await contractRepository.findChatById(contract.chatId);
+      const existingChat = await chatRepository.findChatById(contract.chatId);
       if (existingChat) {
         return existingChat;
       }
@@ -208,7 +211,7 @@ export const contractService = {
       `${contract.shoeDetails?.brand || ""} ${contract.shoeDetails?.model || ""}`.trim() ||
       "Contract Chat";
 
-    const savedChat = await contractRepository.createChat({
+    const savedChat = await chatRepository.createChat({
       name,
       memberId,
       userId: contract.clientId,
@@ -235,7 +238,7 @@ export const contractService = {
       throw new Error(contractErrors.NO_PENDING_PAYOUT);
     }
 
-    const member = await contractRepository.findMemberById(contract.memberId);
+    const member = await memberRepository.findById(contract.memberId);
     if (!member?.stripeConnectAccountId) {
       throw new Error(contractErrors.MEMBER_STRIPE_NOT_CONNECTED);
     }
@@ -259,10 +262,10 @@ export const contractService = {
   },
 
   async getContractMember(memberId) {
-    return await contractRepository.findMemberById(memberId);
+    return await memberRepository.findById(memberId);
   },
 
   async getContractClient(clientId) {
-    return await contractRepository.findUserById(clientId);
+    return await userRepository.findById(clientId);
   },
 };

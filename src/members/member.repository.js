@@ -1,14 +1,5 @@
 import MemberModel from "../models/Member.model";
 
-// TODO(cross-domain): move to ContractRepository when contracts refactor lands
-import ContractModel from "../models/Contract.model";
-// TODO(cross-domain): move to ChatRepository when chat refactor lands
-import ChatModel from "../models/Chat.model";
-// TODO(cross-domain): move to UserRepository when users findByIds lands
-import UserModel from "../models/User.model";
-// TODO(cross-domain): move to ProductRepository when products refactor lands
-import ProductsModel from "../models/Products.model";
-
 export const memberRepository = {
   async findAll() {
     return await MemberModel.find();
@@ -62,56 +53,16 @@ export const memberRepository = {
     return await MemberModel.find({ _id: { $in: ids } }).select(projection);
   },
 
-  // TODO(cross-domain): move to ContractRepository when contracts refactor lands
-  async sumPendingPayouts(memberId) {
-    return await ContractModel.aggregate([
-      { $match: { memberId: memberId, payoutStatus: "pending" } },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: "$payoutAmount" },
-          count: { $sum: 1 },
-          totalFees: { $sum: "$platformFee" },
-          totalGross: { $sum: "$proposedPrice" },
-        },
-      },
-    ]);
+  /**
+   * Links a contract (and the owning client) onto the member.
+   */
+  async pushContractToMember(memberId, contractId, clientId) {
+    return await MemberModel.findByIdAndUpdate(memberId, {
+      $push: { contracts: contractId, clients: clientId },
+    });
   },
 
-  // TODO(cross-domain): move to ContractRepository when contracts refactor lands
-  async findLastPaidContract(memberId) {
-    return await ContractModel.findOne(
-      { memberId: memberId, payoutStatus: "paid" },
-      { payoutAmount: 1 },
-      { sort: { paidAt: -1 } }
-    );
-  },
-
-  // TODO(cross-domain): move to ContractRepository when contracts refactor lands
-  async findContractsByIdsSince(contractIds, sinceDate) {
-    return await ContractModel.find({
-      _id: { $in: contractIds },
-      createdAt: { $gte: sinceDate },
-    }).sort({ createdAt: 1 });
-  },
-
-  // TODO(cross-domain): move to ContractRepository when contracts refactor lands
-  async findContractsByIds(contractIds) {
-    return await ContractModel.find({ _id: { $in: contractIds } });
-  },
-
-  // TODO(cross-domain): move to ChatRepository when chat refactor lands
-  async findChatsByMemberId(memberId) {
-    return await ChatModel.find({ memberId });
-  },
-
-  // TODO(cross-domain): move to ProductRepository when products refactor lands
-  async findProductsByMemberId(memberId) {
-    return await ProductsModel.find({ member: memberId });
-  },
-
-  // TODO(cross-domain): move to UserRepository when users refactor adds findByIds
-  async findUsersByIds(userIds) {
-    return await UserModel.find({ _id: { $in: userIds } });
+  async findMembersByClientId(clientId) {
+    return await MemberModel.find({ clients: clientId });
   },
 };

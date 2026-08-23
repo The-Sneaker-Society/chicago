@@ -1,7 +1,12 @@
 import { memberRepository } from "./member.repository.js";
+import { contractRepository } from "../contracts/contract.repository.js";
+import { userRepository } from "../users/user.repository.js";
+import { chatRepository } from "../chat/chat.repository.js";
+import { productRepository } from "../products/product.repository.js";
 import * as stripeService from "../stripe/stripe.service";
 import * as redisService from "../utils/redis/stripeSubscritpitonCache";
 import { createQRCode } from "../utils/qrGenerator";
+import { contractStatus } from "../contracts/contract.constants.js";
 
 export const memberService = {
   async getMembers() {
@@ -33,7 +38,9 @@ export const memberService = {
     }
 
     // Sum all pending payouts from the contract ledger — no Stripe balance call.
-    const pendingAgg = await memberRepository.sumPendingPayouts(memberId);
+    const pendingAgg = await contractRepository.findPendingPayoutsByMember(
+      memberId
+    );
 
     const pendingAmount = pendingAgg[0]?.total ?? 0;
     const pendingCount = pendingAgg[0]?.count ?? 0;
@@ -41,7 +48,7 @@ export const memberService = {
     const totalGross = pendingAgg[0]?.totalGross ?? 0;
 
     // Most recent paid contract as the "previous payout" reference.
-    const lastPaidContract = await memberRepository.findLastPaidContract(
+    const lastPaidContract = await contractRepository.findLatestPaidByMember(
       memberId
     );
 
@@ -99,7 +106,7 @@ export const memberService = {
     sixMonthsAgo.setDate(1);
     sixMonthsAgo.setHours(0, 0, 0, 0);
 
-    const contracts = await memberRepository.findContractsByIdsSince(
+    const contracts = await contractRepository.findContractsByIdsSince(
       contractIds,
       sixMonthsAgo
     );
@@ -119,15 +126,16 @@ export const memberService = {
       });
 
       const revenue = monthContracts
-        .filter((c) => c.status === "PAYOUT_RELEASED")
+        .filter((c) => c.status === contractStatus.payoutReleased)
         .reduce((sum, c) => sum + (c.price || 0), 0);
 
       months.push({
         month: monthStr,
         revenue,
         newContracts: monthContracts.length,
-        completed: monthContracts.filter((c) => c.status === "PAYOUT_RELEASED")
-          .length,
+        completed: monthContracts.filter(
+          (c) => c.status === contractStatus.payoutReleased
+        ).length,
       });
     }
 
@@ -407,19 +415,19 @@ export const memberService = {
   // ---- Field-resolver helpers ----
 
   async getClientsForMember(dbUser) {
-    return await memberRepository.findUsersByIds(dbUser.clients || []);
+    return await userRepository.findByIds(dbUser.clients || []);
   },
 
   async getContractsForMember(dbUser) {
-    return await memberRepository.findContractsByIds(dbUser.contracts || []);
+    return await contractRepository.findByIds(dbUser.contracts || []);
   },
 
   async getProductsForMember(memberId) {
-    return await memberRepository.findProductsByMemberId(memberId);
+    return await productRepository.findByMemberId(memberId);
   },
 
   async getChatsForMember(memberId) {
-    return await memberRepository.findChatsByMemberId(memberId);
+    return await chatRepository.findChatsByMemberId(memberId);
   },
 
   async getQrWidgetData(dbUser) {
