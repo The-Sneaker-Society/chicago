@@ -137,8 +137,10 @@ Phase PRs, each independently shippable after #69 merges:
 
 | Phase | Scope | Notes |
 |---|---|---|
-| 1 | `src/auth/guards.js` + context cleanup in `utils/auth/auth.js` | No resolver changes yet. Purely additive. |
+| 0 | **Role metadata migration** (decided: Clerk `unsafeMetadata` → `publicMetadata`) — see "Admin role & metadata migration" below | Must land before guards, since guards read the role from context |
+| 1 | `src/auth/guards.js` + context cleanup in `utils/auth/auth.js` | No resolver changes yet. Purely additive. Adds `admin` role recognition. |
 | 2 | Migrate `group.js` + `image.resolvers.js` | Delete `requireAuthenticatedMember`; collapse the `_id \|\| dbUser \|\| clerkId` chains now that context guarantees `dbUser`. |
+<<<<<<< Updated upstream
 | 3 | **Scoping**: chat domain (`getChatById`, `Chat.messages`, chat lists) + contract reads (`contractById`, `getContractList`, field resolvers) | New scoped repository methods + `<domain>.constants.js` error objects; NOT_FOUND-not-FORBIDDEN doctrine. Member-side mutations get guards here too. |
 | 4 | Client-side resolvers (`clients.js`, users queries) + remaining guards | `requireClient`; same scoping treatment for user-facing reads. |
 | 5 (deferred) | Directory queries (`Query.users/members/clients`) — remove or admin-gate | Blocked on product decision + admin role existing. |
@@ -147,6 +149,26 @@ Phase PRs, each independently shippable after #69 merges:
 
 1. **Should list queries become authenticated?** Decided: yes, but scoping comes first (Phases 3–4) — a guard on an unscoped query just changes who can snoop, not whether the data leaks. Full removal/admin-gating of directory queries is deferred to Phase 5 pending admin-role work.
 2. **Role ≠ ownership stays split** — guards answer "are you a member/client"; scoped queries answer "is this row yours"; services keep domain errors for business-rule violations. Confirmed.
+=======
+| 3 | Migrate member-side mutations (`contracts`, `members`, `chat`) + **scoping**: chat domain (`getChatById`, `Chat.messages`, chat lists) and contract reads (`contractById`, `getContractList`, field resolvers) | New scoped repository methods + `<domain>.constants.js` error objects; NOT_FOUND-not-FORBIDDEN doctrine. |
+| 4 | Client-side resolvers (`clients.js`, users queries) + remaining guards | `requireClient`; same scoping treatment for user-facing reads. |
+| 5 | Directory queries → `requireAdmin`: `Query.users`, `Query.members`, `Query.clients`; decide delete-vs-admin for `Query.messages` (likely delete once chats are participant-scoped) | Uses the admin role from Phase 0. |
+
+## Admin role & metadata migration (DECIDED — Option B)
+
+Not live yet, so we migrate cleanly instead of carrying compatibility shims. Wipe DBs / recreate users is acceptable.
+
+1. **Move the role out of `unsafeMetadata` into `publicMetadata`** on every Clerk user (`publicMetadata.role = "member" | "client" | "admin"`). `publicMetadata` is readable by the backend via `clerkClient.users.getUser()` but cannot be written by client SDKs — only server/admin API calls can set it. This closes the self-promotion hole where a user could edit their own unsafe metadata.
+2. **Audit every writer of roles** — anywhere the frontend or scripts currently set `unsafeMetadata.role` at signup must switch to the new mechanism (frontend should set NO role metadata at all; role assignment becomes a backend/admin concern, e.g. default `"client"` applied server-side at signup webhook or explicit admin action).
+3. **Update the reader** in `utils/auth/auth.js`: `clerkUser.publicMetadata?.role`.
+4. **Teach context about `admin`**: admins are staff accounts with no Member/User row, so the context builder must not treat missing `dbUser` as an error when `role === "admin"` — it resolves `{ userId, role: "admin", dbUser: null }`. Guards like `requireMember`/`requireClient` correctly reject admins; `requireAdmin` accepts them.
+5. **One-time backfill script** (or user recreation): iterate Clerk users, copy `unsafeMetadata.role` → `publicMetadata.role`, clear the unsafe value. Since DBs will be wiped, recreating test users with correct publicMetadata is equally fine.
+
+## Open questions (need product decision)
+
+1. ~~Should list queries become authenticated?~~ **Decided:** yes — directory queries get `requireAdmin` in Phase 5; everything else gets role guards + query-level scoping in Phases 2–4.
+2. **Standardize error copy?** Wrappers centralize messages, so e.g. contracts' `"Unauthorized: Contract does not belong to this member"` (ownership, not role) stays separate — role guards ≠ ownership checks. Ownership checks stay in services as domain errors (`UNAUTHORIZED`); only *role* auth moves into guards. Don't conflate the two.
+>>>>>>> Stashed changes
 3. Does anything call the API without a Clerk session (webhooks, cron)? `src/cron-jobs/` bypasses GraphQL today, but verify before making everything `requireAuth`.
 
 ## Acceptance criteria
@@ -154,6 +176,7 @@ Phase PRs, each independently shippable after #69 merges:
 Part A:
 1. Zero per-file auth helpers; all role checks flow through `src/auth/guards.js`.
 2. All auth failures return Apollo `ForbiddenError` with consistent `extensions.code`.
+<<<<<<< Updated upstream
 3. `utils/auth/auth.js` imports no Mongoose models (uses repositories).
 
 Part B:
@@ -164,8 +187,14 @@ Part B:
 Both parts:
 7. No change to success-path behavior or resolver names/shapes for legitimate owners.
 8. Smoke test: resolver index loads Q:22 M:32; unauthenticated request to a guarded mutation returns FORBIDDEN, not 500.
+=======
+3. No code path reads role from `unsafeMetadata`; no client-side writer of role metadata remains.
+4. No change to success-path behavior or resolver names/shapes for legitimate owners.
+5. `utils/auth/auth.js` imports no Mongoose models (uses repositories).
+6. Smoke test: resolver index loads Q:22 M:32; unauthenticated request to a guarded mutation returns FORBIDDEN, not 500; directory queries reject non-admin roles with FORBIDDEN.
+>>>>>>> Stashed changes
 
 ## Out of scope
 
 - Schema directives (`@auth(requires: ...)`) — requires typeDef changes and custom directive wiring; revisit only if declarative SDL-level control becomes a real need.
-- Clerk template/JWT claim changes (role currently lives in `unsafeMetadata` — moving it to publicMetadata/session claims is a separate infra task).
+- Session-claim/JWT template customization (role arrives via a `getUser` fetch per request today; embedding it in the JWT would remove that round-trip but is optional infra polish).
