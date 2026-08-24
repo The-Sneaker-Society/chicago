@@ -1,23 +1,21 @@
 import { imageService } from './image.service.js';
+import { requireAuth } from '../auth/guards.js';
 
+// Role auth via guards; per-image ownership checks stay in the resolvers.
 const Mutation = {
-  requestImageUpload: async (_, { filename, fileType }, ctx) => {
-    const clerkUserId = ctx?.userId || ctx?.auth?.userId;
-    if (!clerkUserId) throw new Error("Unauthorized");
-    return await imageService.getMockUploadTicket(clerkUserId, filename);
-  },
+  requestImageUpload: requireAuth(async (_, { filename, fileType }, ctx) => {
+    return await imageService.getMockUploadTicket(ctx.userId, filename);
+  }),
 
-  confirmImageUpload: async (_, { key, filename, fileType }, ctx) => {
-    const clerkUserId = ctx?.userId || ctx?.auth?.userId;
-    if (!clerkUserId) throw new Error("Unauthorized");
-    const ownerDbId = ctx.dbUser?._id?.toString() || ctx?.auth?.dbUser?._id?.toString() || clerkUserId;
+  confirmImageUpload: requireAuth(async (_, { key, filename, fileType }, ctx) => {
+    const ownerDbId = ctx.dbUser._id.toString();
     const res = await imageService.saveImagePointer(ownerDbId, key, filename, fileType);
     const doc = typeof res.toObject === 'function' ? res.toObject() : res;
     const idVal = doc._id ? doc._id.toString() : doc.id;
 
     let url;
     try {
-      url = await imageService.getMockViewUrl(clerkUserId, doc.key);
+      url = await imageService.getMockViewUrl(ctx.userId, doc.key);
     } catch {
       try {
         url = await imageService.getMockViewUrl(ownerDbId, doc.key);
@@ -27,11 +25,10 @@ const Mutation = {
     }
 
     return { ...doc, id: idVal, url };
-  },
-  updateImage: async (_, { id, filename, fileType }, ctx) => {
-    const clerkUserId = ctx?.userId || ctx?.auth?.userId;
-    if (!clerkUserId) throw new Error("Unauthorized");
-    const ownerDbId = ctx.dbUser?._id?.toString() || ctx?.auth?.dbUser?._id?.toString() || clerkUserId;
+  }),
+
+  updateImage: requireAuth(async (_, { id, filename, fileType }, ctx) => {
+    const ownerDbId = ctx.dbUser._id.toString();
 
     // Ensure the image belongs to the requester
     const existing = await imageService.getImageById(id);
@@ -44,12 +41,10 @@ const Mutation = {
       ...doc,
       id: doc._id ? doc._id.toString() : doc.id,
     };
-  },
+  }),
 
-  deleteImage: async (_, { id }, ctx) => {
-    const clerkUserId = ctx?.userId || ctx?.auth?.userId;
-    if (!clerkUserId) throw new Error("Unauthorized");
-    const ownerDbId = ctx.dbUser?._id?.toString() || ctx?.auth?.dbUser?._id?.toString() || clerkUserId;
+  deleteImage: requireAuth(async (_, { id }, ctx) => {
+    const ownerDbId = ctx.dbUser._id.toString();
 
     const existing = await imageService.getImageById(id);
     if (!existing) throw new Error('Image not found');
@@ -57,14 +52,12 @@ const Mutation = {
 
     await imageService.deleteImageById(id);
     return true;
-  }
+  })
 };
 
 const Query = {
-  getImage: async (_, { id }, ctx) => {
-    const clerkUserId = ctx?.userId || ctx?.auth?.userId;
-    if (!clerkUserId) throw new Error("Unauthorized");
-    const ownerDbId = ctx.dbUser?._id?.toString() || ctx?.auth?.dbUser?._id?.toString() || clerkUserId;
+  getImage: requireAuth(async (_, { id }, ctx) => {
+    const ownerDbId = ctx.dbUser._id.toString();
 
     const img = await imageService.getImageById(id);
     if (!img) return null;
@@ -75,7 +68,7 @@ const Query = {
 
     let url;
     try {
-      url = await imageService.getMockViewUrl(clerkUserId, doc.key);
+      url = await imageService.getMockViewUrl(ctx.userId, doc.key);
     } catch {
       try {
         url = await imageService.getMockViewUrl(ownerDbId, doc.key);
@@ -85,12 +78,10 @@ const Query = {
     }
 
     return { ...doc, id: idVal, url };
-  },
+  }),
 
-  getUserImages: async (_, __, ctx) => {
-    const clerkUserId = ctx?.userId || ctx?.auth?.userId;
-    if (!clerkUserId) throw new Error("Unauthorized");
-    const ownerDbId = ctx.dbUser?._id?.toString() || ctx?.auth?.dbUser?._id?.toString() || clerkUserId;
+  getUserImages: requireAuth(async (_, __, ctx) => {
+    const ownerDbId = ctx.dbUser._id.toString();
     const images = await imageService.getImagesByUser(ownerDbId);
 
     return Promise.all(images.map(async (img) => {
@@ -102,11 +93,10 @@ const Query = {
       // to using the ownerDbId so ownership checks succeed.
       let url;
       try {
-        url = await imageService.getMockViewUrl(clerkUserId, doc.key);
+        url = await imageService.getMockViewUrl(ctx.userId, doc.key);
       } catch (err) {
-        const fallbackOwner = ownerDbId;
         try {
-          url = await imageService.getMockViewUrl(fallbackOwner, doc.key);
+          url = await imageService.getMockViewUrl(ownerDbId, doc.key);
         } catch (err2) {
           // If both fail, surface a generic placeholder instead of throwing
           url = `https://placehold.co/600x400?text=Unavailable`;
@@ -119,7 +109,7 @@ const Query = {
         url,
       };
     }));
-  }
+  })
 };
 
 export default { Query, Mutation };
