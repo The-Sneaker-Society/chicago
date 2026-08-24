@@ -2,14 +2,15 @@ import { UserInputError } from "apollo-server-core";
 
 import { chatService } from "../../chat/chat.service.js";
 import { chatErrors } from "../../chat/chat.constants.js";
-import { requireAuth, requireMember } from "../../auth/guards.js";
+import { requireAdmin, requireAuth, requireMember } from "../../auth/guards.js";
 
 import pubsub from "../../pubsub";
 
 const publish = (trigger, payload) => pubsub.publish(trigger, payload);
 
 const Query = {
-  messages: requireAuth(async (parent, args, ctx, info) => {
+  // Global transcript dump — admin-only pending delete decision (plan.md Wave 3)
+  messages: requireAdmin(async (parent, args, ctx, info) => {
     try {
       return await chatService.getMessages();
     } catch (e) {

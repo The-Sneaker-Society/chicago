@@ -1,9 +1,10 @@
 import { UserInputError } from "apollo-server-core";
 import { clientService } from "../clients/client.service.js";
-import { requireAuth, requireClient } from "../auth/guards.js";
+import { requireAdmin, requireAuth, requireClient } from "../auth/guards.js";
 
 const Query = {
-  clients: requireAuth(async (parent, args, ctx, info) => {
+  // Directory dump — admin-only (plan.md Wave 3)
+  clients: requireAdmin(async (parent, args, ctx, info) => {
     try {
       return await clientService.getClients();
     } catch (e) {
