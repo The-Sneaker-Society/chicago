@@ -7,6 +7,18 @@ export const chatRepository = {
     return await ChatModel.findById(id);
   },
 
+  /**
+   * Participant-scoped read: matches only when the requester is one of the
+   * chat's two parties. Backs the NOT_FOUND-not-FORBIDDEN scoping doctrine
+   * for id-based reads.
+   */
+  async findChatByIdForParticipant(chatId, participantDbId) {
+    return await ChatModel.findOne({
+      _id: chatId,
+      $or: [{ userId: participantDbId }, { memberId: participantDbId }],
+    });
+  },
+
   async createChat(data) {
     return await ChatModel.create(data);
   },
