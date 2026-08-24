@@ -71,13 +71,18 @@ export const userService = {
   },
 
   /**
-   * Contracts where the parent user is the client (filtered at the DB level).
+   * Contracts where the requester is the client. Takes the requester's db
+   * user id from ctx (never raw parent data) so reads stay scoped to the
+   * logged-in identity.
    */
-  async getContractsForUser(parent) {
-    return await userRepository.findContractsByClient(parent.id);
+  async getContractsForUser(requesterDbId) {
+    return await userRepository.findContractsByClient(requesterDbId);
   },
 
-  async getChatsForUser(userId) {
-    return await userRepository.findChatsByUserId(userId);
+  /**
+   * Chats where the requester is the client (scoped to ctx identity).
+   */
+  async getChatsForUser(requesterDbId) {
+    return await userRepository.findChatsByUserId(requesterDbId);
   },
 };

@@ -1,6 +1,7 @@
 import { UserInputError } from "apollo-server-core";
 
 import { userService } from "../users/user.service.js";
+import { requireAuth } from "../auth/guards.js";
 
 import dotenv from "dotenv";
 dotenv.config({ path: "config.env" });
@@ -15,14 +16,14 @@ const Query = {
       throw new Error(e);
     }
   },
-  async users(parent, args, ctx, info) {
+  users: requireAuth(async (parent, args, ctx, info) => {
     try {
       return await userService.getUsers();
     } catch (e) {
       throw new Error(e);
     }
-  },
-  async currentUser(parent, args, ctx, info) {
+  }),
+  currentUser: requireAuth(async (parent, args, ctx, info) => {
     try {
       return await userService.getCurrentUser(ctx.userId);
     } catch (e) {
@@ -31,11 +32,11 @@ const Query = {
       }
       throw new Error(e);
     }
-  },
+  }),
 };
 
 const Mutation = {
-  async createUser(parent, args, ctx, info) {
+  createUser: requireAuth(async (parent, args, ctx, info) => {
     const { clerkId, email } = args.data || {};
     if (!clerkId || !email) {
       throw new UserInputError("clerkId and email are required", {
@@ -62,8 +63,8 @@ const Mutation = {
       console.error(error);
       throw error;
     }
-  },
-  async updateUser(parent, args, ctx, info) {
+  }),
+  updateUser: requireAuth(async (parent, args, ctx, info) => {
     // ctx.userId is the Clerk id; the service resolves it to the db user id.
     try {
       await userService.updateUser(ctx.userId, { ...args.data });
@@ -71,21 +72,21 @@ const Mutation = {
     } catch (error) {
       throw error;
     }
-  },
+  }),
 };
 
 const User = {
+  // Scoped to the requester's own db id — never the raw parent data.
   async contracts(parent, args, ctx, info) {
     try {
-      return await userService.getContractsForUser(parent);
+      return await userService.getContractsForUser(ctx.dbUser._id);
     } catch (e) {
       throw new Error(e);
     }
   },
   async chats(parent, args, ctx, info) {
     try {
-      const { _id } = ctx;
-      return await userService.getChatsForUser(_id);
+      return await userService.getChatsForUser(ctx.dbUser._id);
     } catch (error) {
       throw new Error(error);
     }
