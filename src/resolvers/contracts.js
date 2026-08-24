@@ -1,30 +1,30 @@
 import { contractService } from "../contracts/contract.service.js";
 import { contractErrors } from "../contracts/contract.constants.js";
+import { requireAuth, requireMember } from "../auth/guards.js";
 
 const Query = {
-  async contracts(parent, args, ctx, info) {
+  contracts: requireAuth(async (parent, args, ctx, info) => {
     try {
       return await contractService.getContractsForContext(ctx.dbUser, ctx.role);
     } catch (e) {
       throw new Error(e);
     }
-  },
-  async contractById(parent, args, ctx, info) {
+  }),
+  contractById: requireAuth(async (parent, args, ctx, info) => {
     try {
-      return await contractService.getContractById(args.id.toString());
+      return await contractService.getContractById(
+        args.id.toString(),
+        ctx.dbUser?._id
+      );
     } catch (e) {
       if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
         throw new Error("contract not found");
       }
       throw new Error(e);
     }
-  },
-  async memberContractStatus(parent, args, ctx, info) {
+  }),
+  memberContractStatus: requireAuth(async (parent, args, ctx, info) => {
     try {
-      if (!ctx.dbUser) {
-        throw new Error("Unauthorized: Member ID is missing in the context.");
-      }
-
       const { id } = ctx.dbUser;
       return await contractService.getMemberContractStatus(id);
     } catch (e) {
@@ -33,18 +33,18 @@ const Query = {
         "Failed to fetch member contract status. Please try again."
       );
     }
-  },
-  async getContractList(parent, args, ctx, info) {
+  }),
+  getContractList: requireAuth(async (parent, args, ctx, info) => {
     try {
       return await contractService.getContractList(ctx.dbUser.contracts);
     } catch (e) {
       throw new Error(e);
     }
-  },
+  }),
 };
 
 const Mutation = {
-  async createContract(parent, args, ctx, info) {
+  createContract: requireMember(async (parent, args, ctx, info) => {
     try {
       const clientId = ctx.dbUser._id;
       return await contractService.createContract(clientId, args.data);
@@ -54,8 +54,8 @@ const Mutation = {
       }
       throw new Error(e);
     }
-  },
-  async createContractPrice(parent, args, ctx, info) {
+  }),
+  createContractPrice: requireMember(async (parent, args, ctx, info) => {
     try {
       const { contractId, price } = args.data;
       const { stripeConnectAccountId } = ctx.dbUser;
@@ -68,8 +68,8 @@ const Mutation = {
     } catch (e) {
       throw new Error(e);
     }
-  },
-  async updateContract(parent, args, ctx, info) {
+  }),
+  updateContract: requireMember(async (parent, args, ctx, info) => {
     try {
       const { id, data } = args;
       const memberId = ctx.dbUser?._id?.toString();
@@ -85,15 +85,11 @@ const Mutation = {
       }
       throw new Error(e);
     }
-  },
-  async initiateContractChat(parent, args, ctx, info) {
+  }),
+  initiateContractChat: requireMember(async (parent, args, ctx, info) => {
     try {
       const { contractId } = args;
-      const memberId = ctx.dbUser?._id;
-
-      if (!memberId) {
-        throw new Error("Unauthorized");
-      }
+      const memberId = ctx.dbUser._id;
 
       return await contractService.initiateContractChat(memberId, contractId);
     } catch (e) {
@@ -107,8 +103,8 @@ const Mutation = {
       }
       throw new Error(e);
     }
-  },
-  async releasePayout(parent, args, ctx, info) {
+  }),
+  releasePayout: requireMember(async (parent, args, ctx, info) => {
     try {
       const { contractId } = args;
       return await contractService.releasePayout(contractId);
@@ -124,7 +120,7 @@ const Mutation = {
       }
       throw new Error(e);
     }
-  },
+  }),
 };
 
 const Contract = {

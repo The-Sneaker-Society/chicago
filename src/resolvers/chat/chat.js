@@ -1,31 +1,36 @@
 import { UserInputError } from "apollo-server-core";
 
 import { chatService } from "../../chat/chat.service.js";
+import { chatErrors } from "../../chat/chat.constants.js";
+import { requireAuth, requireMember } from "../../auth/guards.js";
 
 import pubsub from "../../pubsub";
 
 const publish = (trigger, payload) => pubsub.publish(trigger, payload);
 
 const Query = {
-  async messages(parent, args, ctx, info) {
+  messages: requireAuth(async (parent, args, ctx, info) => {
     try {
       return await chatService.getMessages();
     } catch (e) {
       throw e;
     }
-  },
-  async getChatById(parent, args, ctx, info) {
+  }),
+  getChatById: requireAuth(async (parent, args, ctx, info) => {
     try {
       const { chatId } = args;
-      return await chatService.getChatById(chatId);
+      return await chatService.getChatById(chatId, ctx.dbUser?._id);
     } catch (e) {
+      if (e.message === chatErrors.CHAT_NOT_FOUND) {
+        throw new UserInputError(" Chat does not exist");
+      }
       throw e;
     }
-  },
+  }),
 };
 
 const Mutation = {
-  async createChat(parent, args, ctx, info) {
+  createChat: requireMember(async (parent, args, ctx, info) => {
     try {
       const { _id } = ctx.dbUser;
       await chatService.createChat(_id, args.data);
@@ -33,26 +38,22 @@ const Mutation = {
     } catch (e) {
       throw e;
     }
-  },
-  async createMessage(parent, args, ctx, info) {
+  }),
+  createMessage: requireMember(async (parent, args, ctx, info) => {
     try {
       const { _id } = ctx.dbUser;
       return await chatService.createMessage(_id, args.data, publish);
     } catch (e) {
-      if (e.message === "CHAT_NOT_FOUND") {
+      if (e.message === chatErrors.CHAT_NOT_FOUND) {
         throw new UserInputError(" Chat does not exist");
       }
       throw e;
     }
-  },
-  async proposePriceInChat(parent, args, ctx, info) {
+  }),
+  proposePriceInChat: requireMember(async (parent, args, ctx, info) => {
     try {
       const { contractId, price } = args;
-      const memberId = ctx.dbUser?._id;
-
-      if (!memberId) {
-        throw new Error("Unauthorized");
-      }
+      const memberId = ctx.dbUser._id;
 
       const stripeConnectAccountId = ctx.dbUser?.stripeConnectAccountId;
       if (!stripeConnectAccountId) {
@@ -78,14 +79,14 @@ const Mutation = {
       }
       throw new Error(e);
     }
-  },
+  }),
 };
 
 const Chat = {
   async messages(parent, args, ctx, info) {
     try {
       const { id: chatId } = parent;
-      return await chatService.getMessagesForChat(chatId);
+      return await chatService.getMessagesForChat(chatId, ctx.dbUser?._id);
     } catch (error) {
       console.error("Error fetching messages:", error);
       throw error;

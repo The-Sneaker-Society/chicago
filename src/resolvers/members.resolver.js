@@ -1,18 +1,19 @@
 import dotenv from "dotenv";
 import { UserInputError } from "apollo-server-core";
 import { memberService } from "../members/member.service.js";
+import { requireAuth, requireMember } from "../auth/guards.js";
 
 dotenv.config({ path: "config.env" });
 
 const Query = {
-  async members(parent, args, ctx, info) {
+  members: requireAuth(async (parent, args, ctx, info) => {
     try {
       return await memberService.getMembers();
     } catch (e) {
       throw new Error(e);
     }
-  },
-  async memberById(parent, args, ctx, info) {
+  }),
+  memberById: requireMember(async (parent, args, ctx, info) => {
     try {
       return await memberService.getCurrentMember(ctx.userId);
     } catch (e) {
@@ -21,8 +22,8 @@ const Query = {
       }
       throw new Error(e);
     }
-  },
-  async currentMember(parent, args, ctx, info) {
+  }),
+  currentMember: requireMember(async (parent, args, ctx, info) => {
     try {
       return await memberService.getCurrentMember(ctx.userId);
     } catch (e) {
@@ -31,15 +32,15 @@ const Query = {
       }
       throw new Error(e);
     }
-  },
-  async stripeWidgetData(parent, args, ctx, info) {
+  }),
+  stripeWidgetData: requireMember(async (parent, args, ctx, info) => {
     try {
       return await memberService.getStripeWidgetData(ctx.dbUser);
     } catch (e) {
       throw new Error(e);
     }
-  },
-  async subscriptionDetails(parent, args, ctx, info) {
+  }),
+  subscriptionDetails: requireMember(async (parent, args, ctx, info) => {
     try {
       return await memberService.getSubscriptionDetails(
         ctx.dbUser.stripeCustomerId
@@ -47,17 +48,17 @@ const Query = {
     } catch (e) {
       throw new Error(e);
     }
-  },
+  }),
 
-  async revenueSummary(parent, args, ctx, info) {
+  revenueSummary: requireMember(async (parent, args, ctx, info) => {
     try {
       return await memberService.getRevenueSummary(ctx.dbUser.contracts);
     } catch (e) {
       throw new Error(e);
     }
-  },
+  }),
 
-  async getDiscoverMembers(parent, args, ctx) {
+  getDiscoverMembers: requireAuth(async (parent, args, ctx) => {
     try {
       const limit = args.limit ?? 10;
       const offset = args.offset ?? 0;
@@ -68,7 +69,7 @@ const Query = {
     } catch (e) {
       throw new Error(e);
     }
-  },
+  }),
 };
 
 const Mutation = {
@@ -100,7 +101,7 @@ const Mutation = {
       throw error;
     }
   },
-  async updateMember(parent, args, ctx, info) {
+  updateMember: requireMember(async (parent, args, ctx, info) => {
     // ctx.dbUser._id is the Mongo id for the requester's member document.
     try {
       return await memberService.updateMember(ctx.dbUser._id, {
@@ -109,8 +110,8 @@ const Mutation = {
     } catch (error) {
       throw error;
     }
-  },
-  async deleteMember(parent, args, ctx, info) {
+  }),
+  deleteMember: requireMember(async (parent, args, ctx, info) => {
     // Uses ctx.dbUser._id — the same id source as updateMember. The previous
     // implementation used ctx.id, which did not match the Mongo _id used by
     // every other mutation in this domain.
@@ -119,23 +120,23 @@ const Mutation = {
     } catch (e) {
       throw new Error(e);
     }
-  },
-  async onboardMemberToStripe(parent, args, ctx, info) {
+  }),
+  onboardMemberToStripe: requireMember(async (parent, args, ctx, info) => {
     // ctx.userId is the Clerk id; the service resolves it to the db member id.
     try {
       return await memberService.onboardMemberToStripe(ctx.userId);
     } catch (error) {
       throw new Error(error);
     }
-  },
-  async resumeAccountOnboarding(parent, args, ctx, info) {
+  }),
+  resumeAccountOnboarding: requireMember(async (parent, args, ctx, info) => {
     try {
       return await memberService.resumeAccountOnboarding(ctx.dbUser._id);
     } catch (error) {
       throw new Error(error);
     }
-  },
-  async syncStripeData(parent, args, ctx, info) {
+  }),
+  syncStripeData: requireMember(async (parent, args, ctx, info) => {
     try {
       return await memberService.syncStripeData(ctx.dbUser.stripeCustomerId);
     } catch (error) {
@@ -144,8 +145,8 @@ const Mutation = {
       }
       throw new Error("Failed to sync Stripe data.");
     }
-  },
-  async createMemberSubsctiprion(parent, args, ctx, info) {
+  }),
+  createMemberSubsctiprion: requireMember(async (parent, args, ctx, info) => {
     try {
       return await memberService.createSubscriptionForCurrentMember(
         ctx.dbUser
@@ -154,8 +155,8 @@ const Mutation = {
       console.error(error);
       throw error;
     }
-  },
-  async cancelSubscription(parent, args, ctx, info) {
+  }),
+  cancelSubscription: requireMember(async (parent, args, ctx, info) => {
     try {
       return await memberService.cancelSubscription(
         ctx.dbUser.stripeCustomerId
@@ -163,8 +164,8 @@ const Mutation = {
     } catch {
       throw new Error("Failed to cancel subscription");
     }
-  },
-  async pauseSubscription(parent, args, ctx, info) {
+  }),
+  pauseSubscription: requireMember(async (parent, args, ctx, info) => {
     try {
       return await memberService.pauseSubscription(
         ctx.dbUser.stripeCustomerId
@@ -172,8 +173,8 @@ const Mutation = {
     } catch {
       throw new Error("Failed to pause subscription");
     }
-  },
-  async reactivateSubscription(parent, args, ctx, info) {
+  }),
+  reactivateSubscription: requireMember(async (parent, args, ctx, info) => {
     try {
       return await memberService.reactivateSubscription(
         ctx.dbUser.stripeCustomerId
@@ -181,9 +182,9 @@ const Mutation = {
     } catch {
       throw new Error("Failed to reactivate subscription");
     }
-  },
+  }),
 
-  async followMember(parent, args, ctx) {
+  followMember: requireMember(async (parent, args, ctx) => {
     try {
       return await memberService.followMember(ctx.userId, args.memberId);
     } catch (e) {
@@ -195,9 +196,9 @@ const Mutation = {
       }
       throw new Error(e);
     }
-  },
+  }),
 
-  async unfollowMember(parent, args, ctx) {
+  unfollowMember: requireMember(async (parent, args, ctx) => {
     try {
       return await memberService.unfollowMember(ctx.userId, args.memberId);
     } catch (e) {
@@ -206,7 +207,7 @@ const Mutation = {
       }
       throw new Error(e);
     }
-  },
+  }),
 };
 
 const Member = {
