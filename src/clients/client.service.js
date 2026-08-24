@@ -79,16 +79,18 @@ export const clientService = {
   },
 
   /**
-   * Members linked to the parent client (filtered at the DB level).
+   * Members linked to the requester's client record. Takes the requester's
+   * db user id from ctx (never raw parent data) so reads stay scoped to the
+   * logged-in identity.
    */
-  async getMembersForClient(parentId) {
-    return await memberRepository.findMembersByClientId(parentId);
+  async getMembersForClient(requesterDbId) {
+    return await memberRepository.findMembersByClientId(requesterDbId);
   },
 
   /**
-   * Contracts where the parent is the client (filtered at the DB level).
+   * Contracts where the requester is the client (scoped to ctx identity).
    */
-  async getContractsForClient(parentId) {
-    return await contractRepository.findByClient(parentId);
+  async getContractsForClient(requesterDbId) {
+    return await contractRepository.findByClient(requesterDbId);
   },
 };
