@@ -1,6 +1,6 @@
 # Plan: Auth Guards + Data Isolation for the GraphQL Layer
 
-Status: **Proposed** — not started. Companion to [AGENTS.md](AGENTS.md) and the service–repository refactor ([#69](https://github.com/The-Sneaker-Society/chicago/pull/69)).
+Status: **Implemented (draft PRs awaiting review)** — Wave 1: #70 · Wave 2: #71, #72, #73 · Wave 3: #74. Merge order: #69 → #70 → {#71, #72} → #73 → #74. Companion to [AGENTS.md](AGENTS.md) and the service–repository refactor ([#69](https://github.com/The-Sneaker-Society/chicago/pull/69)).
 
 This plan has two parts that ship together but layer cleanly:
 
