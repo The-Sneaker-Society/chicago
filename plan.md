@@ -156,6 +156,10 @@ Branched off Wave 1 after it merges. Disjoint resolver files, so worktrees don't
 
 Suggested scheduling: **PRs 2 and 3 simultaneously**, then **PR 4** (its review should see B's finished scoping patterns — the users-side reads sit on the traversal chain B closes).
 
+### Wave 2.5 — Group-post resolvers (blocked on #61)
+
+#61 (group page data rules) lands `joinGroup`/`leaveGroup`, posts, and comments with per-file auth helpers and review-agreed `TODO` markers for centralized guards. A placeholder draft PR tracks the follow-up: **[#75](https://github.com/The-Sneaker-Society/chicago/pull/75)** (`refactor/group-post-guards`, plan in its `plan-group-posts.md`). Execute only after #61 and Waves 1–3 merge.
+
 ### Wave 3 — Directory lockdown (single small PR)
 
 | PR | Scope | Notes |
