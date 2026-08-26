@@ -1,4 +1,4 @@
-import { imageRepository } from './image.repository.js';
+import { imageRepository } from "./image.repository.js";
 
 export const imageService = {
   /**
@@ -9,7 +9,7 @@ export const imageService = {
     const uploadUrl = "https://jsonplaceholder.typicode.com/posts/1";
     // Key format: mock-uploads/{userId}/{filename}-{timestamp}-mock
     const timestamp = Date.now();
-    const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '-');
+    const safeFilename = filename.replace(/[^a-zA-Z0-9._-]/g, "-");
     const key = `mock-uploads/${userId}/${safeFilename}-${timestamp}-mock`;
     return { uploadUrl, key };
   },
@@ -26,10 +26,14 @@ export const imageService = {
     return `https://placehold.co/600x400?text=Mock+Image+User+${userId}`;
   },
 
-
   // Repository-backed helpers (service layer)
   async saveImagePointer(userId, key, filename, fileType) {
-    return await imageRepository.saveImagePointer(userId, key, filename, fileType);
+    return await imageRepository.saveImagePointer(
+      userId,
+      key,
+      filename,
+      fileType,
+    );
   },
 
   async getImagesByUser(userId) {
@@ -46,5 +50,5 @@ export const imageService = {
 
   async deleteImageById(id) {
     return await imageRepository.deleteImageById(id);
-  }
+  },
 };
