@@ -1,7 +1,6 @@
 import dotenv from "dotenv";
 import { stripe } from "./config";
-
-const PLATFORM_FEE_CENTS = 1200; // $12 platform fee per contract
+import { platformFee } from "../contracts/contract.constants.js";
 import MemberModel from "../models/Member.model";
 import redis from "../config/redis";
 import { syncStripeDataToKV } from "../utils/redis/stripeSubscritpitonCache";
@@ -284,6 +283,9 @@ export const createPaymentIntent = async (
   productName
 ) => {
   try {
+    // Dynamic 15% platform fee
+    const platformFeeCents = Math.round(amount * platformFee.rate * 100);
+
     const session = await stripe.checkout.sessions.create({
       line_items: [
         {
@@ -305,9 +307,9 @@ export const createPaymentIntent = async (
       // Payout to the member is triggered manually via releasePayout after work is done.
       // Platform fee is embedded in metadata so the webhook reads it off the Stripe session,
       // keeping the DB + Stripe in sync.
-      metadata: { contractId, platformFeeCents: String(PLATFORM_FEE_CENTS), stripeConnectAccountId: connectAccountId },
+      metadata: { contractId, platformFeeCents: String(platformFeeCents), stripeConnectAccountId: connectAccountId },
       payment_intent_data: {
-        metadata: { contractId, platformFeeCents: String(PLATFORM_FEE_CENTS), stripeConnectAccountId: connectAccountId },
+        metadata: { contractId, platformFeeCents: String(platformFeeCents), stripeConnectAccountId: connectAccountId },
       },
     });
     return { url: session.url, id: session.id, expiresAt: new Date(session.expires_at * 1000) };

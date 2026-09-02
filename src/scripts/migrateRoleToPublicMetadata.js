@@ -19,7 +19,8 @@ async function migrateRoleToPublicMetadata() {
 
   try {
     do {
-      page = await clerkClient.users.getUserList({ limit, offset });
+      const res = await clerkClient.users.getUserList({ limit, offset });
+      page = res.data || res;
       offset += limit;
 
       for (const user of page) {

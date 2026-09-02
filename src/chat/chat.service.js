@@ -158,7 +158,7 @@ export const chatService = {
     await contractRepository.updateById(contractId, {
       proposedPrice: price,
       status: contractStatus.priceProposed,
-      $push: { timeline: { event: timelineEvent.priceProposed, date: new Date() } },
+      $push: { timeline: { event: timelineEvent.priceProposedByMember || timelineEvent.priceProposed || "PRICE_PROPOSED_BY_MEMBER", date: new Date() } },
     });
 
     const messageData = {
