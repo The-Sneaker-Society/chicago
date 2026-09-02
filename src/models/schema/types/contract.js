@@ -6,29 +6,31 @@ const contractTypeDefs = gql`
   enum StageType {
     PENDING_REVIEW
     PRICE_PROPOSED
-    PRICE_ACCEPTED
-    WAITING_SHIPMENT
-    SHIPPED
+    AWAITING_PAYMENT
+    READY_TO_SHIP
+    INBOUND_SHIPPED
     ARRIVED_AT_MEMBER
     WORK_IN_PROGRESS
-    PROCESSING_RETURN
-    SHIPPED_BACK
-    USER_RECEIVED
-    PAYOUT_RELEASED
+    RETURN_SHIPPED
+    DELIVERED_TO_USER
+    COMPLETED
+    CANCELED
+    UNDER_MANUAL_REVIEW
   }
 
   type MemberContractStatus {
     pendingReview: String!
     priceProposed: String!
-    priceAccepted: String!
-    waitingShipment: String!
-    shipped: String!
+    awaitingPayment: String!
+    readyToShip: String!
+    inboundShipped: String!
     arrivedAtMember: String!
     workInProgress: String!
-    processingReturn: String!
-    shippedBack: String!
-    userReceived: String!
-    payoutReleased: String!
+    returnShipped: String!
+    deliveredToUser: String!
+    completed: String!
+    canceled: String!
+    underManualReview: String!
   }
 
   type Contract {
@@ -43,6 +45,12 @@ const contractTypeDefs = gql`
     proposedPrice: Float
     price: Float
     status: String
+    shippingPreset: String
+    shippingSpeed: String
+    insuranceFee: Float
+    shippingFee: Float
+    inboundShipmentId: String
+    outboundShipmentId: String
     inboundTracking: TrackingDetails
     outboundTracking: TrackingDetails
     unboxingPhotos: [String]
@@ -116,6 +124,10 @@ const contractTypeDefs = gql`
     boxIncluded: Boolean
     shoeDetails: ShoeDetailsInput!
     repairDetails: RepairDetailsInput!
+    shippingPreset: String
+    shippingSpeed: String
+    insuranceFee: Float
+    shippingFee: Float
   }
 
   input ShoeDetailsInput {
@@ -170,6 +182,12 @@ const contractTypeDefs = gql`
     proposedPrice: Float
     price: Float
     status: String
+    shippingPreset: String
+    shippingSpeed: String
+    insuranceFee: Float
+    shippingFee: Float
+    inboundShipmentId: String
+    outboundShipmentId: String
     inboundTracking: TrackingDetailsInput
     outboundTracking: TrackingDetailsInput
     unboxingPhotos: [String]

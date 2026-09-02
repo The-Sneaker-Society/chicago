@@ -1,18 +1,5 @@
 import mongoose from "mongoose";
-
-const CONTRACT_STATUSES = [
-  "PENDING_REVIEW",
-  "PRICE_PROPOSED",
-  "PRICE_ACCEPTED",
-  "WAITING_SHIPMENT",
-  "SHIPPED",
-  "ARRIVED_AT_MEMBER",
-  "WORK_IN_PROGRESS",
-  "PROCESSING_RETURN",
-  "SHIPPED_BACK",
-  "USER_RECEIVED",
-  "PAYOUT_RELEASED",
-];
+import { contractStatus, payoutStatus } from "../contracts/contract.constants.js";
 
 const ContractSchema = new mongoose.Schema(
   {
@@ -60,10 +47,17 @@ const ContractSchema = new mongoose.Schema(
     },
     proposedPrice: { type: Number },
     price: { type: Number },
+    // Shipping & Insurance fields
+    shippingPreset: { type: String, enum: ["single", "multi"], default: "single" },
+    shippingSpeed: { type: String, enum: ["standard", "expedited"], default: "standard" },
+    insuranceFee: { type: Number, default: 0 },
+    shippingFee: { type: Number, default: 0 },
+    inboundShipmentId: { type: String },
+    outboundShipmentId: { type: String },
     status: {
       type: String,
-      enum: CONTRACT_STATUSES,
-      default: "PENDING_REVIEW",
+      enum: Object.values(contractStatus),
+      default: contractStatus.pendingReview,
     },
     inboundTracking: {
       trackingNumber: { type: String },
@@ -81,7 +75,7 @@ const ContractSchema = new mongoose.Schema(
     stripeTransferId: { type: String },
     payoutStatus: {
       type: String,
-      enum: ["pending", "paid", "cancelled"],
+      enum: Object.values(payoutStatus),
     },
     payoutAmount: { type: Number },
     platformFee: { type: Number },

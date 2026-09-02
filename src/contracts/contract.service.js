@@ -6,15 +6,15 @@ import { chatRepository } from "../chat/chat.repository.js";
 import {
   contractStatus,
   payoutStatus,
+  contractEvent,
   timelineEvent,
+  statusToKey,
   contractErrors,
 } from "./contract.constants.js";
 
 // Mongo status value -> camelCase response key, derived so it can never
 // drift out of sync with contractStatus.
-const STAGE_MAP = Object.fromEntries(
-  Object.entries(contractStatus).map(([key, value]) => [value, key])
-);
+const STAGE_MAP = statusToKey;
 
 const EMPTY_STATUS_COUNTS = Object.fromEntries(
   Object.keys(contractStatus).map((key) => [key, 0])
@@ -119,7 +119,7 @@ export const contractService = {
       paymentStatus: null,
       timeline: [
         {
-          event: timelineEvent.contractCreated,
+          event: contractEvent.contractCreated,
           date: new Date(),
         },
       ],
@@ -155,7 +155,7 @@ export const contractService = {
     await contractRepository.updateById(contractId, {
       proposedPrice: price,
       status: contractStatus.priceProposed,
-      $push: { timeline: { event: timelineEvent.priceProposed, date: new Date() } },
+      $push: { timeline: { event: contractEvent.priceProposedByMember, date: new Date() } },
     });
 
     return url;
@@ -225,7 +225,7 @@ export const contractService = {
     });
 
     contract.chatId = savedChat._id;
-    contract.timeline.push({ event: timelineEvent.chatInitiated, date: new Date() });
+    contract.timeline.push({ event: contractEvent.chatInitiated, date: new Date() });
     await contractRepository.save(contract);
 
     return savedChat;
@@ -260,8 +260,8 @@ export const contractService = {
       payoutStatus: payoutStatus.paid,
       stripeTransferId: transfer.id,
       paidAt: new Date(),
-      status: contractStatus.payoutReleased,
-      $push: { timeline: { event: timelineEvent.payoutReleased, date: new Date() } },
+      status: contractStatus.completed,
+      $push: { timeline: { event: contractEvent.payoutReleased, date: new Date() } },
     });
 
     return true;

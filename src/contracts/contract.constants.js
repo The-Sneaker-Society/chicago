@@ -4,31 +4,72 @@
  * without a data migration.
  */
 
+// ─── Contract Statuses (The State Machine) ───────────────────
 export const contractStatus = Object.freeze({
+  // Negotiation Phase
   pendingReview: "PENDING_REVIEW",
   priceProposed: "PRICE_PROPOSED",
-  priceAccepted: "PRICE_ACCEPTED",
-  waitingShipment: "WAITING_SHIPMENT",
-  shipped: "SHIPPED",
+  awaitingPayment: "AWAITING_PAYMENT",
+
+  // Logistics & Custody Phase
+  readyToShip: "READY_TO_SHIP",
+  inboundShipped: "INBOUND_SHIPPED",
   arrivedAtMember: "ARRIVED_AT_MEMBER",
+
+  // Work Phase
   workInProgress: "WORK_IN_PROGRESS",
-  processingReturn: "PROCESSING_RETURN",
-  shippedBack: "SHIPPED_BACK",
-  userReceived: "USER_RECEIVED",
-  payoutReleased: "PAYOUT_RELEASED",
+  returnShipped: "RETURN_SHIPPED",
+  deliveredToUser: "DELIVERED_TO_USER",
+
+  // Terminal States
+  completed: "COMPLETED",
+  canceled: "CANCELED",
+
+  // Exception State
+  underManualReview: "UNDER_MANUAL_REVIEW",
 });
 
+// ─── Timeline Events (The Audit Trail) ───────────────────────
+export const contractEvent = Object.freeze({
+  contractCreated: "CONTRACT_CREATED",
+  chatInitiated: "CHAT_INITIATED",
+  priceProposedByMember: "PRICE_PROPOSED_BY_MEMBER",
+  priceReproposed: "PRICE_REPROPOSED",
+  paymentCompleted: "PAYMENT_COMPLETED",
+  inboundLabelGenerated: "INBOUND_LABEL_GENERATED",
+  outboundLabelGenerated: "OUTBOUND_LABEL_GENERATED",
+  inboundShipped: "INBOUND_SHIPPED",
+  inboundDelivered: "INBOUND_DELIVERED",
+  unboxingPhotosUploaded: "UNBOXING_PHOTOS_UPLOADED",
+  workStarted: "WORK_STARTED",
+  returnShipped: "RETURN_SHIPPED",
+  returnDelivered: "RETURN_DELIVERED",
+  reviewWindowOpened: "REVIEW_WINDOW_OPENED",
+  payoutReleased: "PAYOUT_RELEASED",
+  contractCompleted: "CONTRACT_COMPLETED",
+  contractCanceled: "CONTRACT_CANCELED",
+  disputeOpened: "DISPUTE_OPENED",
+  disputeResolved: "DISPUTE_RESOLVED",
+});
+
+// Backwards-compat alias — prefer contractEvent in new code
+export const timelineEvent = contractEvent;
+
+// ─── Payout Statuses ─────────────────────────────────────────
 export const payoutStatus = Object.freeze({
   pending: "pending",
   paid: "paid",
+  canceled: "canceled",
+  frozen: "frozen",
 });
 
-export const timelineEvent = Object.freeze({
-  contractCreated: "CONTRACT_CREATED",
-  priceProposed: "PRICE_PROPOSED",
-  chatInitiated: "CHAT_INITIATED",
-  payoutReleased: "PAYOUT_RELEASED",
-});
+// ─── Derived Lookups ─────────────────────────────────────────
+// Mongo value → camelCase key (useful for the memberContractStatus aggregation)
+export const statusToKey = Object.freeze(
+  Object.fromEntries(
+    Object.entries(contractStatus).map(([k, v]) => [v, k])
+  )
+);
 
 /**
  * Domain error codes thrown by the contract service and translated to

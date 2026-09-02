@@ -4,6 +4,7 @@ import { stripe } from "./config";
 import ContractModel from "../models/Contract.model";
 import MessageModel from "../models/Messages.Model";
 import pubsub from "../pubsub";
+import { contractStatus, contractEvent, payoutStatus } from "../contracts/contract.constants.js";
 
 dotenv.config({ path: "config.env" });
 
@@ -170,8 +171,8 @@ async function handleStripeEvent(event) {
 }
 
 // Handles a completed Stripe Checkout session for a contract payment.
-// Funds land in the platform account. The contract is marked PRICE_ACCEPTED and
-// payoutStatus set to "pending" until the member manually triggers releasePayout.
+// Funds land in the platform account. The contract is marked READY_TO_SHIP and
+// payoutStatus set to pending until the member manually triggers releasePayout.
 // The platform fee is read from session metadata (set by createPaymentIntent at
 // session creation time) so that DB and Stripe share the same source of truth.
 // Falls back to PLATFORM_FEE_CENTS for legacy sessions missing the metadata field.
@@ -185,11 +186,11 @@ async function handleContractPayment(session) {
   await ContractModel.findByIdAndUpdate(contractId, {
     stripePaymentIntentId: session.payment_intent,
     paymentStatus: "paid",
-    status: "PRICE_ACCEPTED",
-    payoutStatus: "pending",
+    status: contractStatus.readyToShip,
+    payoutStatus: payoutStatus.pending,
     payoutAmount,
     platformFee,
-    $push: { timeline: { event: "PAYMENT_RECEIVED", date: new Date() } },
+    $push: { timeline: { event: contractEvent.paymentCompleted, date: new Date() } },
   });
 
   // Mark the proposal message as paid
