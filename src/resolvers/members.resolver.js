@@ -71,6 +71,15 @@ const Query = {
       throw new Error(e);
     }
   }),
+
+  getServiceMenu: async (parent, args, ctx) => {
+    try {
+      return await memberService.getServiceMenu(args.memberId);
+    } catch (e) {
+      if (e.message === "MEMBER_NOT_FOUND") throw new Error("Member not found");
+      throw new Error(e);
+    }
+  },
 };
 
 const Mutation = {
@@ -206,6 +215,18 @@ const Mutation = {
       if (e.message === "MEMBER_NOT_FOUND") {
         throw new Error("Member not found");
       }
+      throw new Error(e);
+    }
+  }),
+
+  upsertServiceMenu: requireMember(async (parent, args, ctx) => {
+    try {
+      return await memberService.upsertServiceMenu(ctx.dbUser._id, args.items);
+    } catch (e) {
+      if (e.message === "VALIDATION_ERROR") {
+        throw new UserInputError("Invalid service menu item", { errors: { items: e.message } });
+      }
+      if (e.message === "MEMBER_NOT_FOUND") throw new Error("Member not found");
       throw new Error(e);
     }
   }),

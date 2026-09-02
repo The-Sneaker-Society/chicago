@@ -96,7 +96,7 @@ export const contractService = {
    * and the member. Throws MEMBER_NOT_FOUND when the target member is missing.
    */
   async createContract(clientId, input) {
-    const { memberId, shoeDetails, repairDetails, declaredMarketValue, boxIncluded } = input;
+    const { memberId, shoeDetails, repairDetails, declaredMarketValue, boxIncluded, selectedServiceMenuItem } = input;
 
     const member = await memberRepository.findById(memberId);
     if (!member) {
@@ -118,6 +118,7 @@ export const contractService = {
       chatId: null,
       status: contractStatus.pendingReview,
       paymentStatus: null,
+      selectedServiceMenuItem: selectedServiceMenuItem || null,
       timeline: [
         {
           event: contractEvent.contractCreated,

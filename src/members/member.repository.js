@@ -65,4 +65,8 @@ export const memberRepository = {
   async findMembersByClientId(clientId) {
     return await MemberModel.find({ clients: clientId });
   },
+
+  async updateServiceMenu(memberId, items) {
+    return await MemberModel.findByIdAndUpdate(memberId, { serviceMenu: items }, { new: true });
+  },
 };
