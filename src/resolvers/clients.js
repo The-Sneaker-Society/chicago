@@ -1,15 +1,16 @@
 import { UserInputError } from "apollo-server-core";
 import { clientService } from "../clients/client.service.js";
+import { requireAuth, requireClient } from "../auth/guards.js";
 
 const Query = {
-  async clients(parent, args, ctx, info) {
+  clients: requireAuth(async (parent, args, ctx, info) => {
     try {
       return await clientService.getClients();
     } catch (e) {
       throw new Error(e);
     }
-  },
-  async clientByEmail(parent, args, ctx, info) {
+  }),
+  clientByEmail: requireAuth(async (parent, args, ctx, info) => {
     try {
       return await clientService.getClientByEmail(args.email);
     } catch (e) {
@@ -18,11 +19,11 @@ const Query = {
       }
       throw new Error(e);
     }
-  },
+  }),
 };
 
 const Mutation = {
-  async createClient(parent, args, ctx, info) {
+  createClient: requireClient(async (parent, args, ctx, info) => {
     try {
       return await clientService.createClient(args.data);
     } catch (e) {
@@ -32,8 +33,8 @@ const Mutation = {
       }
       throw e;
     }
-  },
-  async updateClient(parent, args, ctx, info) {
+  }),
+  updateClient: requireClient(async (parent, args, ctx, info) => {
     try {
       const { id, ...updateData } = args.data;
       return await clientService.updateClient(id, updateData);
@@ -43,20 +44,21 @@ const Mutation = {
       }
       throw e;
     }
-  },
+  }),
 };
 
 const Client = {
+  // Field reads are scoped to the requester's own db id — never raw parent data.
   async members(parent, args, ctx, info) {
     try {
-      return await clientService.getMembersForClient(parent.id);
+      return await clientService.getMembersForClient(ctx.dbUser._id);
     } catch (e) {
       throw new Error(e);
     }
   },
   async contracts(parent, args, ctx, info) {
     try {
-      return await clientService.getContractsForClient(parent.id);
+      return await clientService.getContractsForClient(ctx.dbUser._id);
     } catch (e) {
       throw new Error(e);
     }
