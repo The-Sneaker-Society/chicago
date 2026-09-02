@@ -43,8 +43,14 @@ export const contractService = {
     return await contractRepository.findAll(filter);
   },
 
-  async getContractById(id) {
-    const contract = await contractRepository.findById(id);
+  /**
+   * Party-scoped read: a contract you're not a party to looks identical to
+   * one that doesn't exist (NOT_FOUND-not-FORBIDDEN doctrine).
+   */
+  async getContractById(id, requesterDbId) {
+    const contract = requesterDbId
+      ? await contractRepository.findByIdForParty(id, requesterDbId)
+      : null;
     if (!contract) {
       throw new Error(contractErrors.CONTRACT_NOT_FOUND);
     }

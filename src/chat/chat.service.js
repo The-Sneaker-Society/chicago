@@ -8,6 +8,7 @@ import {
   contractStatus,
   timelineEvent,
 } from "../contracts/contract.constants.js";
+import { chatErrors } from "./chat.constants.js";
 
 const toMessagePayload = (message) => {
   return {
@@ -51,8 +52,19 @@ export const chatService = {
     return messages.map(toMessageApiShape);
   },
 
-  async getChatById(chatId) {
-    return await chatRepository.findChatById(chatId);
+  /**
+   * Participant-scoped read: a chat that isn't yours looks identical to one
+   * that doesn't exist (NOT_FOUND-not-FORBIDDEN doctrine).
+   */
+  async getChatById(chatId, requesterDbId) {
+    // No db row (e.g. admin) ⇒ can never be a participant.
+    const chat = requesterDbId
+      ? await chatRepository.findChatByIdForParticipant(chatId, requesterDbId)
+      : null;
+    if (!chat) {
+      throw new Error(chatErrors.CHAT_NOT_FOUND);
+    }
+    return chat;
   },
 
   async createChat(memberId, input) {
@@ -69,7 +81,7 @@ export const chatService = {
 
     const chat = await chatRepository.findChatById(chatId);
     if (!chat) {
-      throw new Error("CHAT_NOT_FOUND");
+      throw new Error(chatErrors.CHAT_NOT_FOUND);
     }
 
     const messageData = {
@@ -172,7 +184,18 @@ export const chatService = {
   },
 
   // Field-resolver helpers
-  async getMessagesForChat(chatId) {
+  /**
+   * Gates message reads through the same participant-scoped fetch as
+   * getChatById so messages of a foreign chat are NOT_FOUND, not leaked.
+   */
+  async getMessagesForChat(chatId, requesterDbId) {
+    // No db row (e.g. admin) ⇒ can never be a participant.
+    const chat = requesterDbId
+      ? await chatRepository.findChatByIdForParticipant(chatId, requesterDbId)
+      : null;
+    if (!chat) {
+      throw new Error(chatErrors.CHAT_NOT_FOUND);
+    }
     return await chatRepository.findMessagesByChatId(chatId);
   },
 

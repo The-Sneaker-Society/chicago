@@ -9,6 +9,18 @@ export const contractRepository = {
     return await ContractModel.findById(id);
   },
 
+  /**
+   * Party-scoped read: matches only when the requester is the client or the
+   * member on the contract. Backs the NOT_FOUND-not-FORBIDDEN scoping
+   * doctrine for id-based reads.
+   */
+  async findByIdForParty(id, partyDbId) {
+    return await ContractModel.findOne({
+      _id: id,
+      $or: [{ clientId: partyDbId }, { memberId: partyDbId }],
+    });
+  },
+
   async findByIds(ids) {
     return await ContractModel.find({ _id: { $in: ids } });
   },
