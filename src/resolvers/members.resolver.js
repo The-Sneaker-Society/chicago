@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 import { UserInputError } from "apollo-server-core";
 import MemberModel from "../models/Member.model";
+import VaultModel from "../models/Vault.model";
 import ChatModel from "../models/Chat.model";
 import UserModel from "../models/User.model";
 import ContractModel from "../models/Contract.model";
@@ -609,6 +610,14 @@ const Member = {
       return MemberModel.find({ _id: { $in: parent.followers } }).select(
         "firstName lastName businessName state isActive subscriptionStatus"
       );
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+
+  async vaultSubmissions(parent) {
+    try {
+      return VaultModel.find({ memberId: parent._id, deletedAt: null }).sort({ createdAt: -1 });
     } catch (e) {
       throw new Error(e);
     }
