@@ -10,6 +10,7 @@ import {
   timelineEvent,
   statusToKey,
   contractErrors,
+  platformFee,
 } from "./contract.constants.js";
 
 // Mongo status value -> camelCase response key, derived so it can never
@@ -152,8 +153,13 @@ export const contractService = {
       productName
     );
 
+    const platformFeeCents = Math.round(price * platformFee.rate * 100);
+    const payoutAmountCents = price * 100 - platformFeeCents;
+
     await contractRepository.updateById(contractId, {
       proposedPrice: price,
+      platformFee: platformFeeCents / 100,
+      payoutAmount: payoutAmountCents / 100,
       status: contractStatus.priceProposed,
       $push: { timeline: { event: contractEvent.priceProposedByMember, date: new Date() } },
     });

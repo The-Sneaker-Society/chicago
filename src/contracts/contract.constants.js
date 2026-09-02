@@ -75,6 +75,11 @@ export const statusToKey = Object.freeze(
  * Domain error codes thrown by the contract service and translated to
  * user-facing messages by resolvers.
  */
+// ─── Platform Fee Configuration ──────────────────────────────
+export const platformFee = Object.freeze({
+  rate: 0.15, // 15%
+});
+
 export const contractErrors = Object.freeze({
   CONTRACT_NOT_FOUND: "CONTRACT_NOT_FOUND",
   MEMBER_NOT_FOUND: "MEMBER_NOT_FOUND",
