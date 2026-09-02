@@ -19,6 +19,10 @@ export const userRepository = {
     return await UserModel.findById(id);
   },
 
+  async findByIds(ids) {
+    return await UserModel.find({ _id: { $in: ids } });
+  },
+
   async createUser(data) {
     return await UserModel.create(data);
   },
@@ -33,5 +37,15 @@ export const userRepository = {
 
   async findChatsByUserId(userId) {
     return await ChatModel.find({ userId });
+  },
+
+  /**
+   * Links a contract (and the member it was created for) onto the user.
+   */
+  async pushContractToUser(userId, contractId, memberId) {
+    return await UserModel.findByIdAndUpdate(userId, {
+      $push: { contracts: contractId },
+      $addToSet: { members: memberId },
+    });
   },
 };

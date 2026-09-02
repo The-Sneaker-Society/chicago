@@ -1,40 +1,21 @@
-import MemberModel from "../models/Member.model";
-import UserModel from "../models/User.model";
-import ContractModel from "../models/Contract.model";
-import ChatModel from "../models/Chat.model";
-import { createPaymentIntent, releasePayoutToMember } from "../stripe/stripe.service";
-import mongoose from "mongoose";
+import { contractService } from "../contracts/contract.service.js";
+import { contractErrors } from "../contracts/contract.constants.js";
 
 const Query = {
   async contracts(parent, args, ctx, info) {
     try {
-      if (!ctx.dbUser) {
-        return [];
-      }
-
-      const filter = {};
-      if (ctx.role === "member") {
-        filter.memberId = ctx.dbUser._id;
-      } else if (ctx.role === "client") {
-        filter.clientId = ctx.dbUser._id;
-      }
-
-      const contracts = await ContractModel.find(filter);
-      return contracts;
+      return await contractService.getContractsForContext(ctx.dbUser, ctx.role);
     } catch (e) {
       throw new Error(e);
     }
   },
   async contractById(parent, args, ctx, info) {
     try {
-      const contract = await ContractModel.findById(args.id.toString());
-
-      if (!contract) {
+      return await contractService.getContractById(args.id.toString());
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
         throw new Error("contract not found");
       }
-
-      return contract;
-    } catch (e) {
       throw new Error(e);
     }
   },
@@ -45,59 +26,7 @@ const Query = {
       }
 
       const { id } = ctx.dbUser;
-
-      const memberId = mongoose.Types.ObjectId.isValid(id)
-        ? mongoose.Types.ObjectId(id)
-        : id;
-
-      const contractCounts = await ContractModel.aggregate([
-        {
-          $match: { memberId: memberId },
-        },
-        {
-          $group: {
-            _id: "$status",
-            count: { $sum: 1 },
-          },
-        },
-      ]);
-
-      const statusCounts = {
-        pendingReview: 0,
-        priceProposed: 0,
-        priceAccepted: 0,
-        waitingShipment: 0,
-        shipped: 0,
-        arrivedAtMember: 0,
-        workInProgress: 0,
-        processingReturn: 0,
-        shippedBack: 0,
-        userReceived: 0,
-        payoutReleased: 0,
-      };
-
-      const STAGE_MAP = {
-        PENDING_REVIEW: "pendingReview",
-        PRICE_PROPOSED: "priceProposed",
-        PRICE_ACCEPTED: "priceAccepted",
-        WAITING_SHIPMENT: "waitingShipment",
-        SHIPPED: "shipped",
-        ARRIVED_AT_MEMBER: "arrivedAtMember",
-        WORK_IN_PROGRESS: "workInProgress",
-        PROCESSING_RETURN: "processingReturn",
-        SHIPPED_BACK: "shippedBack",
-        USER_RECEIVED: "userReceived",
-        PAYOUT_RELEASED: "payoutReleased",
-      };
-
-      contractCounts.forEach((stage) => {
-        const statusKey = STAGE_MAP[stage._id];
-        if (statusKey) {
-          statusCounts[statusKey] = stage.count;
-        }
-      });
-
-      return statusCounts;
+      return await contractService.getMemberContractStatus(id);
     } catch (e) {
       console.error("Error in memberContractStatus resolver:", e.message);
       throw new Error(
@@ -107,70 +36,22 @@ const Query = {
   },
   async getContractList(parent, args, ctx, info) {
     try {
-      const contractIds = ctx.dbUser.contracts;
-
-      const contracts = await ContractModel.find({ _id: { $in: contractIds } });
-
-      return contracts.map((contract) => ({
-        id: contract._id,
-        name: `${contract.shoeDetails.brand} ${contract.shoeDetails.model}`,
-        status: contract.status,
-        createdAt: contract.createdAt,
-        updatedAt: contract.updatedAt,
-      }));
+      return await contractService.getContractList(ctx.dbUser.contracts);
     } catch (e) {
       throw new Error(e);
     }
   },
 };
+
 const Mutation = {
   async createContract(parent, args, ctx, info) {
     try {
-      const { memberId, shoeDetails, repairDetails, declaredMarketValue, boxIncluded } = args.data;
       const clientId = ctx.dbUser._id;
-
-      const member = await MemberModel.findById(memberId);
-
-      if (!member) {
+      return await contractService.createContract(clientId, args.data);
+    } catch (e) {
+      if (e.message === contractErrors.MEMBER_NOT_FOUND) {
         throw new Error("member not found");
       }
-
-      const newContract = new ContractModel({
-        clientId,
-        memberId,
-        declaredMarketValue,
-        boxIncluded,
-        shoeDetails,
-        repairDetails: {
-          ...repairDetails,
-          memberNotes: "",
-        },
-        proposedPrice: null,
-        price: null,
-        chatId: null,
-        status: "PENDING_REVIEW",
-        paymentStatus: null,
-        timeline: [
-          {
-            event: "CONTRACT_CREATED",
-            date: Date.now(),
-          },
-        ],
-      });
-
-      const savedContract = await newContract.save();
-
-      await UserModel.findByIdAndUpdate(clientId, {
-        $push: { contracts: savedContract._id },
-        $addToSet: { members: memberId },
-      });
-
-      await MemberModel.findByIdAndUpdate(memberId, {
-        $push: { contracts: savedContract._id, clients: clientId },
-      });
-
-      return savedContract;
-    } catch (e) {
       throw new Error(e);
     }
   },
@@ -179,56 +60,29 @@ const Mutation = {
       const { contractId, price } = args.data;
       const { stripeConnectAccountId } = ctx.dbUser;
 
-      const contract = await ContractModel.findById(contractId);
-      const brand = contract?.shoeDetails?.brand || "";
-      const model = contract?.shoeDetails?.model || "";
-      const shoeLabel = [brand, model].filter(Boolean).join(" ") || "Sneaker";
-      const productName = `Sneaker Society - ${shoeLabel}`;
-
-      const { url } = await createPaymentIntent(
+      return await contractService.proposePrice(
         stripeConnectAccountId,
-        price,
         contractId,
-        productName
+        price
       );
-
-      await ContractModel.findByIdAndUpdate(contractId, {
-        proposedPrice: price,
-        status: "PRICE_PROPOSED",
-      });
-
-      return url;
-    } catch (err) {
-      throw new Error(err);
+    } catch (e) {
+      throw new Error(e);
     }
   },
   async updateContract(parent, args, ctx, info) {
     try {
       const { id, data } = args;
-      const contract = await ContractModel.findById(id);
-      if (!contract) {
+      const memberId = ctx.dbUser?._id?.toString();
+      return await contractService.updateContract(memberId, id, data);
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
         throw new Error("Contract not found");
       }
-      const memberId = ctx.dbUser?._id?.toString();
-      if (memberId && contract.memberId.toString() !== memberId) {
-        throw new Error("Unauthorized: Contract does not belong to this member");
+      if (e.message === contractErrors.UNAUTHORIZED) {
+        throw new Error(
+          "Unauthorized: Contract does not belong to this member"
+        );
       }
-      const nestedPaths = ["repairDetails", "shoeDetails", "inboundTracking", "outboundTracking"];
-      Object.keys(data).forEach((key) => {
-        if (data[key] === undefined) return;
-        if (nestedPaths.includes(key) && typeof data[key] === "object" && !Array.isArray(data[key])) {
-          Object.keys(data[key]).forEach((subKey) => {
-            if (data[key][subKey] !== undefined) {
-              contract[key][subKey] = data[key][subKey];
-            }
-          });
-        } else {
-          contract[key] = data[key];
-        }
-      });
-      await contract.save();
-      return true;
-    } catch (e) {
       throw new Error(e);
     }
   },
@@ -241,73 +95,33 @@ const Mutation = {
         throw new Error("Unauthorized");
       }
 
-      const contract = await ContractModel.findById(contractId);
-      if (!contract) {
+      return await contractService.initiateContractChat(memberId, contractId);
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
         throw new Error("Contract not found");
       }
-      if (contract.memberId.toString() !== memberId.toString()) {
-        throw new Error("Unauthorized: Contract does not belong to this member");
+      if (e.message === contractErrors.UNAUTHORIZED) {
+        throw new Error(
+          "Unauthorized: Contract does not belong to this member"
+        );
       }
-
-      if (contract.chatId) {
-        const existingChat = await ChatModel.findById(contract.chatId);
-        if (existingChat) {
-          return existingChat;
-        }
-      }
-
-      const clientName = `${contract.shoeDetails?.brand || ""} ${contract.shoeDetails?.model || ""}`.trim() || "Contract Chat";
-
-      const newChat = new ChatModel({
-        name: clientName,
-        memberId: memberId,
-        userId: contract.clientId,
-        contractId: contract._id,
-      });
-
-      const savedChat = await newChat.save();
-
-      contract.chatId = savedChat._id;
-      contract.timeline.push({ event: "CHAT_INITIATED", date: new Date() });
-      await contract.save();
-
-      return savedChat;
-    } catch (e) {
       throw new Error(e);
     }
   },
   async releasePayout(parent, args, ctx, info) {
     try {
       const { contractId } = args;
-
-      const contract = await ContractModel.findById(contractId);
-      if (!contract) throw new Error("Contract not found");
-      if (contract.payoutStatus !== "pending") {
+      return await contractService.releasePayout(contractId);
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new Error("Contract not found");
+      }
+      if (e.message === contractErrors.NO_PENDING_PAYOUT) {
         throw new Error("No pending payout for this contract");
       }
-
-      const member = await MemberModel.findById(contract.memberId);
-      if (!member?.stripeConnectAccountId) {
+      if (e.message === contractErrors.MEMBER_STRIPE_NOT_CONNECTED) {
         throw new Error("Member is not connected to Stripe");
       }
-
-      const amountCents = Math.round(contract.payoutAmount * 100);
-      const transfer = await releasePayoutToMember(
-        member.stripeConnectAccountId,
-        amountCents,
-        contractId
-      );
-
-      await ContractModel.findByIdAndUpdate(contractId, {
-        payoutStatus: "paid",
-        stripeTransferId: transfer.id,
-        paidAt: new Date(),
-        status: "PAYOUT_RELEASED",
-        $push: { timeline: { event: "PAYOUT_RELEASED", date: new Date() } },
-      });
-
-      return true;
-    } catch (e) {
       throw new Error(e);
     }
   },
@@ -316,16 +130,14 @@ const Mutation = {
 const Contract = {
   async member(parent, args, ctx, info) {
     try {
-      const member = await MemberModel.findById(parent.memberId);
-      return member;
+      return await contractService.getContractMember(parent.memberId);
     } catch (e) {
       throw new Error(e);
     }
   },
   async client(parent, args, ctx, info) {
     try {
-      const client = await UserModel.findById(parent.clientId);
-      return client;
+      return await contractService.getContractClient(parent.clientId);
     } catch (e) {
       throw new Error(e);
     }
