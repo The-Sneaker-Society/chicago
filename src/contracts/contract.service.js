@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { createPaymentIntent, releasePayoutToMember } from "../stripe/stripe.service";
 import { contractRepository } from "./contract.repository.js";
 import { memberRepository } from "../members/member.repository.js";
@@ -96,11 +97,29 @@ export const contractService = {
    * and the member. Throws MEMBER_NOT_FOUND when the target member is missing.
    */
   async createContract(clientId, input) {
-    const { memberId, shoeDetails, repairDetails, declaredMarketValue, boxIncluded } = input;
+    const { memberId, shoeDetails, repairDetails, declaredMarketValue, boxIncluded, selectedServiceMenuItem } = input;
+
+    if (!mongoose.Types.ObjectId.isValid(memberId)) {
+      throw new Error(contractErrors.INVALID_MEMBER_ID);
+    }
 
     const member = await memberRepository.findById(memberId);
     if (!member) {
       throw new Error(contractErrors.MEMBER_NOT_FOUND);
+    }
+
+    // Validate service-menu snapshot server-side: only trust canonical name/price
+    let snapshot = null;
+    if (selectedServiceMenuItem?.id) {
+      const menu = member.serviceMenu || [];
+      const canonical = menu.find((it) => String(it.id) === String(selectedServiceMenuItem.id));
+      if (!canonical) {
+        throw new Error(contractErrors.SERVICE_MENU_ITEM_NOT_FOUND);
+      }
+      if (canonical.isActive === false) {
+        throw new Error(contractErrors.SERVICE_MENU_ITEM_INACTIVE);
+      }
+      snapshot = { id: String(canonical.id), name: canonical.name, price: canonical.price };
     }
 
     const savedContract = await contractRepository.create({
@@ -118,6 +137,7 @@ export const contractService = {
       chatId: null,
       status: contractStatus.pendingReview,
       paymentStatus: null,
+      selectedServiceMenuItem: snapshot,
       timeline: [
         {
           event: contractEvent.contractCreated,

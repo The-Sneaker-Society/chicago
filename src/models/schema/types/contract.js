@@ -33,6 +33,16 @@ const contractTypeDefs = gql`
     underManualReview: String!
   }
 
+  type SelectedServiceMenuItem {
+    id: String
+    name: String
+    price: Float
+  }
+
+  input SelectedServiceMenuItemInput {
+    id: ID!
+  }
+
   type Contract {
     id: ID!
     client: Client!
@@ -66,6 +76,7 @@ const contractTypeDefs = gql`
     platformFee: Float
     payoutEligibleAt: String
     paidAt: String
+    selectedServiceMenuItem: SelectedServiceMenuItem
     createdAt: String
     updatedAt: String
   }
@@ -128,6 +139,7 @@ const contractTypeDefs = gql`
     shippingSpeed: String
     insuranceFee: Float
     shippingFee: Float
+    selectedServiceMenuItem: SelectedServiceMenuItemInput
   }
 
   input ShoeDetailsInput {

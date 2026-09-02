@@ -87,6 +87,11 @@ const ContractSchema = new mongoose.Schema(
         date: { type: Date },
       },
     ],
+    selectedServiceMenuItem: {
+      id: { type: String },
+      name: { type: String },
+      price: { type: Number },
+    },
   },
   {
     timestamps: true,

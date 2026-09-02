@@ -12,6 +12,24 @@ const memberTypeDefs = gql`
     subscriptionStatus: String
   }
 
+  type ServiceMenuItem {
+    id: ID!
+    name: String!
+    price: Float!
+    description: String
+    isActive: Boolean!
+    sortOrder: Int!
+  }
+
+  input ServiceMenuItemInput {
+    id: ID
+    name: String!
+    price: Float!
+    description: String
+    isActive: Boolean
+    sortOrder: Int
+  }
+
   type Member {
     addressLineOne: String
     addressLineTwo: String
@@ -35,6 +53,7 @@ const memberTypeDefs = gql`
     phoneNumber: String
     products: [Product]!
     qrWidgetData: QrWidgetData!
+    serviceMenu: [ServiceMenuItem!]!
     state: String
     stripeConnectAccountId: String!
     stripeCustomerId: String
@@ -132,6 +151,7 @@ const memberTypeDefs = gql`
     subscriptionDetails: SubscriptionDetails!
     revenueSummary: RevenueSummaryData!
     getDiscoverMembers(limit: Int, offset: Int): DiscoverMemberPage!
+    getServiceMenu(memberId: ID!): [ServiceMenuItem!]!
   }
 
   # Mutations
@@ -148,6 +168,7 @@ const memberTypeDefs = gql`
     syncStripeData: SyncStripeDataResult!
     followMember(memberId: ID!): Boolean!
     unfollowMember(memberId: ID!): Boolean!
+    upsertServiceMenu(items: [ServiceMenuItemInput!]!): [ServiceMenuItem!]!
   }
 `;
 
