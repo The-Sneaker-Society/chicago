@@ -1,7 +1,7 @@
 import { UserInputError } from "apollo-server-core";
 
 import { userService } from "../users/user.service.js";
-import { requireAuth } from "../auth/guards.js";
+import { requireAdmin, requireAuth } from "../auth/guards.js";
 
 import dotenv from "dotenv";
 dotenv.config({ path: "config.env" });
@@ -16,7 +16,8 @@ const Query = {
       throw new Error(e);
     }
   },
-  users: requireAuth(async (parent, args, ctx, info) => {
+  // Directory dump — admin-only (plan.md Wave 3)
+  users: requireAdmin(async (parent, args, ctx, info) => {
     try {
       return await userService.getUsers();
     } catch (e) {
