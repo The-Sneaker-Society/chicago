@@ -1,12 +1,5 @@
 import { groupService } from "../groups/group.service.js";
-
-const requireAuthenticatedMember = (ctx) => {
-  if (ctx.role !== "member" || !ctx.dbUser?._id) {
-    throw new Error("Only authenticated members can perform this action.");
-  }
-
-  return String(ctx.dbUser._id);
-};
+import { requireAuth, requireMember } from "../auth/guards.js";
 
 const translateDomainError = (error) => {
   switch (error.message) {
@@ -27,24 +20,25 @@ const translateDomainError = (error) => {
   }
 };
 
+// Role auth via guards; ownership (creator/admin) stays in the service.
 const Query = {
-  async getGroup(parent, { id }, ctx, info) {
+  getGroup: requireAuth(async (parent, { id }, ctx, info) => {
     return await groupService.getGroup(id);
-  },
+  }),
 
-  async getGroups() {
+  getGroups: requireAuth(async () => {
     return await groupService.getGroups();
-  },
+  }),
 
-  async getGroupsForUser(parent, { userId }) {
+  getGroupsForUser: requireAuth(async (parent, { userId }) => {
     return await groupService.getGroupsForUser(userId);
-  },
+  }),
 };
 
 const Mutation = {
-  async createGroup(parent, args, ctx, info) {
+  createGroup: requireMember(async (parent, args, ctx, info) => {
     try {
-      const creatorMemberId = requireAuthenticatedMember(ctx);
+      const creatorMemberId = String(ctx.dbUser._id);
       return await groupService.createGroup(creatorMemberId, {
         name: args.name,
         description: args.description,
@@ -54,30 +48,32 @@ const Mutation = {
     } catch (error) {
       throw translateDomainError(error);
     }
-  },
+  }),
 
-  async updateGroup(parent, { id, name, description, avatar, memberIds }, ctx) {
-    try {
-      const requesterMemberId = requireAuthenticatedMember(ctx);
-      return await groupService.updateGroup(requesterMemberId, id, {
-        name,
-        description,
-        avatar,
-        memberIds,
-      });
-    } catch (error) {
-      throw translateDomainError(error);
-    }
-  },
+  updateGroup: requireMember(
+    async (parent, { id, name, description, avatar, memberIds }, ctx) => {
+      try {
+        const requesterMemberId = String(ctx.dbUser._id);
+        return await groupService.updateGroup(requesterMemberId, id, {
+          name,
+          description,
+          avatar,
+          memberIds,
+        });
+      } catch (error) {
+        throw translateDomainError(error);
+      }
+    },
+  ),
 
-  async deleteGroup(parent, { id }, ctx) {
+  deleteGroup: requireMember(async (parent, { id }, ctx) => {
     try {
-      const requesterMemberId = requireAuthenticatedMember(ctx);
+      const requesterMemberId = String(ctx.dbUser._id);
       return await groupService.deleteGroup(requesterMemberId, id);
     } catch (error) {
       throw translateDomainError(error);
     }
-  },
+  }),
 };
 
 export default { Query, Mutation };
