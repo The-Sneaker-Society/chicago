@@ -76,6 +76,7 @@ const Query = {
     try {
       return await memberService.getServiceMenu(args.memberId);
     } catch (e) {
+      if (e.message === "INVALID_MEMBER_ID") throw new UserInputError("Invalid member ID");
       if (e.message === "MEMBER_NOT_FOUND") throw new Error("Member not found");
       throw new Error(e);
     }
@@ -226,6 +227,7 @@ const Mutation = {
       if (e.message === "VALIDATION_ERROR") {
         throw new UserInputError("Invalid service menu item", { errors: { items: e.message } });
       }
+      if (e.message === "INVALID_MEMBER_ID") throw new UserInputError("Invalid member ID");
       if (e.message === "MEMBER_NOT_FOUND") throw new Error("Member not found");
       throw new Error(e);
     }
@@ -298,6 +300,12 @@ const Member = {
     } catch (e) {
       throw new Error(e);
     }
+  },
+
+  async serviceMenu(parent) {
+    // Graceful fallback for legacy docs where serviceMenu is undefined — avoids
+    // non-null violation on Member.serviceMenu: [ServiceMenuItem!]!
+    return parent.serviceMenu || [];
   },
 };
 export default { Query, Mutation, Member };

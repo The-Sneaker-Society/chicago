@@ -40,9 +40,7 @@ const contractTypeDefs = gql`
   }
 
   input SelectedServiceMenuItemInput {
-    id: String
-    name: String
-    price: Float
+    id: ID!
   }
 
   type Contract {

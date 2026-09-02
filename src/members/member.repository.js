@@ -22,7 +22,7 @@ export const memberRepository = {
   },
 
   async updateById(id, updates = {}) {
-    return await MemberModel.findByIdAndUpdate(id, updates, { new: true });
+    return await MemberModel.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
   },
 
   /**
@@ -67,6 +67,6 @@ export const memberRepository = {
   },
 
   async updateServiceMenu(memberId, items) {
-    return await MemberModel.findByIdAndUpdate(memberId, { serviceMenu: items }, { new: true });
+    return await MemberModel.findByIdAndUpdate(memberId, { serviceMenu: items }, { new: true, runValidators: true });
   },
 };

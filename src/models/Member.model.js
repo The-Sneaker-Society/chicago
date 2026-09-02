@@ -90,19 +90,22 @@ const MemberSchema = new mongoose.Schema(
         ref: "Member",
       },
     ],
-    serviceMenu: [
-      {
-        id: {
-          type: String,
-          default: () => new mongoose.Types.ObjectId().toString(),
+    serviceMenu: {
+      type: [
+        {
+          id: {
+            type: String,
+            default: () => new mongoose.Types.ObjectId().toString(),
+          },
+          name: { type: String, required: true, maxlength: 60 },
+          price: { type: Number, required: true, min: 1, max: 500 },
+          description: { type: String, maxlength: 200 },
+          isActive: { type: Boolean, default: true },
+          sortOrder: { type: Number, default: 0 },
         },
-        name: { type: String, required: true, maxlength: 60 },
-        price: { type: Number, required: true, min: 1, max: 500 },
-        description: { type: String, maxlength: 200 },
-        isActive: { type: Boolean, default: true },
-        sortOrder: { type: Number, default: 0 },
-      },
-    ],
+      ],
+      default: [],
+    },
   },
   {
     collection: "members",

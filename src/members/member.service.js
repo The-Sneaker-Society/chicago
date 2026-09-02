@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { memberRepository } from "./member.repository.js";
 import { contractRepository } from "../contracts/contract.repository.js";
 import { userRepository } from "../users/user.repository.js";
@@ -7,7 +8,7 @@ import * as stripeService from "../stripe/stripe.service";
 import * as redisService from "../utils/redis/stripeSubscritpitonCache";
 import { createQRCode } from "../utils/qrGenerator";
 import { contractStatus } from "../contracts/contract.constants.js";
-import { serviceMenuItem } from "./member.constants.js";
+import { serviceMenuItem, memberErrors } from "./member.constants.js";
 
 export const memberService = {
   async getMembers() {
@@ -414,13 +415,15 @@ export const memberService = {
   },
 
   async getServiceMenu(memberId) {
+    if (!mongoose.Types.ObjectId.isValid(memberId)) throw new Error(memberErrors.INVALID_MEMBER_ID);
     const member = await memberRepository.findById(memberId);
-    if (!member) throw new Error("MEMBER_NOT_FOUND");
+    if (!member) throw new Error(memberErrors.MEMBER_NOT_FOUND);
     const menu = member.serviceMenu || [];
     return [...menu].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
   },
 
   async upsertServiceMenu(memberId, items) {
+    if (!mongoose.Types.ObjectId.isValid(memberId)) throw new Error(memberErrors.INVALID_MEMBER_ID);
     if (!Array.isArray(items)) throw new Error("VALIDATION_ERROR");
     if (items.length > serviceMenuItem.maxItems) throw new Error("VALIDATION_ERROR");
     const normalized = items.map((item, idx) => {

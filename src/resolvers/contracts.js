@@ -1,3 +1,4 @@
+import { UserInputError } from "apollo-server-core";
 import { contractService } from "../contracts/contract.service.js";
 import { contractErrors } from "../contracts/contract.constants.js";
 import { requireAuth, requireMember } from "../auth/guards.js";
@@ -49,8 +50,17 @@ const Mutation = {
       const clientId = ctx.dbUser._id;
       return await contractService.createContract(clientId, args.data);
     } catch (e) {
+      if (e.message === contractErrors.INVALID_MEMBER_ID) {
+        throw new UserInputError("Invalid member ID");
+      }
       if (e.message === contractErrors.MEMBER_NOT_FOUND) {
         throw new Error("member not found");
+      }
+      if (e.message === contractErrors.SERVICE_MENU_ITEM_NOT_FOUND) {
+        throw new UserInputError("Service menu item not found");
+      }
+      if (e.message === contractErrors.SERVICE_MENU_ITEM_INACTIVE) {
+        throw new UserInputError("Service menu item is inactive");
       }
       throw new Error(e);
     }
