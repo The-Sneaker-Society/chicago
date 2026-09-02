@@ -3,6 +3,7 @@ import connectDb from "../config/db";
 import ContractModel from "../models/Contract.model";
 import UserModel from "../models/User.model";
 import MemberModel from "../models/Member.model";
+import { contractStatus, timelineEvent } from "../contracts/contract.constants.js";
 
 const MEMBER_ID = process.argv[2];
 const USER_ID = process.argv[3];
@@ -65,7 +66,14 @@ async function seedFakeContract() {
       },
       proposedPrice: null,
       price: null,
-      status: "PENDING_REVIEW",
+      status: contractStatus.pendingReview,
+      // Feature #2 new shipping/insurance fields — defaults match Contract.model.js
+      shippingPreset: "single",
+      shippingSpeed: "standard",
+      insuranceFee: 0,
+      shippingFee: 0,
+      inboundShipmentId: null,
+      outboundShipmentId: null,
       inboundTracking: { trackingNumber: null, carrier: null },
       outboundTracking: { trackingNumber: null, carrier: null },
       unboxingPhotos: [],
@@ -74,15 +82,15 @@ async function seedFakeContract() {
       paymentStatus: null,
       stripePaymentIntentId: null,
       stripeTransferId: null,
-      payoutStatus: "pending",
+      payoutStatus: null, // pending only after payment (Feature #2: pending/paid/canceled/frozen)
       payoutAmount: null,
-      platformFee: null,
+      platformFee: null, // 15% computed in proposePrice (Feature #9)
       payoutEligibleAt: null,
       paidAt: null,
       timeline: [
         {
-          event: "CONTRACT_CREATED",
-          date: Date.now(),
+          event: timelineEvent.contractCreated,
+          date: new Date(),
         },
       ],
     });
