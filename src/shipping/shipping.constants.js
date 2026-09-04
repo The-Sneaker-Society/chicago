@@ -50,7 +50,7 @@ export const insuranceConfig = Object.freeze({
 // Signature confirmation (STANDARD): auto-required at/over threshold,
 // opt-in below. Pass-through at cost (~$4.15 USPS), embedded in rates.
 export const signatureConfig = Object.freeze({
-  threshold: Number(process.env.SIGNATURE_THRESHOLD) || 500,
+  threshold: Number(process.env.SIGNATURE_THRESHOLD) || 300,
   type: "STANDARD",
 });
 

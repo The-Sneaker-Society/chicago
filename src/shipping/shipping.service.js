@@ -190,7 +190,9 @@ export const shippingService = {
   signatureApplies(contract, explicit) {
     if (explicit === true) return true;
     if (explicit === false) return false;
-    if (contract?.signatureRequired) return true;
+    if (contract?.shippingCarrier && contract?.signatureRequired !== undefined) {
+      return Boolean(contract.signatureRequired);
+    }
     const declared = Number(contract?.declaredMarketValue) || 0;
     return declared >= signatureConfig.threshold;
   },
