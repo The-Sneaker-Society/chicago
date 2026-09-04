@@ -14,11 +14,11 @@ const Query = {
       throw new Error(e);
     }
   }),
-  memberById: requireMember(async (parent, args, ctx, info) => {
+  memberById: requireAuth(async (parent, args, ctx, info) => {
     try {
-      return await memberService.getCurrentMember(ctx.userId);
+      return await memberService.getMemberById(args.id);
     } catch (e) {
-      if (e.message === "MEMBER_NOT_FOUND") {
+      if (e.message === "MEMBER_NOT_FOUND" || e.message === "INVALID_MEMBER_ID") {
         throw new Error("Member not found");
       }
       throw new Error(e);
@@ -266,6 +266,15 @@ const Member = {
   },
   async chats(parent, args, ctx, info) {
     try {
+      // Scoped: a member's chat list is visible to that member or an admin.
+      // Anyone else (including other members/clients via memberById) gets [].
+      const isAdmin = ctx?.role === "admin";
+      const isSelf =
+        ctx?.role === "member" &&
+        ctx?.dbUser?._id?.toString() === parent?._id?.toString();
+      if (!isAdmin && !isSelf) {
+        return [];
+      }
       return await memberService.getChatsForMember(parent._id);
     } catch (error) {
       throw new Error(error);
