@@ -43,7 +43,7 @@ export const shippingFees = Object.freeze({
 });
 
 export const insuranceConfig = Object.freeze({
-  threshold: Number(process.env.INSURANCE_THRESHOLD) || 1000,
+  threshold: Number(process.env.INSURANCE_THRESHOLD) || 300,
   rate: Number(process.env.INSURANCE_RATE) || 0.02,
 });
 

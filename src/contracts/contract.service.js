@@ -302,16 +302,13 @@ export const contractService = {
     if (!match) {
       throw new Error(contractErrors.INVALID_SHIPPING_RATE);
     }
-    // Stored semantics (uniform with the legacy flat path): shippingFee is
-    // postage ONLY, insuranceFee is the insurance line. The carrier rate
-    // amount embeds coverage value, so postage is derived by split — the
-    // receipt lines always sum back to the exact round-trip total, and the
-    // payout (amount − fee − postage − insurance) nets service-only.
-    // An explicit waiver zeroes the insurance line; the carrier rate itself
-    // is unchanged (base included coverage can't be removed).
-    const insuranceFee = declined ? 0 : match.insuranceTotal;
+    // Stored semantics: shippingFee is postage ONLY.
+    // When declared >= threshold and not declined, insuranceFee is charged to user.
+    // When declared < threshold, Sneaker Society covers insurance, so insuranceFee = 0.
+    const insuranceEligible = shippingService.insuranceEligible(contract);
+    const insuranceFee = declined || !insuranceEligible ? 0 : match.insuranceTotal;
     const shippingFee =
-      Math.round((match.roundTripTotal - insuranceFee) * 100) / 100;
+      Math.round((match.roundTripTotal - (match.insuranceTotal || 0)) * 100) / 100;
     return {
       shippingFee,
       insuranceFee,
