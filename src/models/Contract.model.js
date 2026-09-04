@@ -14,6 +14,10 @@ const ContractSchema = new mongoose.Schema(
       required: true,
     },
     chatId: { type: mongoose.Schema.Types.ObjectId, ref: "Chats" },
+    // Human-facing order handle (receipts, support, disputes). Generated
+    // at creation as SS-XXXXXX; unique + sparse so pre-number contracts
+    // coexist until backfilled.
+    orderRef: { type: String, unique: true, sparse: true },
     declaredMarketValue: { type: Number },
     boxIncluded: { type: Boolean, default: false },
     shoeDetails: {
@@ -29,16 +33,16 @@ const ContractSchema = new mongoose.Schema(
       previousRepairs: { type: Boolean, default: false },
       previousRepairsNotes: { type: String },
       photos: {
-        leftSide: [{ url: { type: String }, note: { type: String } }],
-        rightSide: [{ url: { type: String }, note: { type: String } }],
-        topView: [{ url: { type: String }, note: { type: String } }],
-        bottomView: [{ url: { type: String }, note: { type: String } }],
-        frontView: [{ url: { type: String }, note: { type: String } }],
-        backView: [{ url: { type: String }, note: { type: String } }],
-        inside: [{ url: { type: String }, note: { type: String } }],
-        tongue: [{ url: { type: String }, note: { type: String } }],
-        box: [{ url: { type: String }, note: { type: String } }],
-        other: [{ url: { type: String }, note: { type: String } }],
+        leftSide: [{ url: { type: String }, note: { type: String }, key: { type: String }, }],
+        rightSide: [{ url: { type: String }, note: { type: String }, key: { type: String }, }],
+        topView: [{ url: { type: String }, note: { type: String }, key: { type: String }, }],
+        bottomView: [{ url: { type: String }, note: { type: String }, key: { type: String }, }],
+        frontView: [{ url: { type: String }, note: { type: String }, key: { type: String }, }],
+        backView: [{ url: { type: String }, note: { type: String }, key: { type: String }, }],
+        inside: [{ url: { type: String }, note: { type: String }, key: { type: String }, }],
+        tongue: [{ url: { type: String }, note: { type: String }, key: { type: String }, }],
+        box: [{ url: { type: String }, note: { type: String }, key: { type: String }, }],
+        other: [{ url: { type: String }, note: { type: String }, key: { type: String }, }],
       },
     },
     repairDetails: {
@@ -52,8 +56,30 @@ const ContractSchema = new mongoose.Schema(
     shippingSpeed: { type: String, enum: ["standard", "expedited"], default: "standard" },
     insuranceFee: { type: Number, default: 0 },
     shippingFee: { type: Number, default: 0 },
+    // Explicit opt-out of the auto-applied XCover insurance (review page
+    // waiver modal). When true, no `extra.insurance` is sent and no
+    // Insurance line_item is charged.
+    insuranceDeclined: { type: Boolean, default: false },
+    // Signature confirmation (STANDARD) on both labels. Auto-required
+    // at/over threshold, opt-in below via review page toggle.
+    signatureRequired: { type: Boolean, default: false },
     inboundShipmentId: { type: String },
     outboundShipmentId: { type: String },
+    inboundTransactionId: { type: String },
+    outboundTransactionId: { type: String },
+    inboundLabelUrl: { type: String },
+    outboundLabelUrl: { type: String },
+    // Checkout-chosen Shippo rates (live rate shopping): bought verbatim
+    // post-payment. Service tokens back the stale-rate fallback.
+    inboundRateId: { type: String },
+    outboundRateId: { type: String },
+    inboundServiceToken: { type: String },
+    outboundServiceToken: { type: String },
+    // Frozen at label-purchase time for the admin evidence viewer
+    // (features.md:11). In-flight contracts keep their snapshot even if
+    // the member later edits their profile.
+    addressSnapshot: { type: mongoose.Schema.Types.Mixed, default: undefined },
+    addressMismatch: { type: Boolean, default: undefined },
     status: {
       type: String,
       enum: Object.values(contractStatus),

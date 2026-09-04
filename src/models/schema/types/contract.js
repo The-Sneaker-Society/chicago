@@ -45,6 +45,7 @@ const contractTypeDefs = gql`
 
   type Contract {
     id: ID!
+    orderRef: String
     client: Client!
     member: Member!
     chatId: ID
@@ -59,8 +60,16 @@ const contractTypeDefs = gql`
     shippingSpeed: String
     insuranceFee: Float
     shippingFee: Float
+    insuranceDeclined: Boolean
+    signatureRequired: Boolean
     inboundShipmentId: String
     outboundShipmentId: String
+    inboundTransactionId: String
+    outboundTransactionId: String
+    inboundLabelUrl: String
+    outboundLabelUrl: String
+    inboundRateId: String
+    outboundRateId: String
     inboundTracking: TrackingDetails
     outboundTracking: TrackingDetails
     unboxingPhotos: [String]
@@ -94,6 +103,7 @@ const contractTypeDefs = gql`
   type PhotoDetail {
     url: String!
     note: String
+    key: String
   }
 
   type PhotoDetails {
@@ -139,6 +149,8 @@ const contractTypeDefs = gql`
     shippingSpeed: String
     insuranceFee: Float
     shippingFee: Float
+    insuranceDeclined: Boolean
+    signatureRequired: Boolean
     selectedServiceMenuItem: SelectedServiceMenuItemInput
   }
 
@@ -160,6 +172,7 @@ const contractTypeDefs = gql`
   input PhotoInputItem {
     url: String!
     note: String
+    key: String
   }
 
   input PhotoInput {
@@ -198,8 +211,16 @@ const contractTypeDefs = gql`
     shippingSpeed: String
     insuranceFee: Float
     shippingFee: Float
+    insuranceDeclined: Boolean
+    signatureRequired: Boolean
     inboundShipmentId: String
     outboundShipmentId: String
+    inboundTransactionId: String
+    outboundTransactionId: String
+    inboundLabelUrl: String
+    outboundLabelUrl: String
+    inboundRateId: String
+    outboundRateId: String
     inboundTracking: TrackingDetailsInput
     outboundTracking: TrackingDetailsInput
     unboxingPhotos: [String]
@@ -215,6 +236,48 @@ const contractTypeDefs = gql`
     trackingNumber: String
   }
 
+  input UpdateShippingInput {
+    shippingPreset: String
+    shippingSpeed: String
+    insuranceDeclined: Boolean
+    signatureRequired: Boolean
+    inboundRateId: String
+    outboundRateId: String
+  }
+
+  input CreateContractCheckoutInput {
+    contractId: ID!
+    shippingPreset: String
+    shippingSpeed: String
+    insuranceDeclined: Boolean
+    signatureRequired: Boolean
+    inboundRateId: String
+    outboundRateId: String
+  }
+
+  input ShippingRateOptionsInput {
+    preset: String
+    withInsurance: Boolean
+  }
+
+  type ShippingRateOption {
+    carrier: String!
+    service: String!
+    serviceToken: String!
+    etaDays: Int
+    inboundRateId: String!
+    inboundAmount: Float!
+    outboundRateId: String!
+    outboundAmount: Float!
+    roundTripTotal: Float!
+    insuranceTotal: Float!
+  }
+
+  type ShippingRateQuote {
+    withInsurance: Boolean!
+    options: [ShippingRateOption!]!
+  }
+
   input TimelineDetailsInput {
     event: String
     date: String
@@ -222,6 +285,7 @@ const contractTypeDefs = gql`
 
   type ContractListItem {
     id: ID!
+    orderRef: String
     name: String!
     status: StageType!
     createdAt: String!
@@ -230,6 +294,8 @@ const contractTypeDefs = gql`
   type Query {
     contracts: [Contract!]!
     contractById(id: ID): Contract!
+    contractByOrderRef(orderRef: String!): Contract!
+    shippingRateOptions(orderRef: String!, preset: String, withInsurance: Boolean, withSignature: Boolean): ShippingRateQuote!
     memberContractStatus: MemberContractStatus!
     getContractList: [ContractListItem!]!
   }
@@ -238,6 +304,8 @@ const contractTypeDefs = gql`
     createContract(data: CreateContractInput!): Contract!
     createContractPrice(data: CreateContractPriceInput): String!
     updateContract(id: ID!, data: UpdateContractInput!): Boolean!
+    updateShipping(id: ID!, data: UpdateShippingInput!): Boolean!
+    createContractCheckout(data: CreateContractCheckoutInput!): String!
     releasePayout(contractId: ID!): Boolean!
     initiateContractChat(contractId: ID!): Chat!
   }

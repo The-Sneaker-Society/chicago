@@ -21,6 +21,23 @@ export const contractRepository = {
     });
   },
 
+  async findByOrderRef(orderRef) {
+    if (!orderRef) return null;
+    return await ContractModel.findOne({ orderRef });
+  },
+
+  /**
+   * Party-scoped orderRef lookup: backs the human-readable contract URLs.
+   * Non-parties see nothing (NOT_FOUND-not-FORBIDDEN doctrine).
+   */
+  async findByOrderRefForParty(orderRef, partyDbId) {
+    if (!orderRef || !partyDbId) return null;
+    return await ContractModel.findOne({
+      orderRef,
+      $or: [{ clientId: partyDbId }, { memberId: partyDbId }],
+    });
+  },
+
   async findByIds(ids) {
     return await ContractModel.find({ _id: { $in: ids } });
   },
@@ -86,5 +103,19 @@ export const contractRepository = {
       _id: { $in: contractIds },
       createdAt: { $gte: sinceDate },
     }).sort({ createdAt: 1 });
+  },
+
+  /**
+   * Party-scoped mutation helper for the client-side Review & Protect flow:
+   * persists the chosen preset/speed plus the server-computed fees so
+   * Stripe and the DB share the same source of truth.
+   */
+  async saveShippingSelection(id, { shippingPreset, shippingSpeed, shippingFee, insuranceFee }) {
+    return await ContractModel.findByIdAndUpdate(id, {
+      shippingPreset,
+      shippingSpeed,
+      shippingFee,
+      insuranceFee,
+    });
   },
 };
