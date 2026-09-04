@@ -259,6 +259,8 @@ export const memberService = {
       phoneNumber,
       addressLineOne,
       addressLineTwo,
+      city,
+      country,
       state,
       zipcode,
     } = input;
@@ -277,6 +279,8 @@ export const memberService = {
       zipcode,
       addressLineOne,
       addressLineTwo,
+      city,
+      country,
       state,
       isActive: true,
     });
@@ -412,6 +416,18 @@ export const memberService = {
     );
 
     return true;
+  },
+
+  /**
+   * Public profile lookup by id (client intake needs the member's name and
+   * contractsDisabled flag). Mirrors getServiceMenu validation. Any authed
+   * user may call it — same visibility as the discover directory.
+   */
+  async getMemberById(memberId) {
+    if (!mongoose.Types.ObjectId.isValid(memberId)) throw new Error(memberErrors.INVALID_MEMBER_ID);
+    const member = await memberRepository.findById(memberId);
+    if (!member) throw new Error(memberErrors.MEMBER_NOT_FOUND);
+    return member;
   },
 
   async getServiceMenu(memberId) {

@@ -12,6 +12,8 @@ const userTypeDefs = gql`
     phoneNumber: String
     addressLineOne: String
     addressLineTwo: String
+    city: String
+    country: String
     zipcode: String
     state: String
     contracts: [Contract]
@@ -26,6 +28,8 @@ const userTypeDefs = gql`
     phoneNumber: String
     addressLineOne: String
     addressLineTwo: String
+    city: String
+    country: String
     zipcode: String
     state: String
   }
@@ -39,6 +43,8 @@ const userTypeDefs = gql`
     phoneNumber: String
     addressLineOne: String
     addressLineTwo: String
+    city: String
+    country: String
     zipcode: String
     state: String
   }

@@ -12,6 +12,8 @@ const clientTypeDefs = gql`
     phoneNumber: String
     addressLineOne: String
     addressLineTwo: String
+    city: String
+    country: String
     zipcode: String
     state: String
     acceptedTos: Boolean!
