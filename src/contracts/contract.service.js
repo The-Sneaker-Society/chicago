@@ -302,9 +302,19 @@ export const contractService = {
     if (!match) {
       throw new Error(contractErrors.INVALID_SHIPPING_RATE);
     }
+    // Stored semantics (uniform with the legacy flat path): shippingFee is
+    // postage ONLY, insuranceFee is the insurance line. The carrier rate
+    // amount embeds coverage value, so postage is derived by split — the
+    // receipt lines always sum back to the exact round-trip total, and the
+    // payout (amount − fee − postage − insurance) nets service-only.
+    // An explicit waiver zeroes the insurance line; the carrier rate itself
+    // is unchanged (base included coverage can't be removed).
+    const insuranceFee = declined ? 0 : match.insuranceTotal;
+    const shippingFee =
+      Math.round((match.roundTripTotal - insuranceFee) * 100) / 100;
     return {
-      shippingFee: match.roundTripTotal,
-      insuranceFee: match.insuranceTotal,
+      shippingFee,
+      insuranceFee,
       speed: shippingService.speedForServiceToken(match.serviceToken),
       inboundServiceToken: match.serviceToken,
       outboundServiceToken: match.serviceToken,
@@ -431,11 +441,12 @@ export const contractService = {
     await this.updateShipping(requesterDbId, contractId, data);
     const updated = await contractRepository.findById(contractId);
 
-    // Live-rate receipt: postage and embedded XCover split so the client
-    // sees both lines, summing to the exact round-trip total. The waiver
-    // opt-out flows through updateShipping (insuranceFee 0, no coverage).
+    // Receipt lines: stored shippingFee is already postage-only (live path
+    // splits at persist; legacy path stores the flat postage), so both lines
+    // sum to the exact total the client approved. The waiver opt-out flows
+    // through updateShipping (insuranceFee 0, no coverage).
     const embeddedInsurance = updated.insuranceFee || 0;
-    const postageOnly = Math.round(((updated.shippingFee || 0) - embeddedInsurance) * 100) / 100;
+    const postageOnly = updated.shippingFee || 0;
     const session = await createPaymentIntent(
       member.stripeConnectAccountId,
       servicePrice,
