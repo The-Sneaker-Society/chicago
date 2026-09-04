@@ -23,6 +23,7 @@ const chatTypeDefs = gql`
     id: ID!
     name: String!
     contractId: ID
+    contract: Contract
     member: Member!
     user: User!
     messages: [Message!]!

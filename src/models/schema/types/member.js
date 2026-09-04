@@ -33,6 +33,8 @@ const memberTypeDefs = gql`
   type Member {
     addressLineOne: String
     addressLineTwo: String
+    city: String
+    country: String
     businessName: String
     chats: [Chat]!
     clients: [Client!]!
@@ -116,6 +118,8 @@ const memberTypeDefs = gql`
     phoneNumber: String
     addressLineOne: String
     addressLineTwo: String
+    city: String
+    country: String
     zipcode: String
     state: String
   }
@@ -129,6 +133,8 @@ const memberTypeDefs = gql`
     phoneNumber: String
     addressLineOne: String
     addressLineTwo: String
+    city: String
+    country: String
     zipcode: String
     state: String
     isNewUser: Boolean

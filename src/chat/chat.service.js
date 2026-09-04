@@ -67,6 +67,16 @@ export const chatService = {
     return chat;
   },
 
+  /**
+   * Owning-contract lookup for field resolvers (e.g. chat bubbles that
+   * link to orderRef URLs). No scoping here — the parent chat was already
+   * participant-scoped by the caller.
+   */
+  async getChatContract(contractId) {
+    if (!contractId) return null;
+    return await contractRepository.findById(contractId);
+  },
+
   async createChat(memberId, input) {
     const { userId, name } = input;
     return await chatRepository.createChat({ name, memberId, userId });
@@ -74,20 +84,30 @@ export const chatService = {
 
   /**
    * Creates a message in an existing chat and publishes MESSAGE_CREATED.
-   * Throws CHAT_NOT_FOUND if the chat does not exist.
+   * Either participant (member or client) may send; non-participants see
+   * CHAT_NOT_FOUND (NOT_FOUND-not-FORBIDDEN doctrine). senderType is
+   * derived from the requester's role — never trusted from input.
    */
-  async createMessage(senderId, input, publish) {
-    const { content, senderType, chatId, type, price, checkoutUrl } = input;
+  async createMessage(requester, input, publish) {
+    const { content, chatId, type, price, checkoutUrl } = input;
 
     const chat = await chatRepository.findChatById(chatId);
     if (!chat) {
       throw new Error(chatErrors.CHAT_NOT_FOUND);
     }
+    const requesterId = requester?.dbId?.toString();
+    const isParticipant =
+      requesterId &&
+      (chat.memberId?.toString() === requesterId ||
+        chat.userId?.toString() === requesterId);
+    if (!isParticipant) {
+      throw new Error(chatErrors.CHAT_NOT_FOUND);
+    }
 
     const messageData = {
-      senderId,
+      senderId: requester.dbId,
       content,
-      senderType,
+      senderType: requester.role === "member" ? "MEMBER" : "USER",
       chatId,
       type: type || "TEXT",
     };

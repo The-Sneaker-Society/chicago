@@ -40,10 +40,13 @@ const Mutation = {
       throw e;
     }
   }),
-  createMessage: requireMember(async (parent, args, ctx, info) => {
+  createMessage: requireAuth(async (parent, args, ctx, info) => {
     try {
-      const { _id } = ctx.dbUser;
-      return await chatService.createMessage(_id, args.data, publish);
+      return await chatService.createMessage(
+        { dbId: ctx.dbUser?._id, role: ctx.role },
+        args.data,
+        publish
+      );
     } catch (e) {
       if (e.message === chatErrors.CHAT_NOT_FOUND) {
         throw new UserInputError(" Chat does not exist");
@@ -104,6 +107,25 @@ const Chat = {
   async member(parent, args, ctx, info) {
     try {
       return await chatService.getMemberForChat(parent.memberId);
+    } catch (e) {
+      throw new Error(e);
+    }
+  },
+  async contract(parent, args, ctx, info) {
+    try {
+      // Scoped: a chat's contract is visible to its participants or an admin.
+      // NOT_FOUND-not-FORBIDDEN for everyone else (matches createMessage).
+      if (ctx?.role !== "admin") {
+        const requesterId = ctx?.dbUser?._id?.toString();
+        const isParticipant =
+          requesterId &&
+          (parent?.memberId?.toString() === requesterId ||
+            parent?.userId?.toString() === requesterId);
+        if (!isParticipant) {
+          throw new Error("CONTRACT_NOT_FOUND");
+        }
+      }
+      return await chatService.getChatContract(parent.contractId);
     } catch (e) {
       throw new Error(e);
     }

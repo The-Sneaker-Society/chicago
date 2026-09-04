@@ -39,6 +39,13 @@ const MemberSchema = new mongoose.Schema(
     addressLineTwo: {
       type: String,
     },
+    city: {
+      type: String,
+    },
+    country: {
+      type: String,
+      default: "US",
+    },
     zipcode: {
       type: String,
     },

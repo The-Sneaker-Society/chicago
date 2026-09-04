@@ -32,6 +32,8 @@ export const userService = {
       phoneNumber,
       addressLineOne,
       addressLineTwo,
+      city,
+      country,
       state,
       zipcode,
     } = input;
@@ -49,6 +51,8 @@ export const userService = {
       phoneNumber,
       addressLineOne,
       addressLineTwo,
+      city,
+      country,
       state,
       zipcode,
       isActive: true,
