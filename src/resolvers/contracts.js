@@ -1,7 +1,11 @@
 import { UserInputError } from "apollo-server-core";
 import { contractService } from "../contracts/contract.service.js";
 import { contractErrors } from "../contracts/contract.constants.js";
-import { requireAuth, requireMember } from "../auth/guards.js";
+import { requireAuth, requireClient, requireMember } from "../auth/guards.js";
+
+import pubsub from "../pubsub";
+
+const publish = (trigger, payload) => pubsub.publish(trigger, payload);
 
 const Query = {
   contracts: requireAuth(async (parent, args, ctx, info) => {
@@ -24,8 +28,26 @@ const Query = {
       throw new Error(e);
     }
   }),
+  contractByOrderRef: requireAuth(async (parent, args, ctx, info) => {
+    try {
+      return await contractService.getContractByOrderRef(
+        args.orderRef,
+        ctx.dbUser?._id
+      );
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new Error("contract not found");
+      }
+      throw new Error(e);
+    }
+  }),
   memberContractStatus: requireAuth(async (parent, args, ctx, info) => {
     try {
+      // Unprovisioned/admin contexts have dbUser: null — fail with a clear
+      // error instead of TypeError on destructure.
+      if (!ctx.dbUser) {
+        throw new Error("Account provisioning incomplete.");
+      }
       const { id } = ctx.dbUser;
       return await contractService.getMemberContractStatus(id);
     } catch (e) {
@@ -37,19 +59,49 @@ const Query = {
   }),
   getContractList: requireAuth(async (parent, args, ctx, info) => {
     try {
-      return await contractService.getContractList(ctx.dbUser.contracts);
+      // Unprovisioned/admin contexts have dbUser: null — empty list, never crash.
+      return await contractService.getContractList(ctx.dbUser?.contracts ?? []);
     } catch (e) {
+      throw new Error(e);
+    }
+  }),
+  shippingRateOptions: requireAuth(async (parent, args, ctx, info) => {
+    try {
+      const { orderRef, preset, withInsurance, withSignature } = args;
+      return await contractService.quoteShipping(ctx.dbUser?._id, orderRef, {
+        preset,
+        withInsurance,
+        withSignature,
+      });
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new Error("Contract not found");
+      }
+      if (
+        e.message === contractErrors.INVALID_SHIPPING_PRESET ||
+        e.message === contractErrors.MISSING_SHIPPING_ADDRESS
+      ) {
+        throw new UserInputError(e.message);
+      }
       throw new Error(e);
     }
   }),
 };
 
 const Mutation = {
-  createContract: requireMember(async (parent, args, ctx, info) => {
+  createContract: requireAuth(async (parent, args, ctx, info) => {
     try {
-      const clientId = ctx.dbUser._id;
-      return await contractService.createContract(clientId, args.data);
+      // Client-side intake (user/new-contract/:memberId): the clientId is
+      // always the requester — never taken from input. Members cannot
+      // create contracts through this path.
+      return await contractService.createContract(
+        { dbId: ctx.dbUser?._id, role: ctx.role },
+        args.data
+      );
     } catch (e) {
+      if (e.message === contractErrors.UNAUTHORIZED) {
+        throw new Error("Only clients can create contracts");
+      }
       if (e.message === contractErrors.INVALID_MEMBER_ID) {
         throw new UserInputError("Invalid member ID");
       }
@@ -91,6 +143,56 @@ const Mutation = {
       if (e.message === contractErrors.UNAUTHORIZED) {
         throw new Error(
           "Unauthorized: Contract does not belong to this member"
+        );
+      }
+      throw new Error(e);
+    }
+  }),
+  updateShipping: requireAuth(async (parent, args, ctx, info) => {
+    try {
+      const { id, data } = args;
+      return await contractService.updateShipping(ctx.dbUser?._id, id, data);
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new Error("Contract not found");
+      }
+      if (e.message === contractErrors.INVALID_SHIPPING_PRESET) {
+        throw new UserInputError("Invalid shipping preset");
+      }
+      if (e.message === contractErrors.INVALID_SHIPPING_SPEED) {
+        throw new UserInputError("Invalid shipping speed");
+      }
+      throw new Error(e);
+    }
+  }),
+  createContractCheckout: requireClient(async (parent, args, ctx, info) => {
+    try {
+      const { contractId, shippingPreset, shippingSpeed, insuranceDeclined, signatureRequired, inboundRateId, outboundRateId } = args.data;
+      return await contractService.createContractCheckout(
+        ctx.dbUser?._id,
+        contractId,
+        { shippingPreset, shippingSpeed, insuranceDeclined, signatureRequired, inboundRateId, outboundRateId },
+        publish
+      );
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new Error("Contract not found");
+      }
+      if (e.message === contractErrors.CHECKOUT_NOT_ALLOWED) {
+        throw new UserInputError("Contract is not ready for checkout");
+      }
+      if (e.message === contractErrors.MEMBER_STRIPE_NOT_CONNECTED) {
+        throw new Error("Member is not connected to Stripe");
+      }
+      if (
+        e.message === contractErrors.INVALID_SHIPPING_PRESET ||
+        e.message === contractErrors.INVALID_SHIPPING_SPEED
+      ) {
+        throw new UserInputError("Invalid shipping selection");
+      }
+      if (e.message === contractErrors.INVALID_SHIPPING_RATE) {
+        throw new UserInputError(
+          "Shipping options expired — please choose a shipping option again"
         );
       }
       throw new Error(e);

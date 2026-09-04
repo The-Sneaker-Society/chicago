@@ -20,6 +20,8 @@
     "delete-member-by-id": "babel-node src/scripts/deleteMemberById.js",
     "seed-fake-contract": "babel-node src/scripts/seedFakeContract.js",
     "delete-contract": "babel-node src/scripts/deleteContract.js",
+    "clean-legacy-contracts": "babel-node src/scripts/cleanLegacyContracts.js",
+    "clean-legacy-contracts:dry": "babel-node src/scripts/cleanLegacyContracts.js --dry-run",
     "remove-field": "babel-node src/scripts/removeSubscriptionId.js",
     "stripe-listen": "stripe listen --forward-to localhost:4000/webhook",
     "dev-with-stripe": "concurrently \"npm run dev\" \"npm run stripe-listen\"",
@@ -70,6 +72,7 @@
     "node-cron": "^3.0.2",
     "nodemailer": "^6.7.5",
     "qrcode": "^1.5.3",
+    "shippo": "^2.18.0",
     "stripe": "^14.15.0",
     "ws": "^8.18.0"
   }

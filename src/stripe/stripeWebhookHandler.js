@@ -5,6 +5,8 @@ import ContractModel from "../models/Contract.model";
 import MessageModel from "../models/Messages.Model";
 import pubsub from "../pubsub";
 import { contractStatus, contractEvent, payoutStatus } from "../contracts/contract.constants.js";
+import { shippingService } from "../shipping/shipping.service.js";
+import { shippingRepository } from "../shipping/shipping.repository.js";
 
 dotenv.config({ path: "config.env" });
 
@@ -176,11 +178,27 @@ async function handleStripeEvent(event) {
 // The platform fee is read from session metadata (set by createPaymentIntent at
 // session creation time) so that DB and Stripe share the same source of truth.
 // Falls back to PLATFORM_FEE_CENTS for legacy sessions missing the metadata field.
+//
+// Idempotent: Stripe retries a 500'd webhook with the same payment_intent.
+// A repeat delivery skips the payment update and only ensures labels exist,
+// so retries can never double-charge math or duplicate labels.
 async function handleContractPayment(session) {
   const { contractId, platformFeeCents, stripeConnectAccountId } = session.metadata;
   const feeCents = parseInt(platformFeeCents, 10) || PLATFORM_FEE_CENTS;
 
-  const payoutAmount = (session.amount_total - feeCents) / 100;
+  const alreadyPaid = await ContractModel.findById(contractId).select(
+    "paymentStatus stripePaymentIntentId"
+  );
+  if (
+    alreadyPaid?.paymentStatus === "paid" &&
+    alreadyPaid?.stripePaymentIntentId === session.payment_intent
+  ) {
+    console.log(`[STRIPE HOOK] Contract ${contractId} already processed — ensuring labels only.`);
+    await ensureLabels(contractId);
+    return;
+  }
+
+  const payoutAmount = await computePayoutAmount(session, feeCents);
   const platformFee = feeCents / 100;
 
   await ContractModel.findByIdAndUpdate(contractId, {
@@ -216,6 +234,65 @@ async function handleContractPayment(session) {
   }
 
   console.log(`[STRIPE HOOK] Contract ${contractId} payment received. Payout pending: $${payoutAmount}`);
+
+  await ensureLabels(contractId);
+}
+
+// The member earns service minus the platform fee ONLY. Shipping and
+// insurance collections belong to the platform (they fund the Shippo
+// labels) and must never inflate the payout. Legacy service-only sessions
+// persist no fees, so their math is unchanged.
+async function computePayoutAmount(session, feeCents) {
+  const { contractId } = session.metadata;
+  const contractFees = await ContractModel.findById(contractId).select(
+    "shippingFee insuranceFee"
+  );
+  const shipCents = Math.round((contractFees?.shippingFee || 0) * 100);
+  const insCents = Math.round((contractFees?.insuranceFee || 0) * 100);
+  return (session.amount_total - feeCents - shipCents - insCents) / 100;
+}
+
+// Shippo labels (plan-shipping.md §2.5): purchase inbound + outbound labels
+// sequentially. Failures never roll back payment — the contract stays
+// READY_TO_SHIP with a LABEL_GENERATION_FAILED event and a log-stub
+// notification (no provider, no retry mutation in this PR). Legs that
+// already have labels are skipped so webhook retries can't buy duplicates.
+async function ensureLabels(contractId) {
+  try {
+    const fullContract = await ContractModel.findById(contractId);
+    if (!fullContract) {
+      return;
+    }
+    for (const leg of ["inbound", "outbound"]) {
+      const existingId =
+        leg === "inbound" ? fullContract.inboundShipmentId : fullContract.outboundShipmentId;
+      if (existingId) {
+        console.log(`[SHIPPING_SKIP] contract ${contractId} leg ${leg}: already labeled`);
+        continue;
+      }
+      try {
+        const label =
+          leg === "inbound"
+            ? await shippingService.createInboundLabel(fullContract)
+            : await shippingService.createOutboundLabel(fullContract);
+        await shippingRepository.saveLabels(contractId, leg, label);
+      } catch (err) {
+        await shippingRepository.pushTimeline(contractId, contractEvent.labelGenerationFailed);
+        console.log(`[SHIPPING_FAIL] contract ${contractId} leg ${leg}: ${err.message}`);
+      }
+    }
+    if (!fullContract.addressSnapshot) {
+      try {
+        const { snapshot, addressMismatch } =
+          await shippingService.snapshotAddresses(fullContract);
+        await shippingRepository.saveAddressSnapshot(contractId, snapshot, addressMismatch);
+      } catch (err) {
+        console.log(`[SHIPPING_SNAPSHOT_FAIL] contract ${contractId}: ${err.message}`);
+      }
+    }
+  } catch (err) {
+    console.log(`[SHIPPING_FAIL] contract ${contractId}: ${err.message}`);
+  }
 }
 
 // Function to get the raw body (important for signature verification)

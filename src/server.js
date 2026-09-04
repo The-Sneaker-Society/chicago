@@ -13,6 +13,7 @@ import { useServer } from "graphql-ws/lib/use/ws";
 import { clerkMiddleware, requireAuth } from "@clerk/express";
 import redis from "./config/redis";
 import { handleStripeWebhook } from "./stripe/stripeWebhookHandler";
+import { handleShippoWebhook } from "./shipping/shipping.webhook";
 import { checkEnvVars } from "./utils/checkVars";
 
 async function startApolloServer() {
@@ -21,6 +22,7 @@ async function startApolloServer() {
     "CLERK_SECRET_KEY",
     "STRIPE_API_KEY",
     "STRIPE_MEMBER_SUBSCRIPTION_ID",
+    "SHIPPO_API_KEY",
     "ATLAS_URI",
     "REACT_APP_URL",
   ];
@@ -65,10 +67,10 @@ async function startApolloServer() {
   }
 
   app.use((req, res, next) => {
-    if (req.path !== "/webhook") {
-      return requireAuth()(req, res, next);
+    if (req.path === "/webhook" || req.path.startsWith("/webhook/")) {
+      return next();
     }
-    next();
+    return requireAuth()(req, res, next);
   });
 
   app.get("/", (req, res) => {
@@ -83,6 +85,9 @@ async function startApolloServer() {
     },
     handleStripeWebhook,
   );
+
+  // Shippo sends plain JSON (no HMAC) — default parser is fine.
+  app.post("/webhook/shippo", handleShippoWebhook);
 
   const httpServer = http.createServer(app);
 

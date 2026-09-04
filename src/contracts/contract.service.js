@@ -1,9 +1,18 @@
 import mongoose from "mongoose";
-import { createPaymentIntent, releasePayoutToMember } from "../stripe/stripe.service";
+import { createPaymentIntent, expireCheckoutSession, releasePayoutToMember } from "../stripe/stripe.service";
 import { contractRepository } from "./contract.repository.js";
 import { memberRepository } from "../members/member.repository.js";
 import { userRepository } from "../users/user.repository.js";
 import { chatRepository } from "../chat/chat.repository.js";
+import {
+  shippingPreset,
+  shippingSpeed,
+  shippingFees,
+  insuranceConfig,
+} from "../shipping/shipping.constants.js";
+// One-directional: shipping.service never imports contract.service (no
+// cycle), mirroring the existing stripe.service import below.
+import { shippingService } from "../shipping/shipping.service.js";
 import {
   contractStatus,
   payoutStatus,
@@ -17,6 +26,28 @@ import {
 // Mongo status value -> camelCase response key, derived so it can never
 // drift out of sync with contractStatus.
 const STAGE_MAP = statusToKey;
+
+// Human order handle: SS- + 6 unambiguous chars (no 0/O/1/I).
+// Retries on collision; unique index backs the guarantee.
+const ORDER_REF_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const ORDER_REF_PREFIX = "SS-";
+
+const randomOrderRef = () => {
+  let suffix = "";
+  for (let i = 0; i < 6; i += 1) {
+    suffix += ORDER_REF_ALPHABET[Math.floor(Math.random() * ORDER_REF_ALPHABET.length)];
+  }
+  return `${ORDER_REF_PREFIX}${suffix}`;
+};
+
+export const generateOrderRef = async () => {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const candidate = randomOrderRef();
+    const existing = await contractRepository.findByOrderRef(candidate);
+    if (!existing) return candidate;
+  }
+  throw new Error(contractErrors.ORDER_REF_UNAVAILABLE);
+};
 
 const EMPTY_STATUS_COUNTS = Object.fromEntries(
   Object.keys(contractStatus).map((key) => [key, 0])
@@ -60,6 +91,21 @@ export const contractService = {
   },
 
   /**
+   * Same scoping as getContractById, keyed by the human orderRef for
+   * readable URLs (plan: order numbers). Unknown refs and non-parties
+   * are indistinguishable (CONTRACT_NOT_FOUND).
+   */
+  async getContractByOrderRef(orderRef, requesterDbId) {
+    const contract = requesterDbId
+      ? await contractRepository.findByOrderRefForParty(orderRef, requesterDbId)
+      : null;
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    return contract;
+  },
+
+  /**
    * Per-status contract counts for a member. The raw memberId string is
    * passed straight through — Mongo casts it, no ObjectId coercion needed.
    */
@@ -85,6 +131,7 @@ export const contractService = {
 
     return contracts.map((contract) => ({
       id: contract._id,
+      orderRef: contract.orderRef || null,
       name: `${contract.shoeDetails.brand} ${contract.shoeDetails.model}`,
       status: contract.status,
       createdAt: contract.createdAt,
@@ -94,9 +141,16 @@ export const contractService = {
 
   /**
    * Creates a contract with defaults and links it to both the client user
-   * and the member. Throws MEMBER_NOT_FOUND when the target member is missing.
+   * and the member. Client-only: the intake form lives on the user side
+   * (user/new-contract/:memberId), so the requester's own id becomes the
+   * clientId — it can never be spoofed via input. Throws UNAUTHORIZED for
+   * non-clients and MEMBER_NOT_FOUND for unknown members.
    */
-  async createContract(clientId, input) {
+  async createContract(requester, input) {
+    if (!requester?.dbId || requester.role !== "client") {
+      throw new Error(contractErrors.UNAUTHORIZED);
+    }
+    const clientId = requester.dbId;
     const { memberId, shoeDetails, repairDetails, declaredMarketValue, boxIncluded, selectedServiceMenuItem } = input;
 
     if (!mongoose.Types.ObjectId.isValid(memberId)) {
@@ -125,6 +179,7 @@ export const contractService = {
     const savedContract = await contractRepository.create({
       clientId,
       memberId,
+      orderRef: await generateOrderRef(),
       declaredMarketValue,
       boxIncluded,
       shoeDetails,
@@ -148,6 +203,23 @@ export const contractService = {
 
     await userRepository.pushContractToUser(clientId, savedContract._id, memberId);
     await memberRepository.pushContractToMember(memberId, savedContract._id, clientId);
+
+    // Every contract gets its chat at creation so both parties can message
+    // immediately — previously the chat only existed after the member
+    // manually initiated it, leaving client intake with no chat at all.
+    const chatName =
+      `${shoeDetails?.brand || ""} ${shoeDetails?.model || ""}`.trim() ||
+      "Contract Chat";
+    const savedChat = await chatRepository.createChat({
+      name: chatName,
+      memberId,
+      userId: clientId,
+      contractId: savedContract._id,
+    });
+
+    savedContract.chatId = savedChat._id;
+    savedContract.timeline.push({ event: contractEvent.chatInitiated, date: new Date() });
+    await contractRepository.save(savedContract);
 
     return savedContract;
   },
@@ -185,6 +257,243 @@ export const contractService = {
     });
 
     return url;
+  },
+
+  /**
+   * Client-side Review & Protect path (plan-shipping.md §2.8): either party
+   * on the contract may persist the chosen preset/speed. Fees are always
+   * recomputed server-side so the client can never spoof the Stripe total.
+   * Party-scoped read — a non-party sees CONTRACT_NOT_FOUND, not FORBIDDEN.
+   */
+  /**
+   * Live rate options for Review & Protect. Party-scoped; the quote is
+   * created fresh per call (Shippo shipment creation is free).
+   */
+  async quoteShipping(requesterDbId, orderRef, { preset, withInsurance, withSignature } = {}) {
+    const contract = requesterDbId
+      ? await contractRepository.findByOrderRefForParty(orderRef, requesterDbId)
+      : null;
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    const declined =
+      withInsurance === undefined
+        ? !!contract.insuranceDeclined
+        : !withInsurance;
+    return shippingService.quoteRoundTrip(contract, {
+      preset: preset ?? undefined,
+      withInsurance: !declined,
+      withSignature,
+    });
+  },
+
+  /**
+   * Resolves client-chosen live rate ids against the CACHED quote for this
+   * contract (never a fresh re-quote — Shippo mints new rate ids per
+   * shipment, so re-quoting could never match). Returns the exact fees +
+   * tokens to persist.
+   */
+  async resolveQuotedChoice(contract, preset, declined, inboundRateId, outboundRateId) {
+    const match = await shippingService.matchCachedChoice(
+      contract._id,
+      inboundRateId,
+      outboundRateId
+    );
+    if (!match) {
+      throw new Error(contractErrors.INVALID_SHIPPING_RATE);
+    }
+    // Stored semantics (uniform with the legacy flat path): shippingFee is
+    // postage ONLY, insuranceFee is the insurance line. The carrier rate
+    // amount embeds coverage value, so postage is derived by split — the
+    // receipt lines always sum back to the exact round-trip total, and the
+    // payout (amount − fee − postage − insurance) nets service-only.
+    // An explicit waiver zeroes the insurance line; the carrier rate itself
+    // is unchanged (base included coverage can't be removed).
+    const insuranceFee = declined ? 0 : match.insuranceTotal;
+    const shippingFee =
+      Math.round((match.roundTripTotal - insuranceFee) * 100) / 100;
+    return {
+      shippingFee,
+      insuranceFee,
+      speed: shippingService.speedForServiceToken(match.serviceToken),
+      inboundServiceToken: match.serviceToken,
+      outboundServiceToken: match.serviceToken,
+      carrier: match.carrier,
+      service: match.service,
+    };
+  },
+
+  /**
+   * Client-side Review & Protect path (plan-shipping.md §2.8): either party
+   * on the contract may persist the shipping choice. With live rate ids the
+   * fees resolve authoritatively from a fresh quote; without them the legacy
+   * flat schedule applies. Party-scoped read — a non-party sees
+   * CONTRACT_NOT_FOUND, not FORBIDDEN.
+   */
+  async updateShipping(requesterDbId, id, data = {}) {
+    const contract = requesterDbId
+      ? await contractRepository.findByIdForParty(id, requesterDbId)
+      : null;
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+
+    const preset = data.shippingPreset ?? contract.shippingPreset ?? shippingPreset.single;
+    if (!Object.values(shippingPreset).includes(preset)) {
+      throw new Error(contractErrors.INVALID_SHIPPING_PRESET);
+    }
+    const declined = data.insuranceDeclined ?? contract.insuranceDeclined ?? false;
+    const signatureRequired = shippingService.signatureApplies(
+      contract,
+      data.signatureRequired ?? contract.signatureRequired ?? undefined
+    );
+
+    const timelinePush = [{ event: contractEvent.shippingSelected, date: new Date() }];
+    if (declined && !contract.insuranceDeclined) {
+      timelinePush.push({ event: contractEvent.insuranceDeclined, date: new Date() });
+    }
+
+    if (data.inboundRateId && data.outboundRateId) {
+      const resolved = await this.resolveQuotedChoice(
+        contract,
+        preset,
+        declined,
+        data.inboundRateId,
+        data.outboundRateId
+      );
+      await contractRepository.updateById(id, {
+        shippingPreset: preset,
+        shippingSpeed: resolved.speed,
+        shippingFee: resolved.shippingFee,
+        insuranceFee: resolved.insuranceFee,
+        insuranceDeclined: declined,
+        signatureRequired,
+        shippingCarrier: `${resolved.carrier} ${resolved.service}`,
+        inboundRateId: data.inboundRateId,
+        outboundRateId: data.outboundRateId,
+        inboundServiceToken: resolved.inboundServiceToken,
+        outboundServiceToken: resolved.outboundServiceToken,
+        $push: { timeline: { $each: timelinePush } },
+      });
+      return true;
+    }
+
+    const speed = data.shippingSpeed ?? contract.shippingSpeed ?? shippingSpeed.standard;
+    if (!Object.values(shippingSpeed).includes(speed)) {
+      throw new Error(contractErrors.INVALID_SHIPPING_SPEED);
+    }
+
+    const declared = Number(contract.declaredMarketValue) || 0;
+    const shippingFee = shippingFees[speed];
+    // Insurance auto-applies at/over threshold; the client may explicitly
+    // decline it on the review page (waiver modal). Declined => fee 0 and
+    // no XCover coverage on either label (see shipping.service).
+    const insuranceFee =
+      !declined && declared >= insuranceConfig.threshold
+        ? Math.round(declared * insuranceConfig.rate * 100) / 100
+        : 0;
+
+    await contractRepository.updateById(id, {
+      shippingPreset: preset,
+      shippingSpeed: speed,
+      shippingFee,
+      insuranceFee,
+      insuranceDeclined: declined,
+      signatureRequired,
+      $push: { timeline: { $each: timelinePush } },
+    });
+
+    return true;
+  },
+
+  /**
+   * Issues the itemized Stripe session for Review & Protect "Continue to
+   * Payment": Service + Shipping + Insurance line_items (plan §2.6).
+   * Caller must be the paying client. Supersedes older pending proposal
+   * sessions so only the itemized total can be paid. `publish` is the
+   * injected pubsub callback (AGENTS.md: pubsub-via-injected-callback).
+   */
+  async createContractCheckout(requesterDbId, contractId, data = {}, publish = null) {
+    const contract = requesterDbId
+      ? await contractRepository.findByIdForParty(contractId, requesterDbId)
+      : null;
+    if (!contract || contract.clientId.toString() !== requesterDbId.toString()) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    if (
+      contract.status !== contractStatus.priceProposed &&
+      contract.status !== contractStatus.awaitingPayment
+    ) {
+      throw new Error(contractErrors.CHECKOUT_NOT_ALLOWED);
+    }
+
+    const servicePrice =
+      contract.price ?? contract.proposedPrice ?? contract.selectedServiceMenuItem?.price ?? null;
+    if (servicePrice == null) {
+      throw new Error(contractErrors.CHECKOUT_NOT_ALLOWED);
+    }
+
+    const member = await memberRepository.findById(contract.memberId);
+    if (!member?.stripeConnectAccountId) {
+      throw new Error(contractErrors.MEMBER_STRIPE_NOT_CONNECTED);
+    }
+
+    await this.updateShipping(requesterDbId, contractId, data);
+    const updated = await contractRepository.findById(contractId);
+
+    // Receipt lines: stored shippingFee is already postage-only (live path
+    // splits at persist; legacy path stores the flat postage), so both lines
+    // sum to the exact total the client approved. The waiver opt-out flows
+    // through updateShipping (insuranceFee 0, no coverage).
+    const embeddedInsurance = updated.insuranceFee || 0;
+    const postageOnly = updated.shippingFee || 0;
+    const session = await createPaymentIntent(
+      member.stripeConnectAccountId,
+      servicePrice,
+      contractId.toString(),
+      buildShoeProductName(contract.shoeDetails),
+      {
+        shippingFee: postageOnly,
+        insuranceFee: embeddedInsurance,
+        shippingSpeed: updated.shippingSpeed,
+        shippingName: updated.shippingCarrier || null,
+        orderRef: updated.orderRef || contract.orderRef || null,
+      }
+    );
+
+    // Supersede older pending proposal sessions so the itemized total is
+    // the only payable link (same pattern as proposePriceInChat).
+    if (contract.chatId) {
+      const previousProposals = await chatRepository.findPendingProposals(contract.chatId);
+      for (const prev of previousProposals) {
+        if (prev.metadata?.checkoutSessionId === session.id) continue;
+        prev.metadata.status = "superseded";
+        await chatRepository.saveMessage(prev);
+        if (prev.metadata?.checkoutSessionId) {
+          try {
+            await expireCheckoutSession(prev.metadata.checkoutSessionId);
+          } catch (e) {
+            // Session may already be expired or paid — that's fine
+          }
+        }
+        if (publish) {
+          publish(`MESSAGE_UPDATED ${contract.chatId}`, {
+            messageUpdated: {
+              id: prev._id,
+              chatId: prev.chatId,
+              senderId: prev.senderId,
+              content: prev.content,
+              senderType: prev.senderType,
+              type: prev.type,
+              metadata: prev.metadata,
+              createdAt: prev.createdAt,
+            },
+          });
+        }
+      }
+    }
+
+    return session.url;
   },
 
   /**
