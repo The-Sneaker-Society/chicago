@@ -280,25 +280,61 @@ export const createPaymentIntent = async (
   connectAccountId,
   amount,
   contractId,
-  productName
+  productName,
+  breakdown = {}
 ) => {
   try {
     // Dynamic 15% platform fee
     const platformFeeCents = Math.round(amount * platformFee.rate * 100);
 
-    const session = await stripe.checkout.sessions.create({
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: productName || `Contract Payment - ${contractId}`,
-            },
-            unit_amount: amount * 100,
+    // Itemized checkout (plan-shipping.md §2.6): Service + Shipping +
+    // Insurance as separate line_items so Stripe shows a breakdown and
+    // emails an itemized receipt. Optional — callers that pass no
+    // breakdown keep the legacy single-line behavior. Names carry the
+    // human orderRef (never a raw Mongo id); reconciliation stays on
+    // session metadata.
+    const { shippingFee = 0, insuranceFee = 0, shippingSpeed = "standard", shippingName = null, orderRef = null } = breakdown;
+    const refSuffix = orderRef ? ` — ${orderRef}` : ` - ${contractId}`;
+    const shippingLabel = shippingName || `Shipping (${shippingSpeed})`;
+    const line_items = [
+      {
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: `${productName || `Contract Payment`}${refSuffix}`,
           },
-          quantity: 1,
+          unit_amount: Math.round(amount * 100),
         },
-      ],
+        quantity: 1,
+      },
+    ];
+    if (Number(shippingFee) > 0) {
+      line_items.push({
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: `${shippingLabel}${refSuffix}`,
+          },
+          unit_amount: Math.round(Number(shippingFee) * 100),
+        },
+        quantity: 1,
+      });
+    }
+    if (Number(insuranceFee) > 0) {
+      line_items.push({
+        price_data: {
+          currency: "usd",
+          product_data: {
+            name: `Shipping Insurance${refSuffix}`,
+          },
+          unit_amount: Math.round(Number(insuranceFee) * 100),
+        },
+        quantity: 1,
+      });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      line_items,
       mode: "payment",
       expires_at: Math.floor(Date.now() / 1000) + 86400, // 24 hours
       success_url: `${process.env.REACT_APP_URL}/member/contracts`,
@@ -307,9 +343,9 @@ export const createPaymentIntent = async (
       // Payout to the member is triggered manually via releasePayout after work is done.
       // Platform fee is embedded in metadata so the webhook reads it off the Stripe session,
       // keeping the DB + Stripe in sync.
-      metadata: { contractId, platformFeeCents: String(platformFeeCents), stripeConnectAccountId: connectAccountId },
+      metadata: { contractId, orderRef: orderRef || "", platformFeeCents: String(platformFeeCents), stripeConnectAccountId: connectAccountId },
       payment_intent_data: {
-        metadata: { contractId, platformFeeCents: String(platformFeeCents), stripeConnectAccountId: connectAccountId },
+        metadata: { contractId, orderRef: orderRef || "", platformFeeCents: String(platformFeeCents), stripeConnectAccountId: connectAccountId },
       },
     });
     return { url: session.url, id: session.id, expiresAt: new Date(session.expires_at * 1000) };
@@ -317,6 +353,15 @@ export const createPaymentIntent = async (
     console.error("Error creating payment intent and checkout session:", error);
     throw error;
   }
+};
+
+/**
+ * Expires a pending Checkout Session (used when Review & Protect issues a
+ * superseding itemized session). Already-paid/expired sessions throw —
+ * callers treat that as fine.
+ */
+export const expireCheckoutSession = async (checkoutSessionId) => {
+  return await stripe.checkout.sessions.expire(checkoutSessionId);
 };
 
 export const releasePayoutToMember = async (

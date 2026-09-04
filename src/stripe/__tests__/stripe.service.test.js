@@ -53,4 +53,29 @@ describe("createPaymentIntent platformFee", () => {
     stripe.checkout.sessions.create.mockRejectedValue(new Error("stripe down"));
     await expect(createPaymentIntent("acct", 100, "cid", "prod")).rejects.toThrow("stripe down");
   });
+
+  it("uses orderRef in line names + metadata when provided", async () => {
+    stripe.checkout.sessions.create.mockResolvedValue({ url: "u", id: "cs_4", expires_at: 0 });
+    await createPaymentIntent("acct", 200, "cid", "Sneaker Society - Nike Air", {
+      shippingFee: 30,
+      insuranceFee: 24,
+      shippingSpeed: "standard",
+      orderRef: "SS-ABC123",
+    });
+    const call = stripe.checkout.sessions.create.mock.calls[0][0];
+    expect(call.line_items).toHaveLength(3);
+    for (const item of call.line_items) {
+      expect(item.price_data.product_data.name).toContain("SS-ABC123");
+      expect(item.price_data.product_data.name).not.toContain("cid");
+    }
+    expect(call.metadata.orderRef).toBe("SS-ABC123");
+  });
+
+  it("falls back to contractId suffix without orderRef", async () => {
+    stripe.checkout.sessions.create.mockResolvedValue({ url: "u", id: "cs_5", expires_at: 0 });
+    await createPaymentIntent("acct", 200, "cid9", "prod");
+    const call = stripe.checkout.sessions.create.mock.calls[0][0];
+    expect(call.line_items).toHaveLength(1);
+    expect(call.line_items[0].price_data.product_data.name).toContain("cid9");
+  });
 });
