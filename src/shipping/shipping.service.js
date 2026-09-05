@@ -190,7 +190,11 @@ export const shippingService = {
   signatureApplies(contract, explicit) {
     if (explicit === true) return true;
     if (explicit === false) return false;
-    if (contract?.signatureRequired) return true;
+    // Only real persisted booleans override the threshold — null/undefined
+    // (including an unset Mongoose default) fall through to it.
+    if (contract?.shippingCarrier && contract?.signatureRequired != null) {
+      return Boolean(contract.signatureRequired);
+    }
     const declared = Number(contract?.declaredMarketValue) || 0;
     return declared >= signatureConfig.threshold;
   },
@@ -224,6 +228,10 @@ export const shippingService = {
         : withInsurance === true
           ? true
           : this.insuranceApplies(contract);
+    // Effective signature choice for THIS quote — cached alongside the
+    // options so checkout can reject a flipped choice on the same rate ids.
+    const wantSignature =
+      withSignature ?? this.signatureApplies(contract, undefined);
 
     const legShipments = {
       inbound: { from: clientAddr, to: memberAddr, leg: "inbound" },
@@ -235,7 +243,7 @@ export const shippingService = {
           wantInsurance && this.insuranceApplies(contract)
             ? this.insuranceAmountFor(contract, leg)
             : null;
-        const signature = this.signatureExtra(contract, withSignature);
+        const signature = this.signatureExtra(contract, wantSignature);
         const extra = { ...(insurance ? { insurance } : {}), ...(signature ? signature : {}) };
         return client.shipments.create({
           addressFrom: from,
@@ -281,7 +289,7 @@ export const shippingService = {
     if (!options.length) {
       throw new Error(contractErrors.SHIPPO_RATE_UNAVAILABLE);
     }
-    const quoted = { options, withInsurance: wantInsurance };
+    const quoted = { options, withInsurance: wantInsurance, withSignature: wantSignature };
     await cacheQuote(contract._id, quoted);
     return quoted;
   },
@@ -289,17 +297,29 @@ export const shippingService = {
   /**
    * Matches client-chosen rate ids against the CACHED quote for this
    * contract. Returns the matched option or null (expired/evicted quote —
-   * the client must refresh options and pick again).
+   * the client must refresh options and pick again). When the caller passes
+   * an expected signature choice, a quote made under the opposite choice is
+   * also rejected — the rate ids embody quote-time extras and must not be
+   * reused across a signature flip. Quotes cached before this binding
+   * existed carry no withSignature and are allowed through.
    */
-  async matchCachedChoice(contractId, inboundRateId, outboundRateId) {
+  async matchCachedChoice(contractId, inboundRateId, outboundRateId, expectedSignature) {
     if (!inboundRateId || !outboundRateId) return null;
     const cached = await readCachedQuote(contractId);
     if (!cached?.options) return null;
-    return (
+    const match =
       cached.options.find(
         (o) => o.inboundRateId === inboundRateId && o.outboundRateId === outboundRateId
-      ) || null
-    );
+      ) || null;
+    if (
+      match &&
+      cached.withSignature !== undefined &&
+      expectedSignature !== undefined &&
+      cached.withSignature !== expectedSignature
+    ) {
+      return null;
+    }
+    return match;
   },
 
   /**
