@@ -1,6 +1,6 @@
 # Product Roadmap & Features List
 
-> **Last Updated:** 2026-09-05 — `main@bc2bcfc` / `d3f6823` (chicago / sneaker-web) — shipping + Review & Protect merged (#79/#80/#81, web #176/#177/#178). See PRs below.
+> **Last Updated:** 2026-09-05 — `main@c3b60da` / `467f2a2` (chicago / sneaker-web) — sales tax merged (#82, web #179). See PRs below.
 
 This document translates the Smart Contract Lifecycle into actionable technical features. It is divided into the MVP (Minimum Viable Product) required to launch, and Post-MVP features for scaling.
 
@@ -20,6 +20,7 @@ This document translates the Smart Contract Lifecycle into actionable technical 
 | 9 | Platform Fee Refactor $12 → 15% | ✅ Done | chicago #77 + web #174 (`feature/platform-fee` → `main@1ada125`/`94ba91d`) — `platformFee 15%` + `PricePreviewModal`, tests |
 | 10 | Contract Cancellation Flow | ⬜ Todo | `plan-contract-transitions.md` — `PRICE_DECLINED`/`CANCELED`, `transitionTo` denylist |
 | 11 | Admin Dashboard (Manual Review) | ⬜ Todo | `features.md:11` — `UNDER_MANUAL_REVIEW` queue + evidence viewer |
+| 12 | Sales Tax Collection & Remittance | ✅ Done (code) · 🔒 dashboard | `plan-taxes.md` — chicago #82 + web #179 — `automatic_tax` + per-line tax codes, prefilled customer, tax-excluded payout, `taxFee` receipt rows; needs Stripe Dashboard tax registrations (§4) before prod |
 | P2-1 | Digital Authentication (CheckCheck) | ⬜ Todo | `features.md: P2-1` |
 | P2-2 | Priority Rush Turnaround | ⬜ Todo | `features.md: P2-2` |
 | P2-3 | Aftercare E-Commerce Upsell | ⬜ Todo | `features.md: P2-3` |
@@ -93,6 +94,12 @@ This document translates the Smart Contract Lifecycle into actionable technical 
 *   **Dispute Queue:** View all contracts in `UNDER_MANUAL_REVIEW` status, sorted by severity and age.
 *   **Evidence Viewer:** For each disputed contract, display the User's intake photos, the Member's unboxing photos, the full chat transcript, and the EasyPost carrier scan weights (drop-off vs. delivery) side-by-side.
 *   **Resolution Actions:** Admin can click "Rule for User" (refund + ban Member), "Rule for Member" (release payout + ban User), or "Inconclusive" (refund both from the Shrinkage budget + ban both accounts).
+
+### 12. Sales Tax Collection & Remittance — ✅ Done (code) / 🔒 dashboard
+*   **Checkout:** Stripe Tax `automatic_tax` with per-line tax codes (service/shipping/insurance) + US address collection — chicago #82.
+*   **Prefill:** Buyer address prefilled via metadata-tagged Stripe Customer (dbUserId dedup, guest fallback); email-only fallback via `customer_email`.
+*   **Payout safety:** `computePayoutAmount` subtracts tax — member nets service − fee regardless of tax collected; `taxFee` persisted + receipt rows (web #179).
+*   **Still external:** Stripe Dashboard tax registrations + CPA nexus check (`plan-taxes.md:§4`) before first prod sale.
 
 ---
 
