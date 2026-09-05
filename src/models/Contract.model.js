@@ -56,6 +56,7 @@ const ContractSchema = new mongoose.Schema(
     shippingSpeed: { type: String, enum: ["standard", "expedited"], default: "standard" },
     insuranceFee: { type: Number, default: 0 },
     shippingFee: { type: Number, default: 0 },
+    taxFee: { type: Number, default: 0 },
     // Explicit opt-out of the auto-applied XCover insurance (review page
     // waiver modal). When true, no `extra.insurance` is sent and no
     // Insurance line_item is charged.

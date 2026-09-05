@@ -200,6 +200,7 @@ async function handleContractPayment(session) {
 
   const payoutAmount = await computePayoutAmount(session, feeCents);
   const platformFee = feeCents / 100;
+  const taxFee = (session.total_details?.amount_tax || 0) / 100;
 
   await ContractModel.findByIdAndUpdate(contractId, {
     stripePaymentIntentId: session.payment_intent,
@@ -208,6 +209,7 @@ async function handleContractPayment(session) {
     payoutStatus: payoutStatus.pending,
     payoutAmount,
     platformFee,
+    taxFee,
     $push: { timeline: { event: contractEvent.paymentCompleted, date: new Date() } },
   });
 
@@ -238,18 +240,20 @@ async function handleContractPayment(session) {
   await ensureLabels(contractId);
 }
 
-// The member earns service minus the platform fee ONLY. Shipping and
-// insurance collections belong to the platform (they fund the Shippo
-// labels) and must never inflate the payout. Legacy service-only sessions
-// persist no fees, so their math is unchanged.
-async function computePayoutAmount(session, feeCents) {
+// The member earns service minus the platform fee ONLY. Shipping,
+// insurance, and sales tax collections belong to the platform (postage
+// + labels fund Shippo; tax is a government liability) and must never
+// inflate the payout. Legacy service-only sessions persist no fees, so
+// their math is unchanged.
+export async function computePayoutAmount(session, feeCents) {
   const { contractId } = session.metadata;
   const contractFees = await ContractModel.findById(contractId).select(
     "shippingFee insuranceFee"
   );
   const shipCents = Math.round((contractFees?.shippingFee || 0) * 100);
   const insCents = Math.round((contractFees?.insuranceFee || 0) * 100);
-  return (session.amount_total - feeCents - shipCents - insCents) / 100;
+  const taxCents = session.total_details?.amount_tax || 0;
+  return (session.amount_total - feeCents - shipCents - insCents - taxCents) / 100;
 }
 
 // Shippo labels (plan-shipping.md §2.5): purchase inbound + outbound labels

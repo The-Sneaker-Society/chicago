@@ -60,6 +60,7 @@ const contractTypeDefs = gql`
     shippingSpeed: String
     insuranceFee: Float
     shippingFee: Float
+    taxFee: Float
     insuranceDeclined: Boolean
     signatureRequired: Boolean
     inboundShipmentId: String
