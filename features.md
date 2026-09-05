@@ -1,6 +1,6 @@
 # Product Roadmap & Features List
 
-> **Last Updated:** 2026-09-02 — `main@d3b077d` / `3f2a345` (chicago / sneaker-web) — P0 + Service Menu merged. See PRs below.
+> **Last Updated:** 2026-09-05 — `main@bc2bcfc` / `d3f6823` (chicago / sneaker-web) — shipping + Review & Protect merged (#79/#80/#81, web #176/#177/#178). See PRs below.
 
 This document translates the Smart Contract Lifecycle into actionable technical features. It is divided into the MVP (Minimum Viable Product) required to launch, and Post-MVP features for scaling.
 
@@ -11,11 +11,11 @@ This document translates the Smart Contract Lifecycle into actionable technical 
 | 1 | Service Menu & Graceful Fallback | ✅ Done | chicago #78 + web #175 (`feature/service-menu` → `main@d3b077d`/`3f2a345`) — `Member.serviceMenu[12]` + `MemberServicesPage` full page + intake 2-col cards + Custom header |
 | 2 | Contract Schema & State Machine | ✅ Done | chicago #76 + web #173 (`feature/contract-schema` → `main@ca9bfc0`/`8fded25`) — 12-status + 19 `contractEvent` + `statusToKey` + shipping fields |
 | 3 | Timeline UI & Event Log Expansion | ✅ Done (core) · 🚧 polish | Core `statusConfig` + `Timeline` eventMap 19 done in #76; full `timelineConfig` + `Transition` wiring tracked in `plan-timeline.md` |
-| 4a | EasyPost / Shippo Labels + Webhooks + Return Insurance | 🔒 Blocked · ⬜ Todo | `plan-shipping.md` — needs `EASYPOST_API_KEY` in `config.env`, own PR `feature/shipping` |
-| 4b | Review & Protect Checkout Hub | ⬜ Todo | `features.md:4` (duplicate #4) + `plan-contract-lifecycle.md:4` — depends on 4a |
+| 4a | Shippo Labels + Webhooks + Return Insurance | ✅ Done | `plan-shipping.md` — chicago #80 + #81 (`SHIPPO_API_KEY` test key live, labels verified) — thresholds unified at $300, postage-only `shippingFee` |
+| 4b | Review & Protect Checkout Hub | ✅ Done | sneaker-web #176 + #178 — live rates, waiver modals, per-option breakdown, price-or-decline chips |
 | 5 | Escrow & Dispute (Unboxing, Flag, 72h Auto-Payout) | ⬜ Todo | `plan-custody-auth.md:§3/§5` + `plan-contract-transitions.md` — auto `ARRIVED_AT_MEMBER` via webhook, `UNDER_MANUAL_REVIEW` freeze |
 | 6 | Restorer Onboarding & Dashboard Traffic Light | ⬜ Todo | `features.md:6` — `payouts_enabled` sync done, Red/Yellow/Green indicator todo |
-| 7 | Billing, Receipts & Payout Dashboards | ⬜ Todo | `features.md:7` + `plan-shipping.md: #4b` follow-up — `line_items` for Service+Shipping+Insurance |
+| 7 | Billing, Receipts & Payout Dashboards | ✅ Done (core) · 🚧 polish | Itemized Service+Shipping+Insurance `line_items` + receipts done in #80; member in-app payout breakdown + Express login link still todo |
 | 8 | Notification System (Email + In-App) | ⬜ Todo | `features.md:8` — SendGrid/Resend + badges |
 | 9 | Platform Fee Refactor $12 → 15% | ✅ Done | chicago #77 + web #174 (`feature/platform-fee` → `main@1ada125`/`94ba91d`) — `platformFee 15%` + `PricePreviewModal`, tests |
 | 10 | Contract Cancellation Flow | ⬜ Todo | `plan-contract-transitions.md` — `PRICE_DECLINED`/`CANCELED`, `transitionTo` denylist |
@@ -44,16 +44,16 @@ This document translates the Smart Contract Lifecycle into actionable technical 
 *   **Frontend Timeline UI:** Refactor the visual Timeline component on the client/restorer dashboards to map to these new granular events, ensuring users know exactly where their shoes are in the 9-stage journey.
 *   **Done core:** Event constants + `Timeline.jsx` 19 + legacy fallbacks done in #76. **Remaining polish** tracked in `plan-timeline.md` — `timelineConfig` dedupe + `statusToEvent` wiring for `UNBOXING_PHOTOS_UPLOADED` etc.
 
-### 4a. EasyPost / Shippo API Integration — 🔒 Blocked
-*   **Label Generation:** Backend logic to automatically purchase and generate Inbound and Outbound PDF labels using the standard weight presets (e.g., 4 lbs vs 8 lbs).
-*   **Webhook Listeners:** Listen for carrier scan events to automatically update contract statuses (e.g., "In Transit", "Delivered") without manual input.
-*   **Dynamic Return Insurance (Shrinkage Protection):** When generating the *Outbound (Return)* label, dynamically increase the insured value to equal `(Declared Value + Service Price)`. This ensures if the carrier loses the package on the return trip, the insurance claim covers both the cost of the shoes for the User AND the payout for the Member, saving the platform from eating the loss.
-*   **Plan:** `plan-shipping.md` — own PR `feature/shipping`, blocked until `EASYPOST_API_KEY` + webhook secret in `config.env`.
+### 4a. Shippo API Integration — ✅ Done
+*   **Label Generation:** Inbound + outbound PDF labels purchased automatically at webhook fulfillment, weight presets 4 lbs / 8 lbs — chicago #80, test labels verified.
+*   **Webhook Listeners:** `/webhook/shippo` updates tracking; Stripe webhook drives `ensureLabels` + payout math (postage-only `shippingFee`, payout = service − fee) — #80 + #81.
+*   **Dynamic Return Insurance:** Outbound leg insured at `(Declared Value + Service Price)`; unified $300 threshold for insurance charge + signature auto-require, waiverable — #81.
+*   **Plan:** `plan-shipping.md` (canonical, Shippo — EasyPost dropped).
 
-### 4b. The "Review & Protect" Checkout Hub — ⬜ Todo
-*   **Feature:** Build the intermediary UI screen before Stripe.
-*   **Dynamic Math:** Calculate shipping costs based on the speed selected (Standard vs. Expedited) and calculate the insurance premium (e.g., 2% of the `declaredValue`).
-*   **Stripe Integration:** Pass the final grouped total to the Stripe Checkout Session.
+### 4b. The "Review & Protect" Checkout Hub — ✅ Done
+*   **Feature:** Intermediary UI screen before Stripe — sneaker-web #176 + #178.
+*   **Dynamic Math:** Live Shippo round-trip rates; insurance 2% at/over $300 with waiver modal; signature auto at/over $300 with waiver modal; per-option + summary breakdowns.
+*   **Stripe Integration:** Itemized Service + Shipping + Insurance `line_items` session — chicago #80.
 
 ### 5. Escrow & Dispute Logic (The Fraud Circuit Breaker) — ⬜ Todo
 *   **Unboxing Checkpoint:** UI requirement for the Member to upload unboxing photos before the "Start Work" button unlocks.
