@@ -293,7 +293,7 @@ export const createPaymentIntent = async (
     // breakdown keep the legacy single-line behavior. Names carry the
     // human orderRef (never a raw Mongo id); reconciliation stays on
     // session metadata.
-    const { shippingFee = 0, insuranceFee = 0, shippingSpeed = "standard", shippingName = null, orderRef = null } = breakdown;
+    const { shippingFee = 0, insuranceFee = 0, shippingSpeed = "standard", shippingName = null, orderRef = null, customerEmail = null, customerShipping = null, dbUserId = null } = breakdown;
     const refSuffix = orderRef ? ` — ${orderRef}` : ` - ${contractId}`;
     const shippingLabel = shippingName || `Shipping (${shippingSpeed})`;
     const line_items = [
@@ -302,6 +302,7 @@ export const createPaymentIntent = async (
           currency: "usd",
           product_data: {
             name: `${productName || `Contract Payment`}${refSuffix}`,
+            tax_code: "txcd_20030000",
           },
           unit_amount: Math.round(amount * 100),
         },
@@ -314,6 +315,7 @@ export const createPaymentIntent = async (
           currency: "usd",
           product_data: {
             name: `${shippingLabel}${refSuffix}`,
+            tax_code: "txcd_92010001",
           },
           unit_amount: Math.round(Number(shippingFee) * 100),
         },
@@ -326,6 +328,7 @@ export const createPaymentIntent = async (
           currency: "usd",
           product_data: {
             name: `Shipping Insurance${refSuffix}`,
+            tax_code: "txcd_10000000",
           },
           unit_amount: Math.round(Number(insuranceFee) * 100),
         },
@@ -333,9 +336,64 @@ export const createPaymentIntent = async (
       });
     }
 
+    // Prefill the buyer's saved address via a Stripe Customer so checkout
+    // (and Stripe Tax) starts from what we have on file — still editable.
+    // Best-effort: any failure falls back to guest collection, never blocks.
+    // Dedup is by our dbUserId in customer metadata, never bare email
+    // (Stripe emails are non-unique — first-hit could hijack a stranger).
+    let stripeCustomerId;
+    if (customerEmail && customerShipping) {
+      try {
+        const { name, ...addr } = customerShipping;
+        const address = {
+          line1: addr.line1,
+          ...(addr.line2 ? { line2: addr.line2 } : {}),
+          city: addr.city,
+          ...(addr.state ? { state: addr.state } : {}),
+          postal_code: addr.postal_code,
+          country: addr.country || "US",
+        };
+        const meta = {
+          ...(dbUserId ? { dbUserId: String(dbUserId) } : {}),
+          ...(contractId ? { contractId: String(contractId) } : {}),
+        };
+        const existing = await stripe.customers.list({ email: customerEmail, limit: 10 });
+        const ours = (existing?.data || []).find(
+          (c) => !dbUserId || c.metadata?.dbUserId === String(dbUserId)
+        );
+        if (ours) {
+          stripeCustomerId = ours.id;
+          await stripe.customers.update(stripeCustomerId, {
+            ...(name ? { name } : {}),
+            shipping: { name: name || customerEmail, address },
+            metadata: meta,
+          });
+        } else {
+          const created = await stripe.customers.create({
+            email: customerEmail,
+            ...(name ? { name } : {}),
+            shipping: { name: name || customerEmail, address },
+            metadata: meta,
+          });
+          stripeCustomerId = created.id;
+        }
+      } catch (e) {
+        console.log(`[STRIPE_CUSTOMER_PREFILL_SKIP] ${e.message}`);
+      }
+    }
+
     const session = await stripe.checkout.sessions.create({
+      ...(stripeCustomerId ? { customer: stripeCustomerId } : {}),
+      // Email-only buyers still get their email prefilled on guest sessions.
+      ...(!stripeCustomerId && customerEmail ? { customer_email: customerEmail } : {}),
       line_items,
       mode: "payment",
+      automatic_tax: { enabled: true },
+      // Valid only when a `customer` is set (prefilled sessions) — saves a
+      // buyer-edited shipping address back to the customer so Stripe Tax
+      // calculates off confirmed data. Guest sessions omit both.
+      ...(stripeCustomerId ? { customer_update: { shipping: "auto" } } : {}),
+      shipping_address_collection: { allowed_countries: ["US"] },
       expires_at: Math.floor(Date.now() / 1000) + 86400, // 24 hours
       success_url: `${process.env.REACT_APP_URL}/member/contracts`,
       cancel_url: `${process.env.REACT_APP_URL}/member/contracts`,

@@ -1,5 +1,5 @@
 jest.mock("../../utils/redis/stripeSubscritpitonCache", () => ({ syncStripeDataToKV: jest.fn() }));
-jest.mock("../../models/Contract.model", () => ({ findByIdAndUpdate: jest.fn() }));
+jest.mock("../../models/Contract.model", () => ({ findById: jest.fn(), findByIdAndUpdate: jest.fn() }));
 jest.mock("../../models/Messages.Model", () => ({ findOneAndUpdate: jest.fn().mockResolvedValue(null) }));
 jest.mock("../../pubsub", () => ({ default: { publish: jest.fn() }, publish: jest.fn() }));
 jest.mock("../config.js", () => ({
@@ -10,6 +10,7 @@ jest.mock("../config.js", () => ({
 }));
 
 import ContractModel from "../../models/Contract.model.js";
+import { computePayoutAmount } from "../stripeWebhookHandler.js";
 
 // Test the handler logic indirectly by importing and checking metadata flow
 // We exercise handleContractPayment via the module's internal function by simulating session object
@@ -67,5 +68,44 @@ describe("stripeWebhookHandler payout calculation", () => {
       payoutStatus: "pending",
     });
     expect(ContractModel.findByIdAndUpdate).toHaveBeenCalledWith("cid", expect.objectContaining({ payoutAmount: 170, platformFee: 30 }));
+  });
+});
+
+describe("computePayoutAmount excludes sales tax", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  const mockContractFees = (shippingFee = 0, insuranceFee = 0) => {
+    ContractModel.findById.mockReturnValue({
+      select: jest.fn().mockResolvedValue({ shippingFee, insuranceFee }),
+    });
+  };
+
+  it("pays $85.00 on $100 service with $0 tax", async () => {
+    mockContractFees(0, 0);
+    const session = {
+      metadata: { contractId: "cid_tax0" },
+      amount_total: 10000,
+      total_details: { amount_tax: 0 },
+    };
+    await expect(computePayoutAmount(session, 1500)).resolves.toBe(85);
+  });
+
+  it("pays $85.00 on $100 service with $12.50 tax (tax never inflates payout)", async () => {
+    mockContractFees(0, 0);
+    const session = {
+      metadata: { contractId: "cid_tax1250" },
+      amount_total: 11250,
+      total_details: { amount_tax: 1250 },
+    };
+    await expect(computePayoutAmount(session, 1500)).resolves.toBe(85);
+  });
+
+  it("treats missing total_details as $0 tax (legacy sessions)", async () => {
+    mockContractFees(0, 0);
+    const session = {
+      metadata: { contractId: "cid_legacy" },
+      amount_total: 20000,
+    };
+    await expect(computePayoutAmount(session, 3000)).resolves.toBe(170);
   });
 });

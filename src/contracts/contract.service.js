@@ -445,6 +445,33 @@ export const contractService = {
       throw new Error(contractErrors.MEMBER_STRIPE_NOT_CONNECTED);
     }
 
+    // Prefill Stripe Checkout with the client's saved address when complete
+    // enough (street/city/zip) — the buyer can still edit it, and Stripe Tax
+    // calculates off whatever they confirm. Incomplete or unreadable =>
+    // guest collection. Never blocks checkout on a DB failure here.
+    let customerEmail = null;
+    let customerShipping = null;
+    let customerDbId = null;
+    try {
+      const client = await userRepository.findById(contract.clientId);
+      customerEmail = client?.email || null;
+      customerDbId = client?._id ? String(client._id) : null;
+      customerShipping =
+        client?.addressLineOne && client?.city && client?.zipcode
+          ? {
+              name: [client.firstName, client.lastName].filter(Boolean).join(" ") || undefined,
+              line1: client.addressLineOne,
+              line2: client.addressLineTwo || undefined,
+              city: client.city,
+              state: client.state || undefined,
+              postal_code: client.zipcode,
+              country: client.country || "US",
+            }
+          : null;
+    } catch (e) {
+      console.log(`[CHECKOUT_PREFILL_SKIP] contract ${contractId}: ${e.message}`);
+    }
+
     await this.updateShipping(requesterDbId, contractId, data);
     const updated = await contractRepository.findById(contractId);
 
@@ -465,6 +492,9 @@ export const contractService = {
         shippingSpeed: updated.shippingSpeed,
         shippingName: updated.shippingCarrier || null,
         orderRef: updated.orderRef || contract.orderRef || null,
+        customerEmail,
+        customerShipping,
+        dbUserId: customerDbId,
       }
     );
 
