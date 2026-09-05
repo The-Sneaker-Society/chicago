@@ -293,11 +293,12 @@ export const contractService = {
    * shipment, so re-quoting could never match). Returns the exact fees +
    * tokens to persist.
    */
-  async resolveQuotedChoice(contract, preset, declined, inboundRateId, outboundRateId) {
+  async resolveQuotedChoice(contract, preset, declined, inboundRateId, outboundRateId, signatureRequired) {
     const match = await shippingService.matchCachedChoice(
       contract._id,
       inboundRateId,
-      outboundRateId
+      outboundRateId,
+      signatureRequired
     );
     if (!match) {
       throw new Error(contractErrors.INVALID_SHIPPING_RATE);
@@ -340,9 +341,17 @@ export const contractService = {
       throw new Error(contractErrors.INVALID_SHIPPING_PRESET);
     }
     const declined = data.insuranceDeclined ?? contract.insuranceDeclined ?? false;
+    // Persisted choice only counts once a carrier has actually been chosen —
+    // before that the field is just the Mongoose default (false), which must
+    // not masquerade as an explicit opt-out and kill the threshold default.
+    // Null is normalized to undefined so it also falls through to it.
+    const persistedSignature =
+      contract.shippingCarrier && contract.signatureRequired != null
+        ? contract.signatureRequired
+        : undefined;
     const signatureRequired = shippingService.signatureApplies(
       contract,
-      data.signatureRequired ?? contract.signatureRequired ?? undefined
+      data.signatureRequired ?? persistedSignature ?? undefined
     );
 
     const timelinePush = [{ event: contractEvent.shippingSelected, date: new Date() }];
@@ -356,7 +365,8 @@ export const contractService = {
         preset,
         declined,
         data.inboundRateId,
-        data.outboundRateId
+        data.outboundRateId,
+        signatureRequired
       );
       await contractRepository.updateById(id, {
         shippingPreset: preset,

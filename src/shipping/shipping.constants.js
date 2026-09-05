@@ -42,15 +42,22 @@ export const shippingFees = Object.freeze({
   expedited: 60,
 });
 
+// Env overrides use Number.isFinite so an explicit 0 stays 0 (the
+// `Number(x) || fallback` idiom would silently map 0 to the default).
+const envNumber = (value, fallback) => {
+  const n = Number(value);
+  return value !== undefined && value !== "" && Number.isFinite(n) ? n : fallback;
+};
+
 export const insuranceConfig = Object.freeze({
-  threshold: Number(process.env.INSURANCE_THRESHOLD) || 300,
-  rate: Number(process.env.INSURANCE_RATE) || 0.02,
+  threshold: envNumber(process.env.INSURANCE_THRESHOLD, 300),
+  rate: envNumber(process.env.INSURANCE_RATE, 0.02),
 });
 
 // Signature confirmation (STANDARD): auto-required at/over threshold,
 // opt-in below. Pass-through at cost (~$4.15 USPS), embedded in rates.
 export const signatureConfig = Object.freeze({
-  threshold: Number(process.env.SIGNATURE_THRESHOLD) || 300,
+  threshold: envNumber(process.env.SIGNATURE_THRESHOLD, 300),
   type: "STANDARD",
 });
 
