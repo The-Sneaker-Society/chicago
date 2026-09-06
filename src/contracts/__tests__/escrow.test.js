@@ -14,6 +14,10 @@ import { shippingService } from "../../shipping/shipping.service.js";
 import { shippingRepository } from "../../shipping/shipping.repository.js";
 
 jest.mock("../contract.repository.js");
+jest.mock("../../models/Contract.model.js", () => ({
+  __esModule: true,
+  default: { find: jest.fn(), findById: jest.fn(), findByIdAndUpdate: jest.fn() },
+}));
 jest.mock("../../members/member.repository.js");
 jest.mock("../../users/user.repository.js", () => ({ userRepository: { findById: jest.fn() } }));
 jest.mock("../../chat/chat.repository.js", () => ({
@@ -281,9 +285,12 @@ describe("Escrow & Dispute (plan-escrow-dispute.md §1–4, §6)", () => {
       ).rejects.toThrow(contractErrors.CONTRACT_NOT_FOUND);
     });
 
-    test("findFlagged returns the manual-review queue", async () => {
-      contractRepository.findFlagged.mockResolvedValue([{ _id: "c1" }]);
-      const flagged = await contractRepository.findFlagged();
+    test("findFlagged queries UNDER_MANUAL_REVIEW (real predicate)", async () => {
+      const ContractModel = (await import("../../models/Contract.model.js")).default;
+      ContractModel.find.mockResolvedValue([{ _id: "c1" }]);
+      const realRepo = jest.requireActual("../contract.repository.js").contractRepository;
+      const flagged = await realRepo.findFlagged();
+      expect(ContractModel.find).toHaveBeenCalledWith({ status: "UNDER_MANUAL_REVIEW" });
       expect(flagged).toHaveLength(1);
     });
   });

@@ -338,6 +338,29 @@ const Mutation = {
       throw new Error(e);
     }
   }),
+  uploadUnboxingPhotos: requireMember(async (parent, args, ctx, info) => {
+    try {
+      const { contractId, keys } = args;
+      return await contractService.uploadUnboxingPhotos(
+        contractId,
+        ctx.dbUser?._id,
+        keys || []
+      );
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new Error("Contract not found");
+      }
+      if (e.message === contractErrors.UNAUTHORIZED) {
+        throw new Error(
+          "Unauthorized: Contract does not belong to this member"
+        );
+      }
+      if (e.message === contractErrors.BAD_TRANSITION) {
+        throw new UserInputError(e.message);
+      }
+      throw new Error(e);
+    }
+  }),
   uploadPackagingPhotos: requireClient(async (parent, args, ctx, info) => {
     try {
       const { contractId, keys } = args;
