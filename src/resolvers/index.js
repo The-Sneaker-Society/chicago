@@ -28,6 +28,9 @@ module.exports = {
   Member: {
     ...memberResolvers.Member,
   },
+  PublicMember: {
+    ...memberResolvers.PublicMember,
+  },
   Chat: {
     ...chatResolvers.Chat,
   },

@@ -10,6 +10,7 @@ const memberTypeDefs = gql`
     state: String
     isActive: Boolean!
     subscriptionStatus: String
+    contractsDisabled: Boolean!
   }
 
   type ServiceMenuItem {
@@ -151,6 +152,7 @@ const memberTypeDefs = gql`
   type Query {
     members: [Member!]!
     memberById(id: ID!): Member!
+    publicMemberById(id: ID!): PublicMember!
     currentMember: Member!
     memberQrWidget: QrWidgetData!
     stripeWidgetData: StripeWidgetData!

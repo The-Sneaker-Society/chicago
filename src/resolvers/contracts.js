@@ -1,4 +1,4 @@
-import { UserInputError } from "apollo-server-core";
+import { ForbiddenError, UserInputError } from "apollo-server-core";
 import { contractService } from "../contracts/contract.service.js";
 import { contractErrors } from "../contracts/contract.constants.js";
 import { requireAuth, requireClient, requireMember } from "../auth/guards.js";
@@ -437,15 +437,80 @@ const Mutation = {
 const Contract = {
   async member(parent, args, ctx, info) {
     try {
-      return await contractService.getContractMember(parent.memberId);
+      const member = await contractService.getContractMember(parent.memberId);
+      if (!member) return null;
+
+      const isAdmin = ctx?.role === "admin";
+      const isSelf =
+        ctx?.role === "member" &&
+        String(ctx?.dbUser?._id) === String(parent.memberId);
+
+      if (isAdmin || isSelf) {
+        return member;
+      }
+
+      const isClientParty =
+        String(ctx?.dbUser?._id) === String(parent.clientId);
+
+      if (!isClientParty) {
+        throw new ForbiddenError("Not authorized to view contract member details");
+      }
+
+      // Counterparty client viewing member: strip member sensitive PII
+      const memberObj = member.toObject ? member.toObject() : { ...member };
+      return {
+        ...memberObj,
+        addressLineOne: null,
+        addressLineTwo: null,
+        city: null,
+        zipcode: null,
+        phoneNumber: null,
+        stripeCustomerId: null,
+        stripeConnectAccountId: "",
+      };
     } catch (e) {
+      if (e instanceof ForbiddenError) {
+        throw e;
+      }
       throw new Error(e);
     }
   },
   async client(parent, args, ctx, info) {
     try {
-      return await contractService.getContractClient(parent.clientId);
+      const client = await contractService.getContractClient(parent.clientId);
+      if (!client) return null;
+
+      const isAdmin = ctx?.role === "admin";
+      const isSelf = String(ctx?.dbUser?._id) === String(parent.clientId);
+
+      if (isAdmin || isSelf) {
+        return client;
+      }
+
+      const isMemberParty =
+        ctx?.role === "member" &&
+        String(ctx?.dbUser?._id) === String(parent.memberId);
+
+      if (!isMemberParty) {
+        throw new ForbiddenError("Not authorized to view contract client details");
+      }
+
+      // Counterparty member viewing client: strip client private address & phone
+      const clientObj = client.toObject ? client.toObject() : { ...client };
+      return {
+        ...clientObj,
+        addressLineOne: null,
+        addressLineTwo: null,
+        city: null,
+        state: null,
+        country: null,
+        zipcode: null,
+        phoneNumber: null,
+      };
     } catch (e) {
+      if (e instanceof ForbiddenError) {
+        throw e;
+      }
       throw new Error(e);
     }
   },
