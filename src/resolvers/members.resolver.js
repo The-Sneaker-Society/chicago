@@ -262,7 +262,9 @@ const Mutation = {
 const Member = {
   async clients(parent, args, ctx, info) {
     try {
-      return await memberService.getClientsForMember(ctx.dbUser);
+      const targetMember = ctx?.role === "admin" ? parent : ctx?.dbUser;
+      if (!targetMember) return [];
+      return await memberService.getClientsForMember(targetMember);
     } catch (e) {
       throw new Error(e);
     }
@@ -270,7 +272,9 @@ const Member = {
 
   async contracts(parent, args, ctx, info) {
     try {
-      return await memberService.getContractsForMember(ctx.dbUser);
+      const targetMember = ctx?.role === "admin" ? parent : ctx?.dbUser;
+      if (!targetMember) return [];
+      return await memberService.getContractsForMember(targetMember);
     } catch (e) {
       throw new Error(e);
     }
@@ -284,7 +288,11 @@ const Member = {
   },
   async qrWidgetData(parent, args, ctx, info) {
     try {
-      return await memberService.getQrWidgetData(ctx.dbUser);
+      const targetMember = ctx?.role === "admin" ? parent : ctx?.dbUser;
+      if (!targetMember) {
+        return { image: "", url: "", contractsDisabled: Boolean(parent?.contractsDisabled) };
+      }
+      return await memberService.getQrWidgetData(targetMember);
     } catch (error) {
       throw new Error(error);
     }
@@ -340,6 +348,9 @@ const Member = {
     // Graceful fallback for legacy docs where serviceMenu is undefined — avoids
     // non-null violation on Member.serviceMenu: [ServiceMenuItem!]!
     return parent.serviceMenu || [];
+  },
+  contractsDisabled(parent) {
+    return Boolean(parent.contractsDisabled);
   },
 };
 

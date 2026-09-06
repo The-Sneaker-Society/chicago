@@ -43,7 +43,7 @@ const memberTypeDefs = gql`
     contractsDisabled: Boolean!
     createdAt: String!
     deletedAt: String
-    email: String!
+    email: String
     firstName: String
     followers: [PublicMember!]!
     following: [PublicMember!]!
@@ -58,7 +58,7 @@ const memberTypeDefs = gql`
     qrWidgetData: QrWidgetData!
     serviceMenu: [ServiceMenuItem!]!
     state: String
-    stripeConnectAccountId: String!
+    stripeConnectAccountId: String
     stripeCustomerId: String
     updatedAt: String!
     zipcode: String
