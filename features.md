@@ -18,7 +18,7 @@ This document translates the Smart Contract Lifecycle into actionable technical 
 | 7 | Billing, Receipts & Payout Dashboards | ✅ Done (core) · 🚧 polish | Itemized Service+Shipping+Insurance `line_items` + receipts done in #80; member in-app payout breakdown + Express login link still todo |
 | 8 | Notification System (Email + In-App) | ⬜ Todo | `features.md:8` — SendGrid/Resend + badges |
 | 9 | Platform Fee Refactor $12 → 15% | ✅ Done | chicago #77 + web #174 (`feature/platform-fee` → `main@1ada125`/`94ba91d`) — `platformFee 15%` + `PricePreviewModal`, tests |
-| 10 | Contract Cancellation Flow | ⬜ Todo | `plan-contract-transitions.md` — `PRICE_DECLINED`/`CANCELED`, `transitionTo` denylist |
+| 10 | Contract Cancellation Flow | ✅ Done | `plan-cancellation.md` — chicago #83 + web #180 — `assertTransition`, `transitionTo`, `cancelContract`, `refundContractPayment`, `updateContract` denylist, tests, web `CancelContractModal` |
 | 11 | Admin Dashboard (Manual Review) | ⬜ Todo | `features.md:11` — `UNDER_MANUAL_REVIEW` queue + evidence viewer |
 | 12 | Sales Tax Collection & Remittance | ✅ Done (code) · 🔒 dashboard | `plan-taxes.md` — chicago #82 + web #179 — `automatic_tax` + per-line tax codes, prefilled customer, tax-excluded payout, `taxFee` receipt rows; needs Stripe Dashboard tax registrations (§4) before prod |
 | P2-1 | Digital Authentication (CheckCheck) | ⬜ Todo | `features.md: P2-1` |
@@ -82,12 +82,13 @@ This document translates the Smart Contract Lifecycle into actionable technical 
 *   **Implementation:** Calculate `platformFeeCents = Math.round(servicePrice * 0.15 * 100)` dynamically in the `createPaymentIntent` function and store it in contract metadata.
 *   **Done:** `chicago#77` `platformFee` 15% in `stripe.service`, `contract.service` `payoutAmount`, `sneaker-web#174` `PricePreviewModal` + `ContractDetailsPage`, tests 16.
 
-### 10. Contract Cancellation Flow — ⬜ Todo
+### 10. Contract Cancellation Flow — ✅ Done
 *   **Feature:** Define the rules and backend logic for contract cancellation at each stage of the lifecycle.
-*   **Before Payment (`PENDING_REVIEW`, `PRICE_PROPOSED`):** Either party can cancel freely. No money has changed hands. Status → `CANCELED`.
-*   **After Payment, Before Shipping (`READY_TO_SHIP`):** User can cancel but forfeits the cost of any already-purchased shipping labels. Remaining balance is refunded via Stripe.
-*   **After Shipping (`INBOUND_SHIPPED` and beyond):** Cancellation is no longer available. The contract must proceed to completion or be escalated to `UNDER_MANUAL_REVIEW` for admin intervention.
-*   **Plan:** `plan-contract-transitions.md` — `PRICE_DECLINED`/`CANCELED`, `transitionTo`, `updateContract` denylist.
+*   **Before Payment (`PENDING_REVIEW`, `PRICE_PROPOSED`, `AWAITING_PAYMENT`):** Either party can cancel freely. No money has changed hands. Expire active checkout sessions, update chat proposal status, and mark contract as `CANCELED`.
+*   **After Payment, Before Shipping (`READY_TO_SHIP`):** Client or member can cancel. Client forfeits non-recoverable carrier label and insurance costs (`shippingFee + insuranceFee` if generated). Service fee + proportional sales tax refunded via Stripe. Member payout canceled.
+*   **After Shipping (`INBOUND_SHIPPED` and beyond):** Self-serve cancellation is locked. If requested, contract escalates to `UNDER_MANUAL_REVIEW` / Support for Admin intervention and shoe return via outbound label.
+*   **Mid-Flight Partial Work:** If work started (`WORK_IN_PROGRESS`), admin mediates split payout for materials/labor and partial refund to client.
+*   **Done:** `plan-cancellation.md` — chicago #83 + web #180 — `assertTransition`, `transitionTo`, `cancelContract`, `refundContractPayment`, `updateContract` denylist, tests, web `CancelContractModal`.
 
 ### 11. Admin Dashboard (Manual Review & Dispute Resolution) — ⬜ Todo
 *   **Feature:** Build an internal, admin-only web panel for the founding team to manage disputes and platform operations.
