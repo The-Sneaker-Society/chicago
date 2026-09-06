@@ -5,8 +5,8 @@ import { gql } from 'apollo-server-core';
 const clientTypeDefs = gql`
   type Client {
     id: ID!
-    email: String!
-    firebaseId: String!
+    email: String
+    firebaseId: String
     firstName: String!
     lastName: String!
     phoneNumber: String
