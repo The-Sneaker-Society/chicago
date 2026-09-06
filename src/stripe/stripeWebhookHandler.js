@@ -261,13 +261,18 @@ export async function computePayoutAmount(session, feeCents) {
 // READY_TO_SHIP with a LABEL_GENERATION_FAILED event and a log-stub
 // notification (no provider, no retry mutation in this PR). Legs that
 // already have labels are skipped so webhook retries can't buy duplicates.
-async function ensureLabels(contractId) {
+export async function ensureLabels(contractId) {
   try {
     const fullContract = await ContractModel.findById(contractId);
-    if (!fullContract) {
+    if (!fullContract || fullContract.status === contractStatus.canceled) {
       return;
     }
     for (const leg of ["inbound", "outbound"]) {
+      // Re-verify contract was not canceled during prior leg generation
+      const freshContract = await ContractModel.findById(contractId).select("status");
+      if (freshContract?.status === contractStatus.canceled) {
+        return;
+      }
       const existingId =
         leg === "inbound" ? fullContract.inboundShipmentId : fullContract.outboundShipmentId;
       if (existingId) {

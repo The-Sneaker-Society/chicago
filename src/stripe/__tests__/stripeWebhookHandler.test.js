@@ -9,8 +9,23 @@ jest.mock("../config.js", () => ({
   },
 }));
 
+jest.mock("../../shipping/shipping.service.js", () => ({
+  shippingService: {
+    createInboundLabel: jest.fn(),
+    createOutboundLabel: jest.fn(),
+  },
+}));
+jest.mock("../../shipping/shipping.repository.js", () => ({
+  shippingRepository: {
+    saveLabels: jest.fn(),
+    pushTimeline: jest.fn(),
+  },
+}));
+
 import ContractModel from "../../models/Contract.model.js";
-import { computePayoutAmount } from "../stripeWebhookHandler.js";
+import { computePayoutAmount, ensureLabels } from "../stripeWebhookHandler.js";
+import { shippingService } from "../../shipping/shipping.service.js";
+import { shippingRepository } from "../../shipping/shipping.repository.js";
 
 // Test the handler logic indirectly by importing and checking metadata flow
 // We exercise handleContractPayment via the module's internal function by simulating session object
@@ -107,5 +122,44 @@ describe("computePayoutAmount excludes sales tax", () => {
       amount_total: 20000,
     };
     await expect(computePayoutAmount(session, 3000)).resolves.toBe(170);
+  });
+});
+
+describe("ensureLabels cancellation guard", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("aborts immediately if contract is CANCELED", async () => {
+    ContractModel.findById.mockResolvedValue({
+      _id: "c_canceled",
+      status: "CANCELED",
+    });
+
+    await ensureLabels("c_canceled");
+
+    expect(shippingService.createInboundLabel).not.toHaveBeenCalled();
+    expect(shippingService.createOutboundLabel).not.toHaveBeenCalled();
+    expect(shippingRepository.saveLabels).not.toHaveBeenCalled();
+  });
+
+  it("aborts before outbound leg if contract was canceled during inbound leg", async () => {
+    const mockContract = {
+      _id: "c_race",
+      status: "READY_TO_SHIP",
+      inboundShipmentId: null,
+      outboundShipmentId: null,
+    };
+    // Initial fetch returns READY_TO_SHIP, second fetch (for outbound) returns CANCELED
+    ContractModel.findById
+      .mockResolvedValueOnce(mockContract)
+      .mockReturnValueOnce({ select: jest.fn().mockResolvedValue({ status: "READY_TO_SHIP" }) })
+      .mockReturnValueOnce({ select: jest.fn().mockResolvedValue({ status: "CANCELED" }) });
+
+    shippingService.createInboundLabel.mockResolvedValue({ shipmentId: "shp_1", transactionId: "tx_1" });
+    shippingRepository.saveLabels.mockResolvedValue({});
+
+    await ensureLabels("c_race");
+
+    expect(shippingService.createInboundLabel).toHaveBeenCalledTimes(1);
+    expect(shippingService.createOutboundLabel).not.toHaveBeenCalled();
   });
 });

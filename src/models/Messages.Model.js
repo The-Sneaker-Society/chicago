@@ -31,7 +31,7 @@ const MessageSchema = new mongoose.Schema(
       expiresAt: Date,
       status: {
         type: String,
-        enum: ["pending", "paid", "expired", "superseded"],
+        enum: ["pending", "paid", "expired", "superseded", "canceled"],
       },
     },
   },

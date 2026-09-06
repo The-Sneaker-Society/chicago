@@ -233,6 +233,29 @@ const Mutation = {
       throw new Error(e);
     }
   }),
+  cancelContract: requireAuth(async (parent, args, ctx, info) => {
+    try {
+      const { contractId, reason } = args;
+      return await contractService.cancelContract(contractId, reason, ctx, publish);
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new UserInputError("Contract not found");
+      }
+      if (e.message === contractErrors.ALREADY_CANCELED) {
+        throw new UserInputError("Contract is already canceled or completed");
+      }
+      if (e.message === contractErrors.CANCEL_NOT_ALLOWED) {
+        throw new UserInputError("Contract cannot be canceled at this stage");
+      }
+      if (e.message === contractErrors.INVALID_TRANSITION) {
+        throw new UserInputError(e.message);
+      }
+      if (e.message === contractErrors.UNAUTHORIZED) {
+        throw new Error("Unauthorized");
+      }
+      throw new Error(e.message || e);
+    }
+  }),
 };
 
 const Contract = {
