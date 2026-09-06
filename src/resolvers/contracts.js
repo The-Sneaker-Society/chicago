@@ -256,6 +256,159 @@ const Mutation = {
       throw new Error(e.message || e);
     }
   }),
+  startWork: requireMember(async (parent, args, ctx, info) => {
+    try {
+      const { contractId } = args;
+      return await contractService.startWork(contractId, ctx.dbUser?._id);
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new Error("Contract not found");
+      }
+      if (e.message === contractErrors.UNAUTHORIZED) {
+        throw new Error(
+          "Unauthorized: Contract does not belong to this member"
+        );
+      }
+      if (
+        e.message === contractErrors.UNBOXING_PHOTOS_REQUIRED ||
+        e.message === contractErrors.BAD_TRANSITION
+      ) {
+        throw new UserInputError(e.message);
+      }
+      throw new Error(e);
+    }
+  }),
+  markWorkComplete: requireMember(async (parent, args, ctx, info) => {
+    try {
+      const { contractId } = args;
+      return await contractService.markWorkComplete(contractId, ctx.dbUser?._id);
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new Error("Contract not found");
+      }
+      if (e.message === contractErrors.UNAUTHORIZED) {
+        throw new Error(
+          "Unauthorized: Contract does not belong to this member"
+        );
+      }
+      if (e.message === contractErrors.BAD_TRANSITION) {
+        throw new UserInputError(e.message);
+      }
+      throw new Error(e);
+    }
+  }),
+  markReturnShipped: requireMember(async (parent, args, ctx, info) => {
+    try {
+      const { contractId } = args;
+      return await contractService.markReturnShipped(contractId, ctx.dbUser?._id);
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new Error("Contract not found");
+      }
+      if (e.message === contractErrors.UNAUTHORIZED) {
+        throw new Error(
+          "Unauthorized: Contract does not belong to this member"
+        );
+      }
+      if (e.message === contractErrors.BAD_TRANSITION) {
+        throw new UserInputError(e.message);
+      }
+      throw new Error(e);
+    }
+  }),
+  uploadReturnPackagingPhotos: requireMember(async (parent, args, ctx, info) => {
+    try {
+      const { contractId, keys } = args;
+      return await contractService.uploadReturnPackagingPhotos(
+        contractId,
+        ctx.dbUser?._id,
+        keys || []
+      );    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new Error("Contract not found");
+      }
+      if (e.message === contractErrors.UNAUTHORIZED) {
+        throw new Error(
+          "Unauthorized: Contract does not belong to this member"
+        );
+      }
+      if (e.message === contractErrors.BAD_TRANSITION) {
+        throw new UserInputError(e.message);
+      }
+      throw new Error(e);
+    }
+  }),
+  uploadPackagingPhotos: requireClient(async (parent, args, ctx, info) => {
+    try {
+      const { contractId, keys } = args;
+      return await contractService.uploadPackagingPhotos(
+        contractId,
+        ctx.dbUser?._id,
+        keys || []
+      );
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new Error("Contract not found");
+      }
+      if (e.message === contractErrors.UNAUTHORIZED) {
+        throw new Error(
+          "Unauthorized: Contract does not belong to this client"
+        );
+      }
+      if (e.message === contractErrors.BAD_TRANSITION) {
+        throw new UserInputError(e.message);
+      }
+      throw new Error(e);
+    }
+  }),
+  flagContract: requireAuth(async (parent, args, ctx, info) => {
+    try {
+      const { contractId, reason } = args;
+      // Freezing a payout demands an accountability trail — blank reasons
+      // are rejected here (resolvers validate input per AGENTS.md).
+      if (!reason || !reason.trim()) {
+        throw new UserInputError("A reason is required to flag a contract");
+      }
+      return await contractService.flagContract(
+        contractId,
+        ctx.dbUser?._id,
+        reason.trim()
+      );
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new UserInputError("Contract not found");
+      }
+      if (e.message === contractErrors.BAD_TRANSITION) {
+        throw new UserInputError("Contract cannot be flagged at this stage");
+      }
+      throw new Error(e.message || e);
+    }
+  }),
+  confirmReceipt: requireClient(async (parent, args, ctx, info) => {
+    try {
+      const { contractId } = args;
+      return await contractService.confirmReceipt(contractId, ctx.dbUser?._id);
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new Error("Contract not found");
+      }
+      if (e.message === contractErrors.UNAUTHORIZED) {
+        throw new Error(
+          "Unauthorized: Contract does not belong to this client"
+        );
+      }
+      if (e.message === contractErrors.BAD_TRANSITION) {
+        throw new UserInputError("Contract is not ready for acceptance");
+      }
+      if (e.message === contractErrors.NO_PENDING_PAYOUT) {
+        throw new Error("No pending payout for this contract");
+      }
+      if (e.message === contractErrors.MEMBER_STRIPE_NOT_CONNECTED) {
+        throw new Error("Member is not connected to Stripe");
+      }
+      throw new Error(e);
+    }
+  }),
 };
 
 const Contract = {

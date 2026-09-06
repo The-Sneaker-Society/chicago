@@ -18,6 +18,7 @@ export const contractStatus = Object.freeze({
 
   // Work Phase
   workInProgress: "WORK_IN_PROGRESS",
+  readyForReturn: "READY_FOR_RETURN",
   returnShipped: "RETURN_SHIPPED",
   deliveredToUser: "DELIVERED_TO_USER",
 
@@ -44,7 +45,10 @@ export const contractEvent = Object.freeze({
   inboundShipped: "INBOUND_SHIPPED",
   inboundDelivered: "INBOUND_DELIVERED",
   unboxingPhotosUploaded: "UNBOXING_PHOTOS_UPLOADED",
+  packagingPhotosUploaded: "PACKAGING_PHOTOS_UPLOADED",
   workStarted: "WORK_STARTED",
+  readyForReturn: "READY_FOR_RETURN",
+  returnPackagingPhotosUploaded: "RETURN_PACKAGING_PHOTOS_UPLOADED",
   returnShipped: "RETURN_SHIPPED",
   returnDelivered: "RETURN_DELIVERED",
   reviewWindowOpened: "REVIEW_WINDOW_OPENED",
@@ -78,6 +82,13 @@ export const statusToKey = Object.freeze(
  * Domain error codes thrown by the contract service and translated to
  * user-facing messages by resolvers.
  */
+// ─── Unboxing Evidence Gate (plan-escrow-dispute.md §1) ─────────────
+// Minimum unboxing shots to unlock Start Work (sealed-box, open-box,
+// shoes-out close-ups). Minimum, not maximum — extra condition close-ups
+// stay uploadable after Start Work up to a soft max of 12 (enforced as a
+// slice cap in the service, not a constant).
+export const UNBOXING_MIN_PHOTOS = 3;
+
 // ─── Platform Fee Configuration ──────────────────────────────
 export const platformFee = Object.freeze({
   rate: 0.15, // 15%
@@ -104,6 +115,8 @@ export const contractErrors = Object.freeze({
   INVALID_SHIPPING_RATE: "INVALID_SHIPPING_RATE",
   ORDER_REF_UNAVAILABLE: "ORDER_REF_UNAVAILABLE",
   INVALID_TRANSITION: "INVALID_TRANSITION",
+  BAD_TRANSITION: "BAD_TRANSITION",
+  UNBOXING_PHOTOS_REQUIRED: "UNBOXING_PHOTOS_REQUIRED",
   CANCEL_NOT_ALLOWED: "CANCEL_NOT_ALLOWED",
   ALREADY_CANCELED: "ALREADY_CANCELED",
 });

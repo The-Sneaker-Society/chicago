@@ -36,13 +36,30 @@ const applyTrackUpdate = async (contract, leg, rawStatus) => {
     if (state === trackingState.inTransit || state === trackingState.preTransit) {
       await transition(contract, contractStatus.returnShipped, contractEvent.returnShipped);
     } else if (state === trackingState.delivered) {
-      await contractRepository.updateById(contract._id, {
+      // Outbound delivered opens the 72h review window
+      // (plan-escrow-dispute.md §3). Fully idempotent: only RETURN_SHIPPED
+      // may advance here — a redelivery arriving after COMPLETED, CANCELED,
+      // or UNDER_MANUAL_REVIEW is a no-op (never regress status out of a
+      // terminal/frozen queue), and payoutEligibleAt is only ever set when
+      // absent so retries can never reset the 72h clock.
+      if (contract.status !== contractStatus.returnShipped) {
+        return;
+      }
+      const update = {
         status: contractStatus.deliveredToUser,
-        payoutEligibleAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
         $push: {
-          timeline: { event: contractEvent.returnDelivered, date: new Date() },
+          timeline: {
+            $each: [
+              { event: contractEvent.returnDelivered, date: new Date() },
+              { event: contractEvent.reviewWindowOpened, date: new Date() },
+            ],
+          },
         },
-      });
+      };
+      if (!contract.payoutEligibleAt) {
+        update.payoutEligibleAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
+      }
+      await contractRepository.updateById(contract._id, update);
     }
   }
 };

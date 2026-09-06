@@ -118,4 +118,25 @@ export const contractRepository = {
       insuranceFee,
     });
   },
+
+  /**
+   * Manual-review queue for escrow disputes (plan-escrow-dispute.md §2,
+   * consumed by the #11 adjudication UI). Frozen payouts only — no rules.
+   */
+  async findFlagged() {
+    return await ContractModel.find({ status: "UNDER_MANUAL_REVIEW" });
+  },
+
+  /**
+   * 72h auto-payout eligibility (plan-escrow-dispute.md §4): delivered,
+   * payout still pending, and the review window has elapsed. Rows with no
+   * payoutEligibleAt (webhook backfill gap) are never auto-paid.
+   */
+  async findPayoutDue(now) {
+    return await ContractModel.find({
+      status: "DELIVERED_TO_USER",
+      payoutStatus: "pending",
+      payoutEligibleAt: { $lte: now },
+    });
+  },
 };

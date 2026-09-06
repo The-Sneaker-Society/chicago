@@ -15,6 +15,7 @@ import redis from "./config/redis";
 import { handleStripeWebhook } from "./stripe/stripeWebhookHandler";
 import { handleShippoWebhook } from "./shipping/shipping.webhook";
 import { checkEnvVars } from "./utils/checkVars";
+import { startPayoutCron } from "./cron-jobs/payout.cron";
 
 async function startApolloServer() {
   const requiredVars = [
@@ -136,6 +137,11 @@ async function startApolloServer() {
 
   await server.start();
   server.applyMiddleware({ app, cors: false });
+  // 72h escrow auto-payout (plan-escrow-dispute.md §4). Disabled in tests
+  // and one-off scripts via DISABLE_CRON=1.
+  if (process.env.DISABLE_CRON !== "1") {
+    startPayoutCron();
+  }
   httpServer.listen({ port: process.env.PORT || 4000 });
   console.log(`🚀 Server ready at ${server.graphqlPath}`);
 }

@@ -27,9 +27,10 @@ describe("platformFee", () => {
       expect(fee(amt)).toBeGreaterThan(stripeFee(amt));
     });
   });
-  it("preserves 12 statuses + statusToKey", () => {
-    expect(Object.keys(contractStatus).length).toBe(12);
+  it("preserves 13 statuses + statusToKey", () => {
+    expect(Object.keys(contractStatus).length).toBe(13);
     expect(statusToKey["PENDING_REVIEW"]).toBe("pendingReview");
     expect(statusToKey["COMPLETED"]).toBe("completed");
+    expect(statusToKey["READY_FOR_RETURN"]).toBe("readyForReturn");
   });
 });

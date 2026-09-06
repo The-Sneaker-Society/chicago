@@ -428,12 +428,20 @@ export const releasePayoutToMember = async (
   contractId
 ) => {
   try {
-    const transfer = await stripe.transfers.create({
-      amount: amountCents,
-      currency: "usd",
-      destination: connectAccountId,
-      metadata: { contractId },
-    });
+    // Idempotency key `payout-<contractId>` (plan-escrow-dispute.md §4):
+    // a retried auto-payout (cron double-run, webhook race) can never mint
+    // a second transfer for the same contract.
+    const transfer = await stripe.transfers.create(
+      {
+        amount: amountCents,
+        currency: "usd",
+        destination: connectAccountId,
+        metadata: { contractId },
+      },
+      {
+        idempotencyKey: `payout-${contractId}`,
+      }
+    );
     return transfer;
   } catch (error) {
     console.error("Error releasing payout to member:", error);

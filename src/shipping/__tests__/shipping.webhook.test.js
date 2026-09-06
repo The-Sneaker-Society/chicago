@@ -71,4 +71,63 @@ describe("handleShippoWebhook cancellation guards", () => {
     expect(res.sendStatus).toHaveBeenCalledWith(200);
     expect(contractRepository.updateById).not.toHaveBeenCalled();
   });
+
+  it("does not regress UNDER_MANUAL_REVIEW on outbound redelivery", async () => {
+    shippingService.verifyShippoEvent.mockReturnValue({
+      event: "track_updated",
+      data: {
+        tracking_number: "TRK456",
+        tracking_status: { status: "DELIVERED" },
+      },
+    });
+
+    shippingRepository.findByTrackingNumber.mockResolvedValue({
+      contract: {
+        _id: "c_frozen",
+        status: contractStatus.underManualReview,
+        payoutEligibleAt: new Date(),
+      },
+      leg: "outbound",
+    });
+
+    shippingService.normalizeTrackingStatus.mockReturnValue("delivered");
+
+    req = { body: {} };
+
+    await handleShippoWebhook(req, res);
+
+    expect(res.sendStatus).toHaveBeenCalledWith(200);
+    expect(contractRepository.updateById).not.toHaveBeenCalled();
+  });
+
+  it("advances RETURN_SHIPPED to DELIVERED_TO_USER on outbound delivery", async () => {
+    shippingService.verifyShippoEvent.mockReturnValue({
+      event: "track_updated",
+      data: {
+        tracking_number: "TRK789",
+        tracking_status: { status: "DELIVERED" },
+      },
+    });
+
+    shippingRepository.findByTrackingNumber.mockResolvedValue({
+      contract: {
+        _id: "c_return",
+        status: contractStatus.returnShipped,
+      },
+      leg: "outbound",
+    });
+
+    shippingService.normalizeTrackingStatus.mockReturnValue("delivered");
+    contractRepository.updateById.mockResolvedValue({});
+
+    req = { body: {} };
+
+    await handleShippoWebhook(req, res);
+
+    expect(res.sendStatus).toHaveBeenCalledWith(200);
+    expect(contractRepository.updateById).toHaveBeenCalledWith(
+      "c_return",
+      expect.objectContaining({ status: contractStatus.deliveredToUser })
+    );
+  });
 });

@@ -95,6 +95,12 @@ const ContractSchema = new mongoose.Schema(
       carrier: { type: String },
     },
     unboxingPhotos: [{ type: String }],
+    // Client-snapped as-shipped evidence (plan-escrow-dispute.md §1b).
+    // Optional, never a gate — strengthens damage claims at resolution.
+    packagingPhotos: [{ type: String }],
+    // Member-snapped packed-box evidence for the return leg (mirrors §1b).
+    // Optional, never a gate — taken in the return-label flow.
+    returnPackagingPhotos: [{ type: String }],
     completionPhotos: [{ type: String }],
     afterFormNotes: { type: String },
     paymentStatus: { type: String },
