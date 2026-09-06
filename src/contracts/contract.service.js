@@ -22,6 +22,7 @@ import {
   statusToKey,
   contractErrors,
   platformFee,
+  UNBOXING_MIN_PHOTOS,
 } from "./contract.constants.js";
 
 // Mongo status value -> camelCase response key, derived so it can never
@@ -652,6 +653,289 @@ export const contractService = {
       $push: { timeline: { event: contractEvent.payoutReleased, date: new Date() } },
     });
 
+    return true;
+  },
+
+  /**
+   * Unboxing gate (plan-escrow-dispute.md §1): the owning member may start
+   * work only from ARRIVED_AT_MEMBER with >= UNBOXING_MIN_PHOTOS evidence
+   * shots. Wrong status → BAD_TRANSITION, too few photos →
+   * UNBOXING_PHOTOS_REQUIRED. Non-parties see CONTRACT_NOT_FOUND.
+   */
+  async startWork(contractId, memberDbId) {
+    const contract = memberDbId
+      ? await contractRepository.findByIdForParty(contractId, memberDbId)
+      : null;
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    if (contract.memberId.toString() !== memberDbId.toString()) {
+      throw new Error(contractErrors.UNAUTHORIZED);
+    }
+    if (contract.status !== contractStatus.arrivedAtMember) {
+      throw new Error(contractErrors.BAD_TRANSITION);
+    }
+    if ((contract.unboxingPhotos || []).length < UNBOXING_MIN_PHOTOS) {
+      throw new Error(contractErrors.UNBOXING_PHOTOS_REQUIRED);
+    }
+    // transitionTo returns the updated doc — resolvers expose Boolean!,
+    // so await for effect and return true (reaching here means success).
+    await this.transitionTo(contractId, contractStatus.workInProgress, {
+      timelinePayload: { event: contractEvent.workStarted },
+    });
+    return true;
+  },
+
+  /**
+   * Appends member unboxing evidence keys (mock ticket flow — keys only, no
+   * Image docs). Open during ARRIVED_AT_MEMBER and stays open after Start
+   * Work (WORK_IN_PROGRESS) for extra condition close-ups, capped at a
+   * soft max of 12 total — beyond that the call is a no-op success.
+   */
+  async uploadUnboxingPhotos(contractId, memberDbId, keys = []) {
+    const contract = memberDbId
+      ? await contractRepository.findByIdForParty(contractId, memberDbId)
+      : null;
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    if (contract.memberId.toString() !== memberDbId.toString()) {
+      throw new Error(contractErrors.UNAUTHORIZED);
+    }
+    if (
+      contract.status !== contractStatus.arrivedAtMember &&
+      contract.status !== contractStatus.workInProgress
+    ) {
+      throw new Error(contractErrors.BAD_TRANSITION);
+    }
+    const UNBOXING_SOFT_MAX = 12;
+    const room = Math.max(0, UNBOXING_SOFT_MAX - (contract.unboxingPhotos || []).length);
+    const toAdd = (keys || []).slice(0, room);
+    if (toAdd.length === 0) {
+      return true;
+    }
+    await contractRepository.updateById(contractId, {
+      $push: {
+        unboxingPhotos: { $each: toAdd },
+        timeline: { event: contractEvent.unboxingPhotosUploaded, date: new Date() },
+      },
+    });
+    return true;
+  },
+
+  /**
+   * Appends client packaging evidence keys (plan-escrow-dispute.md §1b).
+   * Prompted, never blocking: allowed only while READY_TO_SHIP
+   * (post-dropoff photos prove nothing), soft max 3.
+   */
+  async uploadPackagingPhotos(contractId, clientDbId, keys = []) {
+    const contract = clientDbId
+      ? await contractRepository.findByIdForParty(contractId, clientDbId)
+      : null;
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    if (contract.clientId.toString() !== clientDbId.toString()) {
+      throw new Error(contractErrors.UNAUTHORIZED);
+    }
+    if (contract.status !== contractStatus.readyToShip) {
+      throw new Error(contractErrors.BAD_TRANSITION);
+    }
+    const PACKAGING_SOFT_MAX = 3;
+    const room = Math.max(0, PACKAGING_SOFT_MAX - (contract.packagingPhotos || []).length);
+    const toAdd = (keys || []).slice(0, room);
+    if (toAdd.length === 0) {
+      return true;
+    }
+    await contractRepository.updateById(contractId, {
+      $push: {
+        packagingPhotos: { $each: toAdd },
+        timeline: { event: contractEvent.packagingPhotosUploaded, date: new Date() },
+      },
+    });
+    return true;
+  },
+
+  /**
+   * Flag → freeze (plan-escrow-dispute.md §2, no-transfer-yet design).
+   * Either party may flag from any post-payment status; the payout freezes
+   * (payoutStatus:frozen so releasePayout/cron skip it) and the contract
+   * moves to UNDER_MANUAL_REVIEW with a DISPUTE_OPENED entry carrying
+   * actor + reason. No Stripe reversal at flag time — admin resolution
+   * (#11) reuses refundContractPayment.
+   */
+  async flagContract(contractId, partyDbId, reason = "") {
+    const contract = partyDbId
+      ? await contractRepository.findByIdForParty(contractId, partyDbId)
+      : null;
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    const flaggable = [
+      contractStatus.readyToShip,
+      contractStatus.inboundShipped,
+      contractStatus.arrivedAtMember,
+      contractStatus.workInProgress,
+      contractStatus.readyForReturn,
+      contractStatus.returnShipped,
+      contractStatus.deliveredToUser,
+    ];
+    if (!flaggable.includes(contract.status)) {
+      throw new Error(contractErrors.BAD_TRANSITION);
+    }
+    const actor =
+      contract.clientId.toString() === partyDbId.toString() ? "client" : "member";
+    // transitionTo returns the updated doc — resolvers expose Boolean!,
+    // so await for effect and return true (reaching here means success).
+    await this.transitionTo(contractId, contractStatus.underManualReview, {
+      timelinePayload: { event: contractEvent.disputeOpened, reason, actor },
+      extraUpdates: { payoutStatus: payoutStatus.frozen },
+    });
+    return true;
+  },
+
+  /**
+   * 72h auto-payout funnel (plan-escrow-dispute.md §4), called hourly by
+   * src/cron-jobs/payout.cron.js. Re-reads and re-checks every candidate
+   * (another run/webhook may have moved it), funnels into the existing
+   * releasePayout, catches per-contract and continues. Failures stay
+   * pending + eligible and are retried next hour.
+   */
+  async autoReleasePayouts(now = new Date()) {
+    const due = await contractRepository.findPayoutDue(now);
+    let released = 0;
+    const failed = [];
+    for (const candidate of due || []) {
+      try {
+        const fresh = await contractRepository.findById(candidate._id);
+        if (!fresh) continue;
+        if (fresh.status !== contractStatus.deliveredToUser) continue;
+        if (fresh.payoutStatus !== payoutStatus.pending) continue;
+        if (!fresh.payoutEligibleAt || new Date(fresh.payoutEligibleAt) > new Date(now)) continue;
+        await this.releasePayout(fresh._id);
+        released += 1;
+      } catch (e) {
+        console.log(`[PAYOUT_CRON] contract ${candidate._id} failed: ${e.message}`);
+        failed.push(String(candidate._id));
+      }
+    }
+    return { checked: (due || []).length, released, failed };
+  },
+
+  /**
+   * Manual "Accept work" path (plan-escrow-dispute.md §4): the owning
+   * client clears the 72h wait and funnels into the same releasePayout as
+   * the cron. Non-parties see CONTRACT_NOT_FOUND.
+   */
+  async confirmReceipt(contractId, clientDbId) {
+    const contract = clientDbId
+      ? await contractRepository.findByIdForParty(contractId, clientDbId)
+      : null;
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    if (contract.clientId.toString() !== clientDbId.toString()) {
+      throw new Error(contractErrors.UNAUTHORIZED);
+    }
+    // Idempotent accept: a retried/double-clicked confirm after success is
+    // already paid — return true instead of erroring (releasePayout's
+    // pending guard would block a double transfer regardless).
+    if (
+      contract.status === contractStatus.completed &&
+      contract.payoutStatus === payoutStatus.paid
+    ) {
+      return true;
+    }
+    if (contract.status !== contractStatus.deliveredToUser) {
+      throw new Error(contractErrors.BAD_TRANSITION);
+    }
+    await contractRepository.updateById(contractId, { payoutEligibleAt: new Date() });
+    return await this.releasePayout(contractId);
+  },
+
+  /**
+   * Member marks restoration work done — shoes stay in member custody,
+   * awaiting batch dropoff (READY_FOR_RETURN). The return-label + packing
+   * photo + ship flow lives on that state; payout/cancel/cron are untouched.
+   */
+  async markWorkComplete(contractId, memberDbId) {
+    const contract = memberDbId
+      ? await contractRepository.findByIdForParty(contractId, memberDbId)
+      : null;
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    if (contract.memberId.toString() !== memberDbId.toString()) {
+      throw new Error(contractErrors.UNAUTHORIZED);
+    }
+    if (contract.status !== contractStatus.workInProgress) {
+      throw new Error(contractErrors.BAD_TRANSITION);
+    }
+    // transitionTo returns the updated doc — resolvers expose Boolean!.
+    await this.transitionTo(contractId, contractStatus.readyForReturn, {
+      timelinePayload: { event: contractEvent.readyForReturn },
+    });
+    return true;
+  },
+
+  /**
+   * Member confirms the return box is with the carrier. Idempotent with the
+   * Shippo scan webhook (transition() no-ops when already RETURN_SHIPPED),
+   * so the button and a later carrier scan can never double-advance.
+   */
+  async markReturnShipped(contractId, memberDbId) {
+    const contract = memberDbId
+      ? await contractRepository.findByIdForParty(contractId, memberDbId)
+      : null;
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    if (contract.memberId.toString() !== memberDbId.toString()) {
+      throw new Error(contractErrors.UNAUTHORIZED);
+    }
+    if (contract.status === contractStatus.returnShipped) {
+      return true;
+    }
+    if (contract.status !== contractStatus.readyForReturn) {
+      throw new Error(contractErrors.BAD_TRANSITION);
+    }
+    // transitionTo returns the updated doc — resolvers expose Boolean!.
+    await this.transitionTo(contractId, contractStatus.returnShipped, {
+      timelinePayload: { event: contractEvent.returnShipped },
+    });
+    return true;
+  },
+
+  /**
+   * Member-snapped packed-box evidence for the return leg (mirrors the
+   * client §1b flow). Optional, never a gate — taken in the return-label
+   * modal after printing, capped at a soft max of 3.
+   */
+  async uploadReturnPackagingPhotos(contractId, memberDbId, keys = []) {
+    const contract = memberDbId
+      ? await contractRepository.findByIdForParty(contractId, memberDbId)
+      : null;
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    if (contract.memberId.toString() !== memberDbId.toString()) {
+      throw new Error(contractErrors.UNAUTHORIZED);
+    }
+    if (contract.status !== contractStatus.readyForReturn) {
+      throw new Error(contractErrors.BAD_TRANSITION);
+    }
+    const RETURN_PACKAGING_SOFT_MAX = 3;
+    const room = Math.max(0, RETURN_PACKAGING_SOFT_MAX - (contract.returnPackagingPhotos || []).length);
+    const toAdd = (keys || []).slice(0, room);
+    if (toAdd.length === 0) {
+      return true;
+    }
+    await contractRepository.updateById(contractId, {
+      $push: {
+        returnPackagingPhotos: { $each: toAdd },
+        timeline: { event: contractEvent.returnPackagingPhotosUploaded, date: new Date() },
+      },
+    });
     return true;
   },
 

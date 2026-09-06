@@ -11,6 +11,7 @@ const contractTypeDefs = gql`
     INBOUND_SHIPPED
     ARRIVED_AT_MEMBER
     WORK_IN_PROGRESS
+    READY_FOR_RETURN
     RETURN_SHIPPED
     DELIVERED_TO_USER
     COMPLETED
@@ -74,6 +75,8 @@ const contractTypeDefs = gql`
     inboundTracking: TrackingDetails
     outboundTracking: TrackingDetails
     unboxingPhotos: [String]
+    packagingPhotos: [String]
+    returnPackagingPhotos: [String]
     completionPhotos: [String]
     afterFormNotes: String
     timeline: [TimelineEvent]
@@ -316,6 +319,14 @@ const contractTypeDefs = gql`
     releasePayout(contractId: ID!): Boolean!
     initiateContractChat(contractId: ID!): Chat!
     cancelContract(contractId: ID!, reason: String): Boolean!
+    startWork(contractId: ID!): Boolean!
+    markWorkComplete(contractId: ID!): Boolean!
+    markReturnShipped(contractId: ID!): Boolean!
+    uploadUnboxingPhotos(contractId: ID!, keys: [String!]!): Boolean!
+    uploadPackagingPhotos(contractId: ID!, keys: [String!]!): Boolean!
+    uploadReturnPackagingPhotos(contractId: ID!, keys: [String!]!): Boolean!
+    flagContract(contractId: ID!, reason: String): Boolean!
+    confirmReceipt(contractId: ID!): Boolean!
   }
 `;
 
