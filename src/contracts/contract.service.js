@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
-import { createPaymentIntent, expireCheckoutSession, releasePayoutToMember } from "../stripe/stripe.service";
+import { createPaymentIntent, expireCheckoutSession, releasePayoutToMember, refundContractPayment, getPaymentIntentDetails } from "../stripe/stripe.service";
+import { assertTransition } from "./contract.transitions.js";
 import { contractRepository } from "./contract.repository.js";
 import { memberRepository } from "../members/member.repository.js";
 import { userRepository } from "../users/user.repository.js";
@@ -547,17 +548,32 @@ export const contractService = {
       throw new Error(contractErrors.UNAUTHORIZED);
     }
 
+    const DENYLIST = [
+      "status",
+      "payoutStatus",
+      "stripePaymentIntentId",
+      "stripeTransferId",
+      "paidAt",
+      "payoutAmount",
+      "platformFee",
+      "taxFee",
+    ];
+    const cleanData = { ...data };
+    for (const key of DENYLIST) {
+      delete cleanData[key];
+    }
+
     const nestedPaths = ["repairDetails", "shoeDetails", "inboundTracking", "outboundTracking"];
-    Object.keys(data).forEach((key) => {
-      if (data[key] === undefined) return;
-      if (nestedPaths.includes(key) && typeof data[key] === "object" && !Array.isArray(data[key])) {
-        Object.keys(data[key]).forEach((subKey) => {
-          if (data[key][subKey] !== undefined) {
-            contract[key][subKey] = data[key][subKey];
+    Object.keys(cleanData).forEach((key) => {
+      if (cleanData[key] === undefined) return;
+      if (nestedPaths.includes(key) && typeof cleanData[key] === "object" && !Array.isArray(cleanData[key])) {
+        Object.keys(cleanData[key]).forEach((subKey) => {
+          if (cleanData[key][subKey] !== undefined) {
+            contract[key][subKey] = cleanData[key][subKey];
           }
         });
       } else {
-        contract[key] = data[key];
+        contract[key] = cleanData[key];
       }
     });
 
@@ -634,6 +650,174 @@ export const contractService = {
       paidAt: new Date(),
       status: contractStatus.completed,
       $push: { timeline: { event: contractEvent.payoutReleased, date: new Date() } },
+    });
+
+    return true;
+  },
+
+  /**
+   * Central state machine transition method.
+   * Validates allowed transitions via assertTransition.
+   */
+  async transitionTo(contractId, toStatus, { isAdmin = false, timelinePayload = {}, extraUpdates = {} } = {}) {
+    const contract = await contractRepository.findById(contractId);
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    assertTransition(contract.status, toStatus, isAdmin);
+
+    const update = { status: toStatus, ...extraUpdates };
+    if (timelinePayload.event) {
+      update.$push = {
+        timeline: {
+          event: timelinePayload.event,
+          date: new Date(),
+          ...(timelinePayload.reason !== undefined ? { reason: timelinePayload.reason } : {}),
+          ...(timelinePayload.actor !== undefined ? { actor: timelinePayload.actor } : {}),
+          ...(typeof timelinePayload.refundCents === "number" ? { refundCents: timelinePayload.refundCents } : {}),
+        },
+      };
+    }
+    return await contractRepository.updateById(contractId, update, { new: true });
+  },
+
+  /**
+   * Cancels a contract and performs stage-appropriate teardown:
+   * - Stage A (Pre-payment): expires pending checkout sessions & cancels chat proposals
+   * - Stage B (READY_TO_SHIP): refunds client minus non-recoverable label fees (shipping + insurance) and processing fees
+   * - Stage C+ (INBOUND_SHIPPED onward): throws CANCEL_NOT_ALLOWED for clients/members. Admin force-cancel
+   *   supported without auto-refund (goes to manual/prorated review per mid-flight policy).
+   */
+  async cancelContract(contractId, reason = "", ctx = {}, publish = null) {
+    const isAdmin = ctx?.role === "admin";
+    let contract;
+    if (isAdmin) {
+      contract = await contractRepository.findById(contractId);
+    } else {
+      const requesterDbId = ctx?.dbUser?._id;
+      if (!requesterDbId) {
+        throw new Error(contractErrors.UNAUTHORIZED);
+      }
+      contract = await contractRepository.findByIdForParty(contractId, requesterDbId);
+    }
+
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+
+    if (contract.status === contractStatus.canceled || contract.status === contractStatus.completed) {
+      throw new Error(contractErrors.ALREADY_CANCELED);
+    }
+
+    // Members can only cancel pre-payment; once paid (READY_TO_SHIP), only client or admin can cancel
+    const cancellableStatuses =
+      ctx?.role === "member"
+        ? [
+            contractStatus.pendingReview,
+            contractStatus.priceProposed,
+            contractStatus.awaitingPayment,
+          ]
+        : [
+            contractStatus.pendingReview,
+            contractStatus.priceProposed,
+            contractStatus.awaitingPayment,
+            contractStatus.readyToShip,
+          ];
+
+    if (!isAdmin && !cancellableStatuses.includes(contract.status)) {
+      throw new Error(contractErrors.CANCEL_NOT_ALLOWED);
+    }
+
+    // Stage A: Pre-payment cancellation — expire active checkout sessions & cancel chat proposals
+    if (contract.chatId) {
+      const pendingProposals = await chatRepository.findPendingProposals(contract.chatId);
+      for (const proposal of pendingProposals) {
+        proposal.metadata = proposal.metadata || {};
+        proposal.metadata.status = "canceled";
+        await chatRepository.saveMessage(proposal);
+        if (proposal.metadata?.checkoutSessionId) {
+          try {
+            await expireCheckoutSession(proposal.metadata.checkoutSessionId);
+          } catch (e) {
+            // Session may already be expired or paid
+          }
+        }
+        if (publish) {
+          publish(`MESSAGE_UPDATED ${contract.chatId}`, {
+            messageUpdated: {
+              id: proposal._id,
+              chatId: proposal.chatId,
+              senderId: proposal.senderId,
+              content: proposal.content,
+              senderType: proposal.senderType,
+              type: proposal.type,
+              metadata: proposal.metadata,
+              createdAt: proposal.createdAt,
+            },
+          });
+        }
+      }
+    }
+
+    const actor = ctx?.role || "client";
+    let refundCents = 0;
+
+    // Stage B: Post-payment cancellation — gate auto-refund strictly to READY_TO_SHIP.
+    // Post-shipment admin cancels (INBOUND_SHIPPED, WORK_IN_PROGRESS, etc.) do NOT auto-refund
+    // service-minus-labels because member labor/materials must be reviewed manually per mid-flight policy.
+    if (contract.status === contractStatus.readyToShip && contract.stripePaymentIntentId) {
+      const hasLabels = Boolean(
+        contract.inboundShipmentId ||
+        contract.inboundTransactionId ||
+        contract.outboundShipmentId ||
+        contract.outboundTransactionId
+      );
+      const labelCost = hasLabels
+        ? (contract.shippingFee || 0) + (contract.insuranceFee || 0)
+        : 0;
+      const labelCostCents = Math.round(labelCost * 100);
+
+      let details = null;
+      try {
+        details = await getPaymentIntentDetails(contract.stripePaymentIntentId);
+      } catch (err) {
+        console.error("Failed to retrieve payment intent details:", err);
+      }
+
+      const totalPaidDollars =
+        (contract.proposedPrice ?? contract.price ?? 0) +
+        (contract.shippingFee || 0) +
+        (contract.insuranceFee || 0) +
+        (contract.taxFee || 0);
+      const totalPaidCents = details?.amountTotalCents ?? Math.round(totalPaidDollars * 100);
+      const stripeFeeCents = details?.feeCents ?? Math.round(totalPaidCents * 0.029 + 30);
+
+      refundCents = Math.max(0, totalPaidCents - labelCostCents - stripeFeeCents);
+
+      if (refundCents > 0) {
+        await refundContractPayment({
+          paymentIntentId: contract.stripePaymentIntentId,
+          amountCents: refundCents,
+          reason: "requested_by_customer",
+          contractId: contract._id,
+        });
+      }
+    }
+
+    const extraUpdates = {};
+    if (contract.stripePaymentIntentId) {
+      extraUpdates.payoutStatus = payoutStatus.canceled;
+    }
+
+    await this.transitionTo(contract._id, contractStatus.canceled, {
+      isAdmin,
+      timelinePayload: {
+        event: contractEvent.contractCanceled,
+        reason,
+        actor,
+        refundCents,
+      },
+      extraUpdates,
     });
 
     return true;

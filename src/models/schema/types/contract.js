@@ -99,6 +99,9 @@ const contractTypeDefs = gql`
   type TimelineEvent {
     event: String
     date: String
+    reason: String
+    actor: String
+    refundCents: Int
   }
 
   type PhotoDetail {
@@ -282,6 +285,9 @@ const contractTypeDefs = gql`
   input TimelineDetailsInput {
     event: String
     date: String
+    reason: String
+    actor: String
+    refundCents: Int
   }
 
   type ContractListItem {
@@ -309,6 +315,7 @@ const contractTypeDefs = gql`
     createContractCheckout(data: CreateContractCheckoutInput!): String!
     releasePayout(contractId: ID!): Boolean!
     initiateContractChat(contractId: ID!): Chat!
+    cancelContract(contractId: ID!, reason: String): Boolean!
   }
 `;
 

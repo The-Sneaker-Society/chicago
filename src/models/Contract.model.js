@@ -112,6 +112,9 @@ const ContractSchema = new mongoose.Schema(
       {
         event: { type: String },
         date: { type: Date },
+        reason: { type: String },
+        actor: { type: String },
+        refundCents: { type: Number },
       },
     ],
     selectedServiceMenuItem: {

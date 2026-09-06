@@ -441,6 +441,56 @@ export const releasePayoutToMember = async (
   }
 };
 
+/**
+ * Refunds a contract payment via Stripe Refund on PaymentIntent.
+ * Supports partial refund (e.g. subtracting label costs at READY_TO_SHIP).
+ * Uses an idempotency key to prevent double refunds.
+ */
+export const refundContractPayment = async ({
+  paymentIntentId,
+  amountCents,
+  reason = "requested_by_customer",
+  contractId,
+}) => {
+  try {
+    const params = {
+      payment_intent: paymentIntentId,
+      reason,
+      metadata: { contractId: contractId ? contractId.toString() : undefined },
+    };
+    if (amountCents !== undefined && amountCents !== null) {
+      params.amount = amountCents;
+    }
+    const refund = await stripe.refunds.create(params, {
+      idempotencyKey: `refund_contract_${contractId}`,
+    });
+    return refund;
+  } catch (error) {
+    console.error("Error refunding contract payment:", error);
+    throw error;
+  }
+};
+
+/**
+ * Retrieves payment intent details including the actual Stripe processing fee.
+ */
+export const getPaymentIntentDetails = async (paymentIntentId) => {
+  try {
+    const pi = await stripe.paymentIntents.retrieve(paymentIntentId, {
+      expand: ["latest_charge.balance_transaction"],
+    });
+    const feeCents = pi.latest_charge?.balance_transaction?.fee;
+    const amountTotalCents = pi.amount_received || pi.amount;
+    return {
+      amountTotalCents,
+      feeCents: feeCents ?? Math.round(amountTotalCents * 0.029 + 30),
+    };
+  } catch (error) {
+    console.error("Error retrieving payment intent details:", error);
+    return null;
+  }
+};
+
 export const getMemberSubscriptionStatus = async (customerId) => {
   if (!customerId) {
     console.error("Missing customer Id");

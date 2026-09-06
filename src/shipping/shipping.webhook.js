@@ -12,8 +12,8 @@ import { trackingState } from "./shipping.constants.js";
  */
 
 const transition = async (contract, toStatus, event) => {
-  if (!contract || contract.status === toStatus) {
-    return; // idempotent — duplicate webhook deliveries are no-ops
+  if (!contract || contract.status === contractStatus.canceled || contract.status === toStatus) {
+    return; // idempotent — duplicate webhook deliveries or canceled contracts are no-ops
   }
   await contractRepository.updateById(contract._id, {
     status: toStatus,
@@ -22,6 +22,9 @@ const transition = async (contract, toStatus, event) => {
 };
 
 const applyTrackUpdate = async (contract, leg, rawStatus) => {
+  if (!contract || contract.status === contractStatus.canceled) {
+    return;
+  }
   const state = shippingService.normalizeTrackingStatus(rawStatus);
   if (leg === "inbound") {
     if (state === trackingState.inTransit) {
@@ -58,6 +61,9 @@ export async function handleShippoWebhook(req, res, next) {
       const found = await shippingRepository.findByShippoId(data.object_id);
       if (!found) {
         console.log(`[SHIPPING_HOOK] unknown transaction ${data.object_id}`);
+        return res.sendStatus(200);
+      }
+      if (found.status === contractStatus.canceled) {
         return res.sendStatus(200);
       }
       // Backfill tracking/label if the purchase-time save missed them.
