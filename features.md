@@ -1,6 +1,6 @@
 # Product Roadmap & Features List
 
-> **Last Updated:** 2026-09-05 — `main@c3b60da` / `467f2a2` (chicago / sneaker-web) — sales tax merged (#82, web #179). See PRs below.
+> **Last Updated:** 2026-09-07 — `main@86b1eec` / `7749615` (chicago / sneaker-web) — PII audit & security merged (#85, web #182), Escrow & Dispute merged (#84, web #181). See PRs below.
 
 This document translates the Smart Contract Lifecycle into actionable technical features. It is divided into the MVP (Minimum Viable Product) required to launch, and Post-MVP features for scaling.
 
@@ -13,14 +13,15 @@ This document translates the Smart Contract Lifecycle into actionable technical 
 | 3 | Timeline UI & Event Log Expansion | ✅ Done (core) · 🚧 polish | Core `statusConfig` + `Timeline` eventMap 19 done in #76; full `timelineConfig` + `Transition` wiring tracked in `plan-timeline.md` |
 | 4a | Shippo Labels + Webhooks + Return Insurance | ✅ Done | `plan-shipping.md` — chicago #80 + #81 (`SHIPPO_API_KEY` test key live, labels verified) — thresholds unified at $300, postage-only `shippingFee` |
 | 4b | Review & Protect Checkout Hub | ✅ Done | sneaker-web #176 + #178 — live rates, waiver modals, per-option breakdown, price-or-decline chips |
-| 5 | Escrow & Dispute (Unboxing, Flag, 72h Auto-Payout) | ⬜ Todo | `plan-custody-auth.md:§3/§5` + `plan-contract-transitions.md` — auto `ARRIVED_AT_MEMBER` via webhook, `UNDER_MANUAL_REVIEW` freeze |
+| 5 | Escrow & Dispute (Unboxing, Flag, 72h Auto-Payout) | ✅ Done | `plan-escrow-dispute.md` — chicago #84 + web #181 — `startWork` unboxing gate (>=3 photos), `flagContract` freeze to `UNDER_MANUAL_REVIEW`, `READY_FOR_RETURN`, hourly 72h auto-payout cron, client `confirmReceipt` |
 | 6 | Restorer Onboarding & Dashboard Traffic Light | ⬜ Todo | `features.md:6` — `payouts_enabled` sync done, Red/Yellow/Green indicator todo |
 | 7 | Billing, Receipts & Payout Dashboards | ✅ Done (core) · 🚧 polish | Itemized Service+Shipping+Insurance `line_items` + receipts done in #80; member in-app payout breakdown + Express login link still todo |
 | 8 | Notification System (Email + In-App) | ⬜ Todo | `features.md:8` — SendGrid/Resend + badges |
 | 9 | Platform Fee Refactor $12 → 15% | ✅ Done | chicago #77 + web #174 (`feature/platform-fee` → `main@1ada125`/`94ba91d`) — `platformFee 15%` + `PricePreviewModal`, tests |
 | 10 | Contract Cancellation Flow | ✅ Done | `plan-cancellation.md` — chicago #83 + web #180 — `assertTransition`, `transitionTo`, `cancelContract`, `refundContractPayment`, `updateContract` denylist, tests, web `CancelContractModal` |
-| 11 | Admin Dashboard (Manual Review) | ⬜ Todo | `features.md:11` — `UNDER_MANUAL_REVIEW` queue + evidence viewer |
+| 11 | Admin Dashboard (Manual Review) | ⬜ Todo | `plan-admin-dashboard.md` — `UNDER_MANUAL_REVIEW` queue + side-by-side evidence viewer + dispute resolution (`resolveForUser`, `resolveForMember`, `resolveInconclusive`) |
 | 12 | Sales Tax Collection & Remittance | ✅ Done (code) · 🔒 dashboard | `plan-taxes.md` — chicago #82 + web #179 — `automatic_tax` + per-line tax codes, prefilled customer, tax-excluded payout, `taxFee` receipt rows; needs Stripe Dashboard tax registrations (§4) before prod |
+| 13 | PII Audit, Scoping & Dashboard Refinements | ✅ Done | `plan-pii-audit.md` — chicago #85 + web #182 — `publicMemberById`, counterparty PII redaction on `Contract`, ID comparison guards, sidebar cleanup, dynamic chat unread badge, payout widget "Paid today" badge |
 | P2-1 | Digital Authentication (CheckCheck) | ⬜ Todo | `features.md: P2-1` |
 | P2-2 | Priority Rush Turnaround | ⬜ Todo | `features.md: P2-2` |
 | P2-3 | Aftercare E-Commerce Upsell | ⬜ Todo | `features.md: P2-3` |
@@ -56,10 +57,12 @@ This document translates the Smart Contract Lifecycle into actionable technical 
 *   **Dynamic Math:** Live Shippo round-trip rates; insurance 2% at/over $300 with waiver modal; signature auto at/over $300 with waiver modal; per-option + summary breakdowns.
 *   **Stripe Integration:** Itemized Service + Shipping + Insurance `line_items` session — chicago #80.
 
-### 5. Escrow & Dispute Logic (The Fraud Circuit Breaker) — ⬜ Todo
-*   **Unboxing Checkpoint:** UI requirement for the Member to upload unboxing photos before the "Start Work" button unlocks.
-*   **Flag Package:** A button for the Member to dispute the arrival condition. Automatically changes status to `UNDER_MANUAL_REVIEW` and freezes the Stripe funds.
-*   **72-Hour Auto-Payout:** A cron job that runs every hour, checks for contracts in `DELIVERED_TO_USER` that are older than 72 hours, and triggers the Stripe Connect payout.
+### 5. Escrow & Dispute Logic (The Fraud Circuit Breaker) — ✅ Done
+*   **Unboxing Checkpoint:** Member upload gate (`>= 3` unboxing photos) before `startWork` transitions status to `WORK_IN_PROGRESS` and logs `UNBOXING_PHOTOS_UPLOADED`.
+*   **Flag Package:** Both parties can flag a contract post-payment via `flagContract`, freezing payout (`payoutStatus: "frozen"`), setting `status: "UNDER_MANUAL_REVIEW"`, and recording `DISPUTE_OPENED`.
+*   **72-Hour Auto-Payout:** Hourly cron job (`src/cron-jobs/payout.cron.js`) sweeps for contracts in `DELIVERED_TO_USER` where 72 hours have elapsed and releases payout via `autoReleasePayouts`. Client manual acceptance available via `confirmReceipt`.
+*   **Batch Dropoff / Return Flow:** Added `READY_FOR_RETURN` state and `markWorkComplete` transition for member batch-dropoff flexibility.
+*   **Done:** `plan-escrow-dispute.md` — merged via `chicago#84` + `sneaker-web#181`.
 
 ### 6. Restorer Onboarding & Dashboard UI — ⬜ Todo
 *   **Stripe Status Sync:** Listen to Stripe `account.updated` webhooks (or fetch dynamically) to monitor the Member's `payouts_enabled` and `requirements.currently_due` status.
@@ -101,6 +104,15 @@ This document translates the Smart Contract Lifecycle into actionable technical 
 *   **Prefill:** Buyer address prefilled via metadata-tagged Stripe Customer (dbUserId dedup, guest fallback); email-only fallback via `customer_email`.
 *   **Payout safety:** `computePayoutAmount` subtracts tax — member nets service − fee regardless of tax collected; `taxFee` persisted + receipt rows (web #179).
 *   **Still external:** Stripe Dashboard tax registrations + CPA nexus check (`plan-taxes.md:§4`) before first prod sale.
+
+### 13. PII Audit, Scoping & Dashboard Refinements — ✅ Done
+*   **PII & Authorization Hardening:** Restricted `memberById` to self or admin callers; created `publicMemberById` for client discovery and intake preview.
+*   **Party-Level Scoping:** Scoped `Contract.member` and `Contract.client` so counterparties only see public profile info; sensitive fields (`email`, `firebaseId`, `stripeConnectAccountId`) are redacted.
+*   **IDOR & Type-Coercion Fixes:** Guarded ID comparisons against `String(undefined)` authorization bypass; fixed admin context on Member resolvers (`clients`, `contracts`, `qrWidgetData`).
+*   **Navigation & Dashboard Cleanup:** Removed user-facing Vault and My Society links from member sidebar; restored Dashboard link.
+*   **Payout Widget Refinement:** Fixed -100% negative pill when pending payouts clear; added dynamic "Paid today" / "Paid yesterday" badges with `lastPayoutDate`.
+*   **Real-Time Chat Notification Badge:** Dynamically calculates unread conversations in the sidebar and highlights unread chats in the messages list.
+*   **Done:** `plan-pii-audit.md` — merged via `chicago#85` + `sneaker-web#182`.
 
 ---
 
