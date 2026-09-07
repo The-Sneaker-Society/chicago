@@ -77,6 +77,7 @@ const memberTypeDefs = gql`
   type StripeWidgetData {
     percentChange: Float!
     nextPayoutDate: String
+    lastPayoutDate: String
     payoutAmount: String!
     stripeConnectAccountId: String
     previousPayoutAmount: String
