@@ -93,8 +93,8 @@ export const contractRepository = {
   async findLatestPaidByMember(memberId) {
     return await ContractModel.findOne(
       { memberId, payoutStatus: "paid" },
-      { payoutAmount: 1 },
-      { sort: { paidAt: -1 } }
+      { payoutAmount: 1, paidAt: 1, updatedAt: 1 },
+      { sort: { paidAt: -1, updatedAt: -1 } }
     );
   },
 

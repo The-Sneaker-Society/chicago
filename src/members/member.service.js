@@ -63,8 +63,10 @@ export const memberService = {
           }).format(prevRaw)
         : null;
 
+    // Do not compute negative percentChange if pendingAmount is 0; a cleared queue
+    // means payouts were released, not an earnings drop.
     const percentChange =
-      prevRaw && prevRaw > 0
+      prevRaw && prevRaw > 0 && pendingAmount > 0
         ? Math.round(((pendingAmount - prevRaw) / prevRaw) * 100)
         : 0;
 
@@ -77,10 +79,14 @@ export const memberService = {
       stripeConnectAccountId
     );
 
+    const lastPaidDate = lastPaidContract?.paidAt || lastPaidContract?.updatedAt;
+    const lastPayoutDate = lastPaidDate ? new Date(lastPaidDate).toISOString() : null;
+
     return {
       stripeConnectAccountId,
       percentChange,
       nextPayoutDate: null,
+      lastPayoutDate,
       payoutAmount: formattedPayoutAmount,
       previousPayoutAmount: prevFormatted,
       accountStatus,

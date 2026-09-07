@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import { UserInputError } from "apollo-server-core";
+import { ForbiddenError, UserInputError } from "apollo-server-core";
 import { memberService } from "../members/member.service.js";
 import { requireAdmin, requireAuth, requireMember } from "../auth/guards.js";
 
@@ -16,8 +16,33 @@ const Query = {
   }),
   memberById: requireAuth(async (parent, args, ctx, info) => {
     try {
+      // Full Member carries PII + Stripe IDs — self or admin only.
+      // Everyone else uses publicMemberById (intake, discovery).
+      const isAdmin = ctx?.role === "admin";
+      const isSelf =
+        ctx?.role === "member" &&
+        ctx?.dbUser?._id?.toString() === String(args.id);
+      if (!isAdmin && !isSelf) {
+        throw new ForbiddenError("Member not found");
+      }
       return await memberService.getMemberById(args.id);
     } catch (e) {
+      if (e instanceof ForbiddenError) {
+        throw e;
+      }
+      if (e.message === "MEMBER_NOT_FOUND" || e.message === "INVALID_MEMBER_ID") {
+        throw new Error("Member not found");
+      }
+      throw new Error(e);
+    }
+  }),
+  publicMemberById: requireAuth(async (parent, args, ctx, info) => {
+    try {
+      return await memberService.getMemberById(args.id);
+    } catch (e) {
+      if (e instanceof ForbiddenError) {
+        throw e;
+      }
       if (e.message === "MEMBER_NOT_FOUND" || e.message === "INVALID_MEMBER_ID") {
         throw new Error("Member not found");
       }
@@ -72,7 +97,7 @@ const Query = {
     }
   }),
 
-  getServiceMenu: async (parent, args, ctx) => {
+  getServiceMenu: requireAuth(async (parent, args, ctx) => {
     try {
       return await memberService.getServiceMenu(args.memberId);
     } catch (e) {
@@ -80,7 +105,7 @@ const Query = {
       if (e.message === "MEMBER_NOT_FOUND") throw new Error("Member not found");
       throw new Error(e);
     }
-  },
+  }),
 };
 
 const Mutation = {
@@ -237,7 +262,9 @@ const Mutation = {
 const Member = {
   async clients(parent, args, ctx, info) {
     try {
-      return await memberService.getClientsForMember(ctx.dbUser);
+      const targetMember = ctx?.role === "admin" ? parent : ctx?.dbUser;
+      if (!targetMember) return [];
+      return await memberService.getClientsForMember(targetMember);
     } catch (e) {
       throw new Error(e);
     }
@@ -245,7 +272,9 @@ const Member = {
 
   async contracts(parent, args, ctx, info) {
     try {
-      return await memberService.getContractsForMember(ctx.dbUser);
+      const targetMember = ctx?.role === "admin" ? parent : ctx?.dbUser;
+      if (!targetMember) return [];
+      return await memberService.getContractsForMember(targetMember);
     } catch (e) {
       throw new Error(e);
     }
@@ -259,7 +288,11 @@ const Member = {
   },
   async qrWidgetData(parent, args, ctx, info) {
     try {
-      return await memberService.getQrWidgetData(ctx.dbUser);
+      const targetMember = ctx?.role === "admin" ? parent : ctx?.dbUser;
+      if (!targetMember) {
+        return { image: "", url: "", contractsDisabled: Boolean(parent?.contractsDisabled) };
+      }
+      return await memberService.getQrWidgetData(targetMember);
     } catch (error) {
       throw new Error(error);
     }
@@ -316,5 +349,15 @@ const Member = {
     // non-null violation on Member.serviceMenu: [ServiceMenuItem!]!
     return parent.serviceMenu || [];
   },
+  contractsDisabled(parent) {
+    return Boolean(parent.contractsDisabled);
+  },
 };
-export default { Query, Mutation, Member };
+
+const PublicMember = {
+  contractsDisabled(parent) {
+    return Boolean(parent.contractsDisabled);
+  },
+};
+
+export default { Query, Mutation, Member, PublicMember };

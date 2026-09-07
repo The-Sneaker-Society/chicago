@@ -49,17 +49,21 @@ const Mutation = {
 };
 
 const Client = {
-  // Field reads are scoped to the requester's own db id — never raw parent data.
+  // Field reads are scoped to the requester's own db id, or parent id for admins.
   async members(parent, args, ctx, info) {
     try {
-      return await clientService.getMembersForClient(ctx.dbUser._id);
+      const targetId = ctx?.role === "admin" ? (parent.id || parent._id) : ctx?.dbUser?._id;
+      if (!targetId) return [];
+      return await clientService.getMembersForClient(targetId);
     } catch (e) {
       throw new Error(e);
     }
   },
   async contracts(parent, args, ctx, info) {
     try {
-      return await clientService.getContractsForClient(ctx.dbUser._id);
+      const targetId = ctx?.role === "admin" ? (parent.id || parent._id) : ctx?.dbUser?._id;
+      if (!targetId) return [];
+      return await clientService.getContractsForClient(targetId);
     } catch (e) {
       throw new Error(e);
     }

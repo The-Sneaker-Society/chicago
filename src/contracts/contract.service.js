@@ -80,10 +80,13 @@ export const contractService = {
 
   /**
    * Party-scoped read: a contract you're not a party to looks identical to
-   * one that doesn't exist (NOT_FOUND-not-FORBIDDEN doctrine).
+   * one that doesn't exist (NOT_FOUND-not-FORBIDDEN doctrine). Admins can
+   * inspect any contract.
    */
-  async getContractById(id, requesterDbId) {
-    const contract = requesterDbId
+  async getContractById(id, requesterDbId, isAdmin = false) {
+    const contract = isAdmin
+      ? await contractRepository.findById(id)
+      : requesterDbId
       ? await contractRepository.findByIdForParty(id, requesterDbId)
       : null;
     if (!contract) {
@@ -95,10 +98,12 @@ export const contractService = {
   /**
    * Same scoping as getContractById, keyed by the human orderRef for
    * readable URLs (plan: order numbers). Unknown refs and non-parties
-   * are indistinguishable (CONTRACT_NOT_FOUND).
+   * are indistinguishable (CONTRACT_NOT_FOUND). Admins can inspect any ref.
    */
-  async getContractByOrderRef(orderRef, requesterDbId) {
-    const contract = requesterDbId
+  async getContractByOrderRef(orderRef, requesterDbId, isAdmin = false) {
+    const contract = isAdmin
+      ? await contractRepository.findByOrderRef(orderRef)
+      : requesterDbId
       ? await contractRepository.findByOrderRefForParty(orderRef, requesterDbId)
       : null;
     if (!contract) {
