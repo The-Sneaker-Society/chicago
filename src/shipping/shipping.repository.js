@@ -54,7 +54,7 @@ export const shippingRepository = {
       leg === "inbound"
         ? contractEvent.inboundLabelGenerated
         : contractEvent.outboundLabelGenerated;
-    return await ContractModel.findByIdAndUpdate(contractId, {
+    const update = {
       [`${prefix}ShipmentId`]: label.shipmentId,
       [`${prefix}TransactionId`]: label.transactionId,
       [`${prefix}LabelUrl`]: label.labelUrl,
@@ -63,7 +63,12 @@ export const shippingRepository = {
         carrier: label.carrier,
       },
       $push: { timeline: { event, date: new Date() } },
-    });
+    };
+    const cost = Number(label?.amount || 0);
+    if (cost > 0) {
+      update.$inc = { labelCostActual: cost };
+    }
+    return await ContractModel.findByIdAndUpdate(contractId, update);
   },
 
   async pushTimeline(contractId, event) {

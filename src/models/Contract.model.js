@@ -112,6 +112,8 @@ const ContractSchema = new mongoose.Schema(
     },
     payoutAmount: { type: Number },
     platformFee: { type: Number },
+    labelCostActual: { type: Number, default: 0 },
+    insurancePremiumActual: { type: Number, default: 0 },
     payoutEligibleAt: { type: Date },
     paidAt: { type: Date },
     timeline: [

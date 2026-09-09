@@ -190,4 +190,29 @@ describe("computeContractPnL math logic", () => {
     expect(pnl.netPlatformProfit).toBe(0);
     expect(pnl.netPlatformMarginPercent).toBe(0);
   });
+
+  test("falls back to pass-through costs when labels exist or insurance was purchased without explicit actual costs", () => {
+    const contract = {
+      price: 189,
+      shippingFee: 22.28,
+      insuranceFee: 26.39,
+      taxFee: 0,
+      platformFee: 28.35,
+      payoutAmount: 160.65,
+      inboundLabelUrl: "https://deliver.goshippo.com/test.pdf",
+    };
+
+    const pnl = computeContractPnL(contract);
+
+    expect(pnl.grossCollected).toBe(237.67);
+    expect(pnl.actualLabelCost).toBe(22.28);
+    expect(pnl.actualInsurancePremium).toBe(26.39);
+    expect(pnl.shippingSpread).toBe(0);
+    expect(pnl.insuranceSpread).toBe(0);
+    // Outflows: 160.65 + 22.28 + 26.39 + 7.19 + 0 = 216.51
+    expect(pnl.totalOutflows).toBe(216.51);
+    // Net profit: 237.67 - 216.51 = 21.16
+    expect(pnl.netPlatformProfit).toBe(21.16);
+    expect(pnl.netPlatformMarginPercent).toBe(8.9);
+  });
 });

@@ -1502,8 +1502,33 @@ export function computeContractPnL(contract) {
       : Math.max(0, Math.round((servicePrice - platformFeeEarned) * 100) / 100)
   );
 
-  const actualLabelCost = Number(contract.labelCostActual || 0);
-  const actualInsurancePremium = Number(contract.insurancePremiumActual || 0);
+  const hasLabels = Boolean(
+    contract.inboundLabelUrl ||
+    contract.outboundLabelUrl ||
+    contract.inboundTracking?.trackingNumber ||
+    contract.outboundTracking?.trackingNumber
+  );
+
+  // If labelCostActual was recorded, use it. If labels exist but actual cost wasn't recorded,
+  // fall back to shippingFee so shipping is treated as pass-through at cost, rather than assuming labels were free ($0 cost).
+  const actualLabelCost = Number(
+    contract.labelCostActual != null && contract.labelCostActual > 0
+      ? contract.labelCostActual
+      : hasLabels
+        ? shippingFee
+        : 0
+  );
+
+  // Similarly for insurance: if premium was recorded, use it; otherwise if insurance was charged,
+  // fall back to insuranceFee as pass-through cost rather than assuming insurance was free.
+  const hasInsurance = insuranceFee > 0 && !contract.insuranceDeclined;
+  const actualInsurancePremium = Number(
+    contract.insurancePremiumActual != null && contract.insurancePremiumActual > 0
+      ? contract.insurancePremiumActual
+      : hasInsurance
+        ? insuranceFee
+        : 0
+  );
 
   const estimatedStripeFee = grossCollected > 0
     ? Math.round((grossCollected * 0.029 + 0.30) * 100) / 100
