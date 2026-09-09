@@ -1,7 +1,7 @@
 import { ForbiddenError, UserInputError } from "apollo-server-core";
 import { contractService } from "../contracts/contract.service.js";
 import { contractErrors } from "../contracts/contract.constants.js";
-import { requireAuth, requireClient, requireMember } from "../auth/guards.js";
+import { requireAuth, requireClient, requireMember, requireAdmin } from "../auth/guards.js";
 
 import pubsub from "../pubsub";
 
@@ -88,6 +88,26 @@ const Query = {
         throw new UserInputError(e.message);
       }
       throw new Error(e);
+    }
+  }),
+  adminDisputeQueue: requireAdmin(async (parent, args, ctx) => {
+    try {
+      return await contractService.getDisputeQueue({
+        limit: args.limit,
+        offset: args.offset,
+      });
+    } catch (e) {
+      throw new Error(e.message || e);
+    }
+  }),
+  adminDisputeDetail: requireAdmin(async (parent, args, ctx) => {
+    try {
+      return await contractService.getDisputeDetail(args.orderRef);
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new UserInputError("Dispute contract not found");
+      }
+      throw new Error(e.message || e);
     }
   }),
 };
@@ -436,9 +456,77 @@ const Mutation = {
       throw new Error(e);
     }
   }),
+  resolveDisputeForUser: requireAdmin(async (parent, args, ctx) => {
+    try {
+      const adminActor = `admin:${ctx.userId}`;
+      return await contractService.resolveDisputeForUser(args.contractId, {
+        banMember: args.banMember,
+        reason: args.reason,
+        adminActor,
+      });
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new UserInputError("Contract not found");
+      }
+      if (e.message === contractErrors.DISPUTE_NOT_OPEN) {
+        throw new UserInputError("Contract is not under manual review");
+      }
+      throw new Error(e.message || e);
+    }
+  }),
+  resolveDisputeForMember: requireAdmin(async (parent, args, ctx) => {
+    try {
+      const adminActor = `admin:${ctx.userId}`;
+      return await contractService.resolveDisputeForMember(args.contractId, {
+        banUser: args.banUser,
+        reason: args.reason,
+        adminActor,
+      });
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new UserInputError("Contract not found");
+      }
+      if (e.message === contractErrors.DISPUTE_NOT_OPEN) {
+        throw new UserInputError("Contract is not under manual review");
+      }
+      if (e.message === contractErrors.MEMBER_STRIPE_NOT_CONNECTED) {
+        throw new Error("Member has not connected Stripe");
+      }
+      throw new Error(e.message || e);
+    }
+  }),
+  resolveDisputeInconclusive: requireAdmin(async (parent, args, ctx) => {
+    try {
+      const adminActor = `admin:${ctx.userId}`;
+      return await contractService.resolveDisputeInconclusive(args.contractId, {
+        refundCents: args.refundCents,
+        payoutCents: args.payoutCents,
+        banBoth: args.banBoth,
+        reason: args.reason,
+        adminActor,
+      });
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new UserInputError("Contract not found");
+      }
+      if (e.message === contractErrors.DISPUTE_NOT_OPEN) {
+        throw new UserInputError("Contract is not under manual review");
+      }
+      if (e.message === contractErrors.INVALID_SPLIT_AMOUNT) {
+        throw new UserInputError("Invalid split amounts: total exceeds captured amount or negative");
+      }
+      if (e.message === contractErrors.MEMBER_STRIPE_NOT_CONNECTED) {
+        throw new Error("Member has not connected Stripe");
+      }
+      throw new Error(e.message || e);
+    }
+  }),
 };
 
 const Contract = {
+  pnl(parent) {
+    return contractService.computeContractPnL(parent);
+  },
   async member(parent, args, ctx, info) {
     try {
       const member = await contractService.getContractMember(parent.memberId);

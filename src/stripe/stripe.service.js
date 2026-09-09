@@ -459,6 +459,7 @@ export const refundContractPayment = async ({
   amountCents,
   reason = "requested_by_customer",
   contractId,
+  idempotencyKey,
 }) => {
   try {
     const params = {
@@ -470,7 +471,7 @@ export const refundContractPayment = async ({
       params.amount = amountCents;
     }
     const refund = await stripe.refunds.create(params, {
-      idempotencyKey: `refund_contract_${contractId}`,
+      idempotencyKey: idempotencyKey || `refund_contract_${contractId}`,
     });
     return refund;
   } catch (error) {

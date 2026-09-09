@@ -1119,4 +1119,360 @@ export const contractService = {
   async getContractClient(clientId) {
     return await userRepository.findById(clientId);
   },
+
+  computeContractPnL(contract) {
+    return computeContractPnL(contract);
+  },
+
+  async getDisputeQueue({ limit = 20, offset = 0 } = {}) {
+    const contracts = await contractRepository.findFlagged();
+    const enriched = await Promise.all(
+      contracts.map(async (c) => {
+        const [member, client] = await Promise.all([
+          memberRepository.findById(c.memberId),
+          userRepository.findById(c.clientId),
+        ]);
+        const clientName = client
+          ? `${client.firstName || ""} ${client.lastName || ""}`.trim() || client.email || "Unknown"
+          : "Unknown";
+        const memberName = member
+          ? `${member.firstName || ""} ${member.lastName || ""}`.trim() || member.businessName || "Unknown"
+          : "Unknown";
+        const price = Number(c.price || 0);
+        const declared = Number(c.declaredMarketValue || 0);
+        const ratio = price > 0 ? declared / price : declared;
+        const severityScore = Math.round((ratio * 10 + declared) * 10) / 10;
+
+        const disputeTimeline = (c.timeline || []).find(
+          (t) => t.event === contractEvent.disputeOpened
+        );
+        const disputeOpenedAt = disputeTimeline?.date ? new Date(disputeTimeline.date).toISOString() : null;
+
+        return {
+          id: c._id.toString(),
+          orderRef: c.orderRef || c._id.toString(),
+          status: c.status,
+          clientName,
+          clientId: c.clientId ? c.clientId.toString() : "",
+          memberName,
+          memberId: c.memberId ? c.memberId.toString() : "",
+          servicePrice: price,
+          declaredMarketValue: declared,
+          disputeOpenedAt,
+          createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(),
+          severityScore,
+        };
+      })
+    );
+
+    enriched.sort((a, b) => {
+      if (b.severityScore !== a.severityScore) {
+        return b.severityScore - a.severityScore;
+      }
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+
+    const total = enriched.length;
+    const items = enriched.slice(offset, offset + limit);
+    return { items, total };
+  },
+
+  async getDisputeDetail(orderRef) {
+    if (!orderRef) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    const contract = await contractRepository.findByOrderRef(orderRef);
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+
+    let chatMessages = [];
+    if (contract.chatId) {
+      const messages = await chatRepository.findMessagesByChatId(contract.chatId);
+      chatMessages = (messages || []).map((m) => ({
+        id: m._id.toString(),
+        chatId: m.chatId,
+        content: m.content || "",
+        senderId: m.senderId ? m.senderId.toString() : "",
+        createdAt: m.createdAt ? new Date(m.createdAt).toISOString() : new Date().toISOString(),
+        senderType: m.senderType || "USER",
+        type: m.type,
+        metadata: m.metadata,
+      }));
+    }
+
+    const pnl = computeContractPnL(contract);
+    return {
+      contract,
+      chatMessages,
+      pnl,
+    };
+  },
+
+  async resolveDisputeForUser(contractId, { banMember, reason, adminActor } = {}) {
+    const contract = await contractRepository.findById(contractId);
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    if (contract.status !== contractStatus.underManualReview) {
+      throw new Error(contractErrors.DISPUTE_NOT_OPEN);
+    }
+
+    if (contract.stripePaymentIntentId) {
+      await refundContractPayment({
+        paymentIntentId: contract.stripePaymentIntentId,
+        reason: "dispute_resolved_customer",
+        contractId: contract._id,
+        idempotencyKey: `dispute_refund_user_${contract._id}`,
+      });
+    }
+
+    const now = new Date();
+    await contractRepository.updateById(contract._id, {
+      status: contractStatus.canceled,
+      payoutStatus: payoutStatus.canceled,
+      $push: {
+        timeline: {
+          $each: [
+            {
+              event: contractEvent.adminRuledForUser,
+              date: now,
+              reason: reason || "Admin ruled in favor of customer",
+              actor: adminActor || "admin",
+            },
+            {
+              event: contractEvent.disputeResolved,
+              date: now,
+              actor: adminActor || "admin",
+            },
+          ],
+        },
+      },
+    });
+
+    if (banMember && contract.memberId) {
+      await memberRepository.updateById(contract.memberId, {
+        isActive: false,
+        deletedAt: new Date(),
+      });
+    }
+
+    return true;
+  },
+
+  async resolveDisputeForMember(contractId, { banUser, reason, adminActor } = {}) {
+    const contract = await contractRepository.findById(contractId);
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    if (contract.status !== contractStatus.underManualReview) {
+      throw new Error(contractErrors.DISPUTE_NOT_OPEN);
+    }
+
+    const member = await memberRepository.findById(contract.memberId);
+    if (!member?.stripeConnectAccountId) {
+      throw new Error(contractErrors.MEMBER_STRIPE_NOT_CONNECTED);
+    }
+
+    const amountCents = Math.round((contract.payoutAmount || 0) * 100);
+    const transfer = await releasePayoutToMember(
+      member.stripeConnectAccountId,
+      amountCents,
+      contractId.toString()
+    );
+
+    const now = new Date();
+    await contractRepository.updateById(contract._id, {
+      status: contractStatus.completed,
+      payoutStatus: payoutStatus.paid,
+      stripeTransferId: transfer.id,
+      paidAt: now,
+      $push: {
+        timeline: {
+          $each: [
+            {
+              event: contractEvent.adminRuledForMember,
+              date: now,
+              reason: reason || "Admin ruled in favor of restorer",
+              actor: adminActor || "admin",
+            },
+            {
+              event: contractEvent.disputeResolved,
+              date: now,
+              actor: adminActor || "admin",
+            },
+          ],
+        },
+      },
+    });
+
+    if (banUser && contract.clientId) {
+      await userRepository.updateUserById(contract.clientId, {
+        isActive: false,
+        deletedAt: new Date(),
+      });
+    }
+
+    return true;
+  },
+
+  async resolveDisputeInconclusive(
+    contractId,
+    { refundCents = 0, payoutCents = 0, banBoth, reason, adminActor } = {}
+  ) {
+    const contract = await contractRepository.findById(contractId);
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    if (contract.status !== contractStatus.underManualReview) {
+      throw new Error(contractErrors.DISPUTE_NOT_OPEN);
+    }
+
+    const totalCapturedDollars =
+      (contract.price || 0) +
+      (contract.shippingFee || 0) +
+      (contract.insuranceFee || 0) +
+      (contract.taxFee || 0);
+    const totalCapturedCents = Math.round(totalCapturedDollars * 100);
+
+    if (
+      refundCents < 0 ||
+      payoutCents < 0 ||
+      refundCents + payoutCents > totalCapturedCents
+    ) {
+      throw new Error(contractErrors.INVALID_SPLIT_AMOUNT);
+    }
+
+    if (refundCents > 0 && contract.stripePaymentIntentId) {
+      await refundContractPayment({
+        paymentIntentId: contract.stripePaymentIntentId,
+        amountCents: refundCents,
+        reason: "dispute_inconclusive",
+        contractId: contract._id,
+        idempotencyKey: `dispute_refund_split_${contract._id}_${refundCents}`,
+      });
+    }
+
+    let transfer = null;
+    if (payoutCents > 0) {
+      const member = await memberRepository.findById(contract.memberId);
+      if (!member?.stripeConnectAccountId) {
+        throw new Error(contractErrors.MEMBER_STRIPE_NOT_CONNECTED);
+      }
+      transfer = await releasePayoutToMember(
+        member.stripeConnectAccountId,
+        payoutCents,
+        contractId.toString()
+      );
+    }
+
+    const now = new Date();
+    const extraUpdates = {
+      status: contractStatus.canceled,
+      payoutStatus: payoutCents > 0 ? payoutStatus.paid : payoutStatus.canceled,
+    };
+    if (transfer?.id) {
+      extraUpdates.stripeTransferId = transfer.id;
+      extraUpdates.paidAt = now;
+    }
+
+    await contractRepository.updateById(contract._id, {
+      ...extraUpdates,
+      $push: {
+        timeline: {
+          $each: [
+            {
+              event: contractEvent.adminRuledInconclusive,
+              date: now,
+              reason: reason || "Admin resolved dispute inconclusive",
+              actor: adminActor || "admin",
+              refundCents,
+            },
+            {
+              event: contractEvent.disputeResolved,
+              date: now,
+              actor: adminActor || "admin",
+            },
+          ],
+        },
+      },
+    });
+
+    if (banBoth) {
+      if (contract.memberId) {
+        await memberRepository.updateById(contract.memberId, {
+          isActive: false,
+          deletedAt: new Date(),
+        });
+      }
+      if (contract.clientId) {
+        await userRepository.updateUserById(contract.clientId, {
+          isActive: false,
+          deletedAt: new Date(),
+        });
+      }
+    }
+
+    return true;
+  },
 };
+
+export function computeContractPnL(contract) {
+  if (!contract) return null;
+  const servicePrice = Number(contract.price || 0);
+  const shippingFee = Number(contract.shippingFee || 0);
+  const insuranceFee = Number(contract.insuranceFee || 0);
+  const taxFee = Number(contract.taxFee || 0);
+  const grossCollected = Math.round((servicePrice + shippingFee + insuranceFee + taxFee) * 100) / 100;
+
+  const platformFeeEarned = Number(
+    contract.platformFee != null
+      ? contract.platformFee
+      : Math.round(servicePrice * platformFee.rate * 100) / 100
+  );
+  const payoutAmount = Number(
+    contract.payoutAmount != null
+      ? contract.payoutAmount
+      : Math.max(0, Math.round((servicePrice - platformFeeEarned) * 100) / 100)
+  );
+
+  const actualLabelCost = Number(contract.labelCostActual || 0);
+  const actualInsurancePremium = Number(contract.insurancePremiumActual || 0);
+
+  const estimatedStripeFee = grossCollected > 0
+    ? Math.round((grossCollected * 0.029 + 0.30) * 100) / 100
+    : 0;
+
+  const salesTaxRemittance = taxFee;
+
+  const totalOutflows = Math.round(
+    (payoutAmount + actualLabelCost + actualInsurancePremium + estimatedStripeFee + salesTaxRemittance) * 100
+  ) / 100;
+
+  const netPlatformProfit = Math.round((grossCollected - totalOutflows) * 100) / 100;
+  const netPlatformMarginPercent = grossCollected > 0
+    ? Math.round((netPlatformProfit / grossCollected) * 1000) / 10
+    : 0;
+
+  const shippingSpread = Math.round((shippingFee - actualLabelCost) * 100) / 100;
+  const insuranceSpread = Math.round((insuranceFee - actualInsurancePremium) * 100) / 100;
+
+  return {
+    grossCollected,
+    servicePrice,
+    shippingFee,
+    insuranceFee,
+    taxFee,
+    payoutAmount,
+    platformFee: platformFeeEarned,
+    actualLabelCost,
+    actualInsurancePremium,
+    estimatedStripeFee,
+    salesTaxRemittance,
+    totalOutflows,
+    netPlatformProfit,
+    netPlatformMarginPercent,
+    shippingSpread,
+    insuranceSpread,
+  };
+}

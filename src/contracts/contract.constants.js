@@ -57,6 +57,9 @@ export const contractEvent = Object.freeze({
   contractCanceled: "CONTRACT_CANCELED",
   disputeOpened: "DISPUTE_OPENED",
   disputeResolved: "DISPUTE_RESOLVED",
+  adminRuledForUser: "ADMIN_RULED_FOR_USER",
+  adminRuledForMember: "ADMIN_RULED_FOR_MEMBER",
+  adminRuledInconclusive: "ADMIN_RULED_INCONCLUSIVE",
 });
 
 // Backwards-compat alias — prefer contractEvent in new code
@@ -119,4 +122,6 @@ export const contractErrors = Object.freeze({
   UNBOXING_PHOTOS_REQUIRED: "UNBOXING_PHOTOS_REQUIRED",
   CANCEL_NOT_ALLOWED: "CANCEL_NOT_ALLOWED",
   ALREADY_CANCELED: "ALREADY_CANCELED",
+  DISPUTE_NOT_OPEN: "DISPUTE_NOT_OPEN",
+  INVALID_SPLIT_AMOUNT: "INVALID_SPLIT_AMOUNT",
 });
