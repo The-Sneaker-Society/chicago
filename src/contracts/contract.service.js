@@ -1485,7 +1485,7 @@ export const contractService = {
 
 export function computeContractPnL(contract) {
   if (!contract) return null;
-  const servicePrice = Number(contract.price || 0);
+  const servicePrice = Number(contract.price != null ? contract.price : contract.proposedPrice || 0);
   const shippingFee = Number(contract.shippingFee || 0);
   const insuranceFee = Number(contract.insuranceFee || 0);
   const taxFee = Number(contract.taxFee || 0);
