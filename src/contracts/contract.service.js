@@ -64,7 +64,7 @@ const buildShoeProductName = (shoeDetails) => {
 
 export const contractService = {
   async getContractsForContext(dbUser, role) {
-    if (!dbUser) {
+    if (!dbUser && role !== "admin") {
       return [];
     }
 
@@ -76,6 +76,72 @@ export const contractService = {
     }
 
     return await contractRepository.findAll(filter);
+  },
+
+  async getAdminContracts({ status, search, limit = 50, offset = 0 } = {}) {
+    let contracts = await contractRepository.findAll({});
+    // Sort newest first
+    contracts.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    // Calculate portfolio-wide metrics across all contracts
+    let totalVolume = 0;
+    let totalPayouts = 0;
+    let totalNetProfit = 0;
+    let completedCount = 0;
+    let inFlightCount = 0;
+    let disputeCount = 0;
+
+    for (const c of contracts) {
+      const pnl = computeContractPnL(c);
+      if (pnl) {
+        totalVolume += pnl.grossCollected;
+        totalPayouts += pnl.payoutAmount;
+        totalNetProfit += pnl.netPlatformProfit;
+      }
+      if (c.status === "COMPLETED") completedCount += 1;
+      else if (c.status === "UNDER_MANUAL_REVIEW") disputeCount += 1;
+      else if (c.status !== "CANCELED") inFlightCount += 1;
+    }
+
+    totalVolume = Math.round(totalVolume * 100) / 100;
+    totalPayouts = Math.round(totalPayouts * 100) / 100;
+    totalNetProfit = Math.round(totalNetProfit * 100) / 100;
+    const avgMarginPercent = totalVolume > 0
+      ? Math.round((totalNetProfit / totalVolume) * 1000) / 10
+      : 0;
+
+    // Filter by status if requested
+    if (status && status !== "ALL") {
+      contracts = contracts.filter((c) => c.status === status);
+    }
+
+    // Filter by search term if requested
+    if (search && search.trim()) {
+      const q = search.trim().toLowerCase();
+      contracts = contracts.filter((c) => {
+        const orderRef = (c.orderRef || "").toLowerCase();
+        const model = (c.shoeDetails?.model || "").toLowerCase();
+        const brand = (c.shoeDetails?.brand || "").toLowerCase();
+        return orderRef.includes(q) || model.includes(q) || brand.includes(q);
+      });
+    }
+
+    const total = contracts.length;
+    const items = contracts.slice(offset, offset + limit);
+
+    return {
+      items,
+      total,
+      metrics: {
+        totalVolume,
+        totalPayouts,
+        totalNetProfit,
+        avgMarginPercent,
+        completedCount,
+        inFlightCount,
+        disputeCount,
+      },
+    };
   },
 
   /**

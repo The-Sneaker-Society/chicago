@@ -110,6 +110,18 @@ const Query = {
       throw new Error(e.message || e);
     }
   }),
+  adminContracts: requireAdmin(async (parent, args, ctx) => {
+    try {
+      return await contractService.getAdminContracts({
+        status: args.status,
+        search: args.search,
+        limit: args.limit,
+        offset: args.offset,
+      });
+    } catch (e) {
+      throw new Error(e.message || e);
+    }
+  }),
 };
 
 const Mutation = {

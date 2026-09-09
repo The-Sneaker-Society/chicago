@@ -347,6 +347,22 @@ const contractTypeDefs = gql`
     pnl: ContractPnL!
   }
 
+  type AdminContractsMetrics {
+    totalVolume: Float!
+    totalPayouts: Float!
+    totalNetProfit: Float!
+    avgMarginPercent: Float!
+    completedCount: Int!
+    inFlightCount: Int!
+    disputeCount: Int!
+  }
+
+  type AdminContractsResponse {
+    items: [Contract!]!
+    total: Int!
+    metrics: AdminContractsMetrics!
+  }
+
   type Query {
     contracts: [Contract!]!
     contractById(id: ID): Contract!
@@ -356,6 +372,7 @@ const contractTypeDefs = gql`
     getContractList: [ContractListItem!]!
     adminDisputeQueue(limit: Int, offset: Int): DisputeQueueResponse!
     adminDisputeDetail(orderRef: String!): DisputeDetail!
+    adminContracts(status: String, search: String, limit: Int, offset: Int): AdminContractsResponse!
   }
 
   type Mutation {
