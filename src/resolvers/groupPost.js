@@ -101,8 +101,9 @@ const Mutation = {
     return getPopulatedPost(saved._id);
   },
 
-  async updatePost(parent, { postId, content, images = [] }, ctx) {
+  async updatePost(parent, { postId, content, images }, ctx) {
     const memberId = getAuthenticatedMemberId(ctx);
+
     if (!content?.trim()) {
       throw new Error("Post content is required.");
     }
@@ -113,23 +114,25 @@ const Mutation = {
       throw new Error("Only the post author can edit this post.");
     }
 
-    const isMember = (group.members || []).some(
-      (id) => String(id) === memberId,
-    );
+    const isMember = isGroupMember(group, memberId);
 
     if (!isMember) {
       throw new Error("You must be a member of this group to edit a post.");
     }
 
     post.content = content.trim();
-    post.images = images;
+
+    if (images !== undefined) {
+      post.images = images;
+    }
+
     await post.save();
 
     return getPopulatedPost(post._id);
   },
 
   async deletePost(parent, { postId }, ctx) {
-    const memberId = requireAuthenticatedMember(ctx);
+    const memberId = getAuthenticatedMemberId(ctx);
     const { post, group } = await getPostAndGroup(postId);
     const isAuthor = String(post.author) === memberId;
     const canManage =
@@ -146,7 +149,7 @@ const Mutation = {
   },
 
   async likePost(parent, { postId }, ctx) {
-    const memberId = requireAuthenticatedMember(ctx);
+    const memberId = getAuthenticatedMemberId(ctx);
     const { post, group } = await getPostAndGroup(postId);
     const isMember = isGroupMember(group, memberId);
 

@@ -49,6 +49,6 @@ module.exports = {
     ...(groupResolvers.Group || {}),
   },
   GroupPost: {
-    ...groupPostResolvers.Post,
+    ...groupPostResolvers.GroupPost,
   },
 };

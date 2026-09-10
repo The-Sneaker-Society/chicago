@@ -2,7 +2,7 @@ import {
   addComment,
   updateComment,
   deleteComment,
-} from "../services/groupPostComment.service";
+} from "../services/getPostComment.service";
 
 const Mutation = {
   async addComment(parent, { postId, content }, ctx) {

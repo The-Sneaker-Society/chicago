@@ -1,7 +1,7 @@
 import GroupsModel from "../models/Groups.model";
 import GroupPostModel from "../models/GroupPost.model";
 import {
-  requireAuthenticatedMember,
+  getAuthenticatedMemberId,
   requireGroupCreatorAccess,
   requireGroupAdminAccess,
 } from "../utils/groupPermissions";
@@ -35,7 +35,7 @@ const Mutation = {
       throw new Error("Group name is required.");
     }
 
-    const creatorMemberId = requireAuthenticatedMember(ctx);
+    const creatorMemberId = getAuthenticatedMemberId(ctx);
     const members = [...new Set([creatorMemberId, ...memberIds.map(String)])];
 
     const newGroup = new GroupsModel({
@@ -100,7 +100,7 @@ const Mutation = {
   },
 
   async joinGroup(parent, { groupId }, ctx) {
-    const memberId = requireAuthenticatedMember(ctx);
+    const memberId = getAuthenticatedMemberId(ctx);
 
     // Intentional: groups are open in the current product phase.
     // Add a visibility/join-policy guard here when private groups are introduced.
