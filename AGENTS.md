@@ -23,7 +23,11 @@ Reference implementations: `src/users/*`, `src/photo-upload-service/*`.
 1. **Resolvers never import Mongoose models.** They read context (`ctx.userId`, `ctx.dbUser`, `ctx.role`), guard auth, validate input args, call the domain service, and translate domain errors into Apollo errors (`UserInputError`, etc.). Keep exported resolver shapes/names identical — they are schema contracts.
 2. **Services never import anything from GraphQL/Apollo** (`apollo-server*`). They throw plain domain errors (`new Error("CONTRACT_NOT_FOUND")`) that resolvers translate. External integrations (Stripe, Redis, QR, pubsub-via-injected-callback) are called from services only.
 3. **Repositories contain only Mongoose queries** for their OWN domain's model(s). No validation, no business rules.
-4. **Cross-domain access goes through the owning domain's repository** — never import another domain's model into a resolver or service. Services may import other domains' *repositories* and *constants* freely, but never another service (no service→service imports; prevents cycles).
+4. **Cross-domain access prefers the owning domain's repository** — never import another domain's model into a resolver or service. Services may import other domains' *repositories* and *constants* freely. Service→service calls are allowed only to reuse wrapped business logic (not just data), subject to:
+   - **Infra services are free:** `stripe`, `photo-upload-service`/`image`, `s3Service`/`ImageUpload`, `sendEmail`, `redis`, `qrGenerator`, `shipping` may be called from any domain service (e.g. `contractService` adding an image via `imageService`).
+   - **Domain→domain must be one-directional (DAG):** if `dashboardService` calls `groupService`, `groupService` must never call back (directly or transitively). Document the direction with a one-line comment at the import.
+   - **Prefer data over behavior:** if you only need rows, import the other domain's repository. If you need its invariants (validation, side-effects), call its service and name the intent (e.g. `deleteByGroup_INCLUDING_COMMENTS`).
+   - **Resolvers may orchestrate:** a resolver can call two services in sequence and pass plain data into a combine function, instead of wiring services together.
 5. Never modify `src/models/*` schemas or GraphQL type definitions without explicit instruction.
 
 ## File layout conventions
