@@ -278,8 +278,18 @@ const Mutation = {
       if (e.message === contractErrors.NO_PENDING_PAYOUT) {
         throw new Error("No pending payout for this contract");
       }
+      if (e.message === contractErrors.INVALID_PAYOUT_AMOUNT) {
+        throw new UserInputError("Nothing payable on this contract");
+      }
       if (e.message === contractErrors.MEMBER_STRIPE_NOT_CONNECTED) {
         throw new Error("Member is not connected to Stripe");
+      }
+      if (
+        e.message === contractErrors.PAYOUT_SETTLEMENT_FAILED ||
+        e.message === contractErrors.LEDGER_CONCURRENT_MODIFICATION
+      ) {
+        // Already human-actionable (carries transfer id + recovery instruction)
+        throw new Error(e.message);
       }
       throw new Error(e);
     }
@@ -521,6 +531,15 @@ const Mutation = {
       if (e.message === contractErrors.MEMBER_STRIPE_NOT_CONNECTED) {
         throw new Error("Member has not connected Stripe");
       }
+      if (e.message === contractErrors.INVALID_PAYOUT_AMOUNT) {
+        throw new UserInputError("Nothing payable on this contract");
+      }
+      if (
+        e.message === contractErrors.PAYOUT_SETTLEMENT_FAILED ||
+        e.message === contractErrors.LEDGER_CONCURRENT_MODIFICATION
+      ) {
+        throw new Error(e.message);
+      }
       throw new Error(e.message || e);
     }
   }),
@@ -548,6 +567,12 @@ const Mutation = {
       }
       if (e.message === contractErrors.MEMBER_STRIPE_NOT_CONNECTED) {
         throw new Error("Member has not connected Stripe");
+      }
+      if (
+        e.message === contractErrors.PAYOUT_SETTLEMENT_FAILED ||
+        e.message === contractErrors.LEDGER_CONCURRENT_MODIFICATION
+      ) {
+        throw new Error(e.message);
       }
       throw new Error(e.message || e);
     }

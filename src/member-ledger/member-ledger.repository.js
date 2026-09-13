@@ -38,6 +38,25 @@ export const memberLedgerRepository = {
     );
   },
 
+  // Conditional variants for payout-time commits: only apply when settledCents
+  // hasn't moved underneath the plan (concurrent payout guard). Returns null
+  // on mismatch — callers must treat null as a concurrency abort, not a skip.
+  async settleIfExpected(id, expectedSettled, settledCents) {
+    return await MemberLedgerEntryModel.findOneAndUpdate(
+      { _id: id, settledCents: expectedSettled },
+      { settledCents, status: ledgerEntryStatus.settled },
+      { new: true }
+    );
+  },
+
+  async partialIfExpected(id, expectedSettled, settledCents) {
+    return await MemberLedgerEntryModel.findOneAndUpdate(
+      { _id: id, settledCents: expectedSettled },
+      { settledCents, status: ledgerEntryStatus.outstanding },
+      { new: true }
+    );
+  },
+
   async applyPartial(id, settledCents) {
     return await MemberLedgerEntryModel.findByIdAndUpdate(
       id,

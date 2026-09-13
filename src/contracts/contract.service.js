@@ -717,6 +717,9 @@ export const contractService = {
     }
 
     const amountCents = Math.round(contract.payoutAmount * 100);
+    if (!Number.isFinite(amountCents) || amountCents <= 0) {
+      throw new Error(contractErrors.INVALID_PAYOUT_AMOUNT);
+    }
     const { netCents, plan } = await this.planDebtNetting(contract.memberId, amountCents);
     let transfer = null;
     if (netCents > 0) {
@@ -726,8 +729,6 @@ export const contractService = {
         contractId
       );
     }
-    const applied = await this.commitDebtSettlement(plan);
-
     const withheldCents = amountCents - netCents;
     const timelineEvents = [
       { event: contractEvent.payoutReleased, date: new Date() },
@@ -740,14 +741,19 @@ export const contractService = {
         actor: "admin",
       });
     }
-    await contractRepository.updateById(contractId, {
-      payoutStatus: payoutStatus.paid,
-      ...(transfer?.id ? { stripeTransferId: transfer.id } : {}),
-      paidAt: new Date(),
-      status: contractStatus.completed,
-      $push: { timeline: { $each: timelineEvents } },
+    await this.settleAndMarkPaid({
+      plan,
+      contractId,
+      update: {
+        payoutStatus: payoutStatus.paid,
+        ...(transfer?.id ? { stripeTransferId: transfer.id } : {}),
+        paidAt: new Date(),
+        status: contractStatus.completed,
+        $push: { timeline: { $each: timelineEvents } },
+      },
+      payingOrderRef: contract.orderRef || contractId.toString(),
+      transferId: transfer?.id,
     });
-    await this.noteDebtSettlementOnOrigins(applied, contract.orderRef || contractId.toString());
 
     return true;
   },
@@ -852,22 +858,26 @@ export const contractService = {
    * transfer instead of double-paying. Floor zero: remainder carries forward.
    */
   async planDebtNetting(memberId, grossCents) {
+    if (!Number.isFinite(grossCents) || grossCents < 0) {
+      throw new Error(ledgerErrors.INVALID_AMOUNT);
+    }
     const outstanding = await memberLedgerRepository.findOutstandingByMember(memberId);
     let remaining = grossCents;
     const plan = [];
     for (const entry of outstanding || []) {
       if (remaining <= 0) break;
-      const owed =
-        (Number(entry.amountCents) || 0) - (Number(entry.settledCents) || 0);
+      const settledSoFar = Number(entry.settledCents) || 0;
+      const owed = (Number(entry.amountCents) || 0) - settledSoFar;
       if (owed <= 0) continue;
       const take = Math.min(owed, remaining);
-      const newSettled = (Number(entry.settledCents) || 0) + take;
+      const newSettled = settledSoFar + take;
       remaining -= take;
       plan.push({
         entryId: entry._id.toString(),
         orderRef: entry.orderRef || "",
         contractId: entry.contractId ? entry.contractId.toString() : null,
         takeCents: take,
+        expectedSettledCents: settledSoFar,
         newSettledCents: newSettled,
         willSettle: newSettled >= (Number(entry.amountCents) || 0),
       });
@@ -878,13 +888,37 @@ export const contractService = {
   async commitDebtSettlement(plan) {
     const applied = [];
     for (const p of plan || []) {
-      if (p.willSettle) {
-        await memberLedgerRepository.markSettled(p.entryId, p.newSettledCents);
-      } else {
-        await memberLedgerRepository.applyPartial(p.entryId, p.newSettledCents);
+      const ok = p.willSettle
+        ? await memberLedgerRepository.settleIfExpected(p.entryId, p.expectedSettledCents, p.newSettledCents)
+        : await memberLedgerRepository.partialIfExpected(p.entryId, p.expectedSettledCents, p.newSettledCents);
+      if (!ok) {
+        throw new Error(contractErrors.LEDGER_CONCURRENT_MODIFICATION);
       }
       applied.push({ entryId: p.entryId, orderRef: p.orderRef, amountCents: p.takeCents });
     }
+    return applied;
+  },
+
+  // Post-transfer persistence (settlements + contract update). Money has
+  // already moved when this runs: on failure we log the transfer id and throw
+  // PAYOUT_SETTLEMENT_FAILED (never silently) so an admin reconciles instead
+  // of retrying blindly. True atomicity needs replica-set transactions (follow-up).
+  async settleAndMarkPaid({ plan, contractId, update, payingOrderRef, adminActor, transferId }) {
+    let applied = [];
+    try {
+      applied = await this.commitDebtSettlement(plan);
+      await contractRepository.updateById(contractId, update);
+    } catch (e) {
+      if (e?.message === contractErrors.LEDGER_CONCURRENT_MODIFICATION) throw e;
+      console.error(
+        `[PAYOUT_SETTLEMENT] transfer ${transferId || "none"} moved money but persistence failed:`,
+        e?.message || e
+      );
+      throw new Error(
+        `${contractErrors.PAYOUT_SETTLEMENT_FAILED}: transfer ${transferId || "none"} moved money but the ledger/contract update did not persist — reconcile before retrying (cause: ${e?.message || e})`
+      );
+    }
+    await this.noteDebtSettlementOnOrigins(applied, payingOrderRef, adminActor);
     return applied;
   },
 
@@ -1542,6 +1576,9 @@ export const contractService = {
     }
 
     const amountCents = Math.round((contract.payoutAmount || 0) * 100);
+    if (!Number.isFinite(amountCents) || amountCents <= 0) {
+      throw new Error(contractErrors.INVALID_PAYOUT_AMOUNT);
+    }
     const { netCents, plan } = await this.planDebtNetting(contract.memberId, amountCents);
     let transfer = null;
     if (netCents > 0) {
@@ -1551,8 +1588,6 @@ export const contractService = {
         contractId.toString()
       );
     }
-    const applied = await this.commitDebtSettlement(plan);
-
     const now = new Date();
     const withheldCents = amountCents - netCents;
     const resolutionEvents = [
@@ -1576,20 +1611,26 @@ export const contractService = {
         actor: adminActor || "admin",
       });
     }
-    await contractRepository.updateById(contract._id, {
-      status: contractStatus.completed,
-      payoutStatus: payoutStatus.paid,
-      preDisputeStatus: null,
-      preDisputePayoutStatus: null,
-      ...(transfer?.id ? { stripeTransferId: transfer.id } : {}),
-      paidAt: now,
-      $push: {
-        timeline: {
-          $each: resolutionEvents,
+    await this.settleAndMarkPaid({
+      plan,
+      contractId: contract._id,
+      update: {
+        status: contractStatus.completed,
+        payoutStatus: payoutStatus.paid,
+        preDisputeStatus: null,
+        preDisputePayoutStatus: null,
+        ...(transfer?.id ? { stripeTransferId: transfer.id } : {}),
+        paidAt: now,
+        $push: {
+          timeline: {
+            $each: resolutionEvents,
+          },
         },
       },
+      payingOrderRef: contract.orderRef || contractId.toString(),
+      adminActor,
+      transferId: transfer?.id,
     });
-    await this.noteDebtSettlementOnOrigins(applied, contract.orderRef || contractId.toString(), adminActor);
 
     if (banUser && contract.clientId) {
       await userRepository.updateUserById(contract.clientId, {
@@ -1646,7 +1687,7 @@ export const contractService = {
     }
 
     let transfer = null;
-    let applied = [];
+    let nettingPlan = [];
     let netPayoutCents = payoutCents;
     if (payoutCents > 0) {
       const member = await memberRepository.findById(contract.memberId);
@@ -1655,6 +1696,7 @@ export const contractService = {
       }
       const netting = await this.planDebtNetting(contract.memberId, payoutCents);
       netPayoutCents = netting.netCents;
+      nettingPlan = netting.plan;
       if (netPayoutCents > 0) {
         transfer = await releasePayoutToMember(
           member.stripeConnectAccountId,
@@ -1662,7 +1704,6 @@ export const contractService = {
           contractId.toString()
         );
       }
-      applied = await this.commitDebtSettlement(netting.plan);
     }
 
     const now = new Date();
@@ -1674,6 +1715,9 @@ export const contractService = {
     };
     if (transfer?.id) {
       extraUpdates.stripeTransferId = transfer.id;
+    }
+    if (payoutCents > 0) {
+      // paidAt marks adjudication even when the whole payout was withheld for debt
       extraUpdates.paidAt = now;
     }
 
@@ -1701,15 +1745,21 @@ export const contractService = {
       });
     }
 
-    await contractRepository.updateById(contract._id, {
-      ...extraUpdates,
-      $push: {
-        timeline: {
-          $each: inconclusiveEvents,
+    await this.settleAndMarkPaid({
+      plan: nettingPlan,
+      contractId: contract._id,
+      update: {
+        ...extraUpdates,
+        $push: {
+          timeline: {
+            $each: inconclusiveEvents,
+          },
         },
       },
+      payingOrderRef: contract.orderRef || contractId.toString(),
+      adminActor,
+      transferId: transfer?.id,
     });
-    await this.noteDebtSettlementOnOrigins(applied, contract.orderRef || contractId.toString(), adminActor);
 
     if (banBoth || banMember) {
       if (contract.memberId) {

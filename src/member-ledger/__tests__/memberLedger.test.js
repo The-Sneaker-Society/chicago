@@ -5,6 +5,7 @@ import { memberLedgerRepository } from "../member-ledger.repository.js";
 import {
   contractStatus,
   contractEvent,
+  contractErrors,
   payoutStatus,
 } from "../../contracts/contract.constants.js";
 import { ledgerErrors } from "../member-ledger.constants.js";
@@ -165,17 +166,68 @@ describe("Member debt ledger (Option B)", () => {
   });
 
   describe("commitDebtSettlement", () => {
-    test("marks full takes settled and partials partial", async () => {
-      await contractService.commitDebtSettlement([
-        { entryId: "e1", orderRef: "SS-A", takeCents: 5000, newSettledCents: 5000, willSettle: true },
-        { entryId: "e2", orderRef: "SS-B", takeCents: 1000, newSettledCents: 1000, willSettle: false },
+    test("marks full takes settled and partials partial (conditional writes)", async () => {
+      memberLedgerRepository.settleIfExpected.mockResolvedValue({ _id: "e1" });
+      memberLedgerRepository.partialIfExpected.mockResolvedValue({ _id: "e2" });
+      const applied = await contractService.commitDebtSettlement([
+        { entryId: "e1", orderRef: "SS-A", takeCents: 5000, expectedSettledCents: 0, newSettledCents: 5000, willSettle: true },
+        { entryId: "e2", orderRef: "SS-B", takeCents: 1000, expectedSettledCents: 0, newSettledCents: 1000, willSettle: false },
       ]);
-      expect(memberLedgerRepository.markSettled).toHaveBeenCalledWith("e1", 5000);
-      expect(memberLedgerRepository.applyPartial).toHaveBeenCalledWith("e2", 1000);
+      expect(memberLedgerRepository.settleIfExpected).toHaveBeenCalledWith("e1", 0, 5000);
+      expect(memberLedgerRepository.partialIfExpected).toHaveBeenCalledWith("e2", 0, 1000);
+      expect(applied).toEqual([
+        expect.objectContaining({ entryId: "e1", amountCents: 5000 }),
+        expect.objectContaining({ entryId: "e2", amountCents: 1000 }),
+      ]);
+    });
+
+    test("concurrent modification aborts with a distinct error", async () => {
+      memberLedgerRepository.settleIfExpected.mockResolvedValue(null);
+      await expect(
+        contractService.commitDebtSettlement([
+          { entryId: "e1", orderRef: "SS-A", takeCents: 5000, expectedSettledCents: 0, newSettledCents: 5000, willSettle: true },
+        ])
+      ).rejects.toThrow(contractErrors.LEDGER_CONCURRENT_MODIFICATION);
+    });
+  });
+
+  describe("payout amount guards", () => {
+    test("releasePayout rejects missing/zero/NaN payout amounts", async () => {
+      for (const bad of [null, undefined, 0, -5]) {
+        contractRepository.findById.mockResolvedValue(baseContract({ payoutAmount: bad }));
+        await expect(contractService.releasePayout("c1")).rejects.toThrow(
+          contractErrors.INVALID_PAYOUT_AMOUNT
+        );
+      }
+      expect(stripeService.releasePayoutToMember).not.toHaveBeenCalled();
+    });
+
+    test("resolveDisputeForMember rejects zero payout instead of marking paid", async () => {
+      contractRepository.findById.mockResolvedValue(
+        baseContract({ status: contractStatus.underManualReview, payoutAmount: 0 })
+      );
+      await expect(contractService.resolveDisputeForMember("c1", {})).rejects.toThrow(
+        contractErrors.INVALID_PAYOUT_AMOUNT
+      );
+      expect(stripeService.releasePayoutToMember).not.toHaveBeenCalled();
+      expect(contractRepository.updateById).not.toHaveBeenCalled();
+    });
+
+    test("planDebtNetting rejects non-finite/negative gross", async () => {
+      for (const bad of [NaN, -100, undefined]) {
+        await expect(contractService.planDebtNetting(MEMBER, bad)).rejects.toThrow(
+          ledgerErrors.INVALID_AMOUNT
+        );
+      }
     });
   });
 
   describe("releasePayout with debts", () => {
+    beforeEach(() => {
+      memberLedgerRepository.settleIfExpected.mockResolvedValue({ _id: "e1" });
+      memberLedgerRepository.partialIfExpected.mockResolvedValue({ _id: "e1" });
+    });
+
     test("nets transfer, commits settlement, notes withholding", async () => {
       contractRepository.findById.mockResolvedValue(baseContract());
       memberLedgerRepository.findOutstandingByMember.mockResolvedValue([
@@ -189,7 +241,7 @@ describe("Member debt ledger (Option B)", () => {
       expect(result).toBe(true);
       // $200 payout − $54 debt = $146 transfer
       expect(stripeService.releasePayoutToMember).toHaveBeenCalledWith("acct_1", 14600, "c1");
-      expect(memberLedgerRepository.markSettled).toHaveBeenCalledWith("e1", 5400);
+      expect(memberLedgerRepository.settleIfExpected).toHaveBeenCalledWith("e1", 0, 5400);
       expect(contractRepository.updateById).toHaveBeenCalledWith(
         "c1",
         expect.objectContaining({
@@ -225,7 +277,7 @@ describe("Member debt ledger (Option B)", () => {
 
       await contractService.releasePayout("c1");
       expect(stripeService.releasePayoutToMember).not.toHaveBeenCalled();
-      expect(memberLedgerRepository.applyPartial).toHaveBeenCalledWith("e1", 2000);
+      expect(memberLedgerRepository.partialIfExpected).toHaveBeenCalledWith("e1", 0, 2000);
       expect(contractRepository.updateById).toHaveBeenCalledWith(
         "c1",
         expect.objectContaining({ payoutStatus: payoutStatus.paid })
