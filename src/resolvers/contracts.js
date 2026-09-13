@@ -122,6 +122,21 @@ const Query = {
       throw new Error(e.message || e);
     }
   }),
+  memberOutstandingDebt: requireAdmin(async (parent, args, ctx) => {
+    try {
+      const cents = await contractService.memberOutstandingDebt(args.memberId);
+      return (cents || 0) / 100;
+    } catch (e) {
+      throw new Error(e.message || e);
+    }
+  }),
+  memberLedgerEntries: requireAdmin(async (parent, args, ctx) => {
+    try {
+      return await contractService.memberLedgerEntries(args.memberId);
+    } catch (e) {
+      throw new Error(e.message || e);
+    }
+  }),
 };
 
 const Mutation = {
@@ -473,6 +488,7 @@ const Mutation = {
       const adminActor = `admin:${ctx.userId}`;
       return await contractService.resolveDisputeForUser(args.contractId, {
         banMember: args.banMember,
+        banUser: args.banUser,
         reason: args.reason,
         adminActor,
       });
@@ -491,6 +507,7 @@ const Mutation = {
       const adminActor = `admin:${ctx.userId}`;
       return await contractService.resolveDisputeForMember(args.contractId, {
         banUser: args.banUser,
+        banMember: args.banMember,
         reason: args.reason,
         adminActor,
       });
@@ -514,6 +531,8 @@ const Mutation = {
         refundCents: args.refundCents,
         payoutCents: args.payoutCents,
         banBoth: args.banBoth,
+        banUser: args.banUser,
+        banMember: args.banMember,
         reason: args.reason,
         adminActor,
       });
@@ -529,6 +548,55 @@ const Mutation = {
       }
       if (e.message === contractErrors.MEMBER_STRIPE_NOT_CONNECTED) {
         throw new Error("Member has not connected Stripe");
+      }
+      throw new Error(e.message || e);
+    }
+  }),
+  chargeMemberDebt: requireAdmin(async (parent, args, ctx) => {
+    try {
+      const adminActor = `admin:${ctx.userId}`;
+      return await contractService.chargeMemberDebt({
+        memberId: args.memberId,
+        contractId: args.contractId,
+        type: args.type,
+        amountCents: args.amountCents,
+        reason: args.reason,
+        adminActor,
+      });
+    } catch (e) {
+      throw new UserInputError(e.message || e);
+    }
+  }),
+  writeOffMemberDebt: requireAdmin(async (parent, args, ctx) => {
+    try {
+      const adminActor = `admin:${ctx.userId}`;
+      return await contractService.writeOffMemberDebt(args.entryId, {
+        reason: args.reason,
+        adminActor,
+      });
+    } catch (e) {
+      throw new UserInputError(e.message || e);
+    }
+  }),
+  dismissDispute: requireAdmin(async (parent, args, ctx) => {
+    try {
+      const adminActor = `admin:${ctx.userId}`;
+      return await contractService.dismissDispute(args.contractId, {
+        resumeStatus: args.resumeStatus,
+        banUser: args.banUser,
+        banMember: args.banMember,
+        reason: args.reason,
+        adminActor,
+      });
+    } catch (e) {
+      if (e.message === contractErrors.CONTRACT_NOT_FOUND) {
+        throw new UserInputError("Contract not found");
+      }
+      if (e.message === contractErrors.DISPUTE_NOT_OPEN) {
+        throw new UserInputError("Contract is not under manual review");
+      }
+      if (e.message === contractErrors.RESUME_STATUS_UNKNOWN) {
+        throw new UserInputError("No restorable status known — pick where the contract resumes");
       }
       throw new Error(e.message || e);
     }

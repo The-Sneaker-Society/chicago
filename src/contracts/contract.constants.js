@@ -57,13 +57,29 @@ export const contractEvent = Object.freeze({
   contractCanceled: "CONTRACT_CANCELED",
   disputeOpened: "DISPUTE_OPENED",
   disputeResolved: "DISPUTE_RESOLVED",
+  disputeDismissed: "DISPUTE_DISMISSED",
   adminRuledForUser: "ADMIN_RULED_FOR_USER",
   adminRuledForMember: "ADMIN_RULED_FOR_MEMBER",
   adminRuledInconclusive: "ADMIN_RULED_INCONCLUSIVE",
+  returnShipmentChargedToMember: "RETURN_SHIPMENT_CHARGED_TO_MEMBER",
+  payoutWithheldForDebt: "PAYOUT_WITHHELD_FOR_DEBT",
 });
 
 // Backwards-compat alias — prefer contractEvent in new code
 export const timelineEvent = contractEvent;
+
+// Statuses a contract may be flagged into UNDER_MANUAL_REVIEW from — and,
+// symmetrically, the only statuses a dismissed dispute may restore to.
+// Derived from contractStatus so values can never drift.
+export const disputableStatuses = Object.freeze([
+  contractStatus.readyToShip,
+  contractStatus.inboundShipped,
+  contractStatus.arrivedAtMember,
+  contractStatus.workInProgress,
+  contractStatus.readyForReturn,
+  contractStatus.returnShipped,
+  contractStatus.deliveredToUser,
+]);
 
 // ─── Payout Statuses ─────────────────────────────────────────
 export const payoutStatus = Object.freeze({
@@ -123,5 +139,6 @@ export const contractErrors = Object.freeze({
   CANCEL_NOT_ALLOWED: "CANCEL_NOT_ALLOWED",
   ALREADY_CANCELED: "ALREADY_CANCELED",
   DISPUTE_NOT_OPEN: "DISPUTE_NOT_OPEN",
+  RESUME_STATUS_UNKNOWN: "RESUME_STATUS_UNKNOWN",
   INVALID_SPLIT_AMOUNT: "INVALID_SPLIT_AMOUNT",
 });

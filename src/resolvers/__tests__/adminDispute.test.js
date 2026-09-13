@@ -129,6 +129,85 @@ describe("Admin Dispute Dashboard & P&L (Feature 11)", () => {
         )
       ).rejects.toThrow(ForbiddenError);
     });
+
+    test("chargeMemberDebt: requires admin and passes actor through", async () => {
+      contractService.chargeMemberDebt.mockResolvedValue("entry1");
+      const result = await contractResolvers.Mutation.chargeMemberDebt(
+        null,
+        { memberId: "m1", contractId: "c1", type: "RETURN_LABEL", amountCents: 5400, reason: "Return label" },
+        adminCtx
+      );
+      expect(result).toBe("entry1");
+      expect(contractService.chargeMemberDebt).toHaveBeenCalledWith({
+        memberId: "m1",
+        contractId: "c1",
+        type: "RETURN_LABEL",
+        amountCents: 5400,
+        reason: "Return label",
+        adminActor: "admin:admin_clerk_123",
+      });
+
+      await expect(
+        contractResolvers.Mutation.chargeMemberDebt(
+          null,
+          { memberId: "m1", contractId: "c1", amountCents: 100 },
+          memberCtx
+        )
+      ).rejects.toThrow(ForbiddenError);
+    });
+
+    test("writeOffMemberDebt: requires admin", async () => {
+      contractService.writeOffMemberDebt.mockResolvedValue(true);
+      const result = await contractResolvers.Mutation.writeOffMemberDebt(
+        null,
+        { entryId: "e1", reason: "Uncollectible" },
+        adminCtx
+      );
+      expect(result).toBe(true);
+      expect(contractService.writeOffMemberDebt).toHaveBeenCalledWith("e1", {
+        reason: "Uncollectible",
+        adminActor: "admin:admin_clerk_123",
+      });
+
+      await expect(
+        contractResolvers.Mutation.writeOffMemberDebt(null, { entryId: "e1" }, clientCtx)
+      ).rejects.toThrow(ForbiddenError);
+    });
+
+    test("dismissDispute: requires admin and passes resume through", async () => {
+      contractService.dismissDispute.mockResolvedValue(true);
+      const result = await contractResolvers.Mutation.dismissDispute(
+        null,
+        { contractId: "c1", resumeStatus: "INBOUND_SHIPPED", reason: "No need" },
+        adminCtx
+      );
+      expect(result).toBe(true);
+      expect(contractService.dismissDispute).toHaveBeenCalledWith("c1", {
+        resumeStatus: "INBOUND_SHIPPED",
+        banUser: undefined,
+        banMember: undefined,
+        reason: "No need",
+        adminActor: "admin:admin_clerk_123",
+      });
+
+      await expect(
+        contractResolvers.Mutation.dismissDispute(null, { contractId: "c1" }, memberCtx)
+      ).rejects.toThrow(ForbiddenError);
+    });
+
+    test("memberOutstandingDebt: requires admin and returns dollars", async () => {      contractService.memberOutstandingDebt.mockResolvedValue(5400);
+      const result = await contractResolvers.Query.memberOutstandingDebt(
+        null,
+        { memberId: "m1" },
+        adminCtx
+      );
+      expect(result).toBe(54);
+      expect(contractService.memberOutstandingDebt).toHaveBeenCalledWith("m1");
+
+      await expect(
+        contractResolvers.Query.memberOutstandingDebt(null, { memberId: "m1" }, memberCtx)
+      ).rejects.toThrow(ForbiddenError);
+    });
   });
 
   describe("Contract Unit Economics & P&L Calculations", () => {

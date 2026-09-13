@@ -89,6 +89,8 @@ const contractTypeDefs = gql`
     platformFee: Float
     payoutEligibleAt: String
     paidAt: String
+    preDisputeStatus: String
+    preDisputePayoutStatus: String
     selectedServiceMenuItem: SelectedServiceMenuItem
     pnl: ContractPnL
     createdAt: String
@@ -332,6 +334,10 @@ const contractTypeDefs = gql`
     servicePrice: Float
     declaredMarketValue: Float
     disputeOpenedAt: String
+    disputeOpenedBy: String
+    disputeOpenReason: String
+    clientPriorDisputes: Int
+    memberPriorDisputes: Int
     createdAt: String!
     severityScore: Float
   }
@@ -339,6 +345,20 @@ const contractTypeDefs = gql`
   type DisputeQueueResponse {
     items: [DisputeQueueItem!]!
     total: Int!
+  }
+
+  type MemberLedgerEntry {
+    id: ID!
+    memberId: ID!
+    contractId: ID!
+    orderRef: String
+    type: String!
+    amountCents: Int!
+    settledCents: Int!
+    reason: String
+    createdBy: String
+    status: String!
+    createdAt: String
   }
 
   type DisputeDetail {
@@ -373,6 +393,8 @@ const contractTypeDefs = gql`
     adminDisputeQueue(limit: Int, offset: Int): DisputeQueueResponse!
     adminDisputeDetail(orderRef: String!): DisputeDetail!
     adminContracts(status: String, search: String, limit: Int, offset: Int): AdminContractsResponse!
+    memberOutstandingDebt(memberId: ID!): Float!
+    memberLedgerEntries(memberId: ID!): [MemberLedgerEntry!]!
   }
 
   type Mutation {
@@ -392,9 +414,12 @@ const contractTypeDefs = gql`
     uploadReturnPackagingPhotos(contractId: ID!, keys: [String!]!): Boolean!
     flagContract(contractId: ID!, reason: String): Boolean!
     confirmReceipt(contractId: ID!): Boolean!
-    resolveDisputeForUser(contractId: ID!, banMember: Boolean, reason: String): Boolean!
-    resolveDisputeForMember(contractId: ID!, banUser: Boolean, reason: String): Boolean!
-    resolveDisputeInconclusive(contractId: ID!, refundCents: Int!, payoutCents: Int!, banBoth: Boolean, reason: String): Boolean!
+    resolveDisputeForUser(contractId: ID!, banMember: Boolean, banUser: Boolean, reason: String): Boolean!
+    resolveDisputeForMember(contractId: ID!, banUser: Boolean, banMember: Boolean, reason: String): Boolean!
+    resolveDisputeInconclusive(contractId: ID!, refundCents: Int!, payoutCents: Int!, banBoth: Boolean, banUser: Boolean, banMember: Boolean, reason: String): Boolean!
+    chargeMemberDebt(memberId: ID!, contractId: ID!, type: String, amountCents: Int!, reason: String): ID!
+    writeOffMemberDebt(entryId: ID!, reason: String): Boolean!
+    dismissDispute(contractId: ID!, resumeStatus: String, banUser: Boolean, banMember: Boolean, reason: String): Boolean!
   }
 `;
 
