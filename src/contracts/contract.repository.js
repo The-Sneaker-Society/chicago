@@ -127,6 +127,27 @@ export const contractRepository = {
     return await ContractModel.find({ status: "UNDER_MANUAL_REVIEW" });
   },
 
+  // Prior-dispute counts per party (contracts with a DISPUTE_OPENED timeline
+  // entry). Batched via aggregation — call once per queue load, not per row.
+  // Returns { [partyIdString]: count }.
+  async countDisputedByClients(clientIds) {
+    if (!clientIds?.length) return {};
+    const rows = await ContractModel.aggregate([
+      { $match: { clientId: { $in: clientIds }, "timeline.event": "DISPUTE_OPENED" } },
+      { $group: { _id: "$clientId", count: { $sum: 1 } } },
+    ]);
+    return Object.fromEntries((rows || []).map((r) => [String(r._id), r.count]));
+  },
+
+  async countDisputedByMembers(memberIds) {
+    if (!memberIds?.length) return {};
+    const rows = await ContractModel.aggregate([
+      { $match: { memberId: { $in: memberIds }, "timeline.event": "DISPUTE_OPENED" } },
+      { $group: { _id: "$memberId", count: { $sum: 1 } } },
+    ]);
+    return Object.fromEntries((rows || []).map((r) => [String(r._id), r.count]));
+  },
+
   /**
    * 72h auto-payout eligibility (plan-escrow-dispute.md §4): delivered,
    * payout still pending, and the review window has elapsed. Rows with no

@@ -19,6 +19,8 @@
     "delete-member": "babel-node src/scripts/deleteUser.js",
     "delete-member-by-id": "babel-node src/scripts/deleteMemberById.js",
     "seed-fake-contract": "babel-node src/scripts/seedFakeContract.js",
+    "seed-dispute": "babel-node src/scripts/seedDisputeContract.js",
+    "make-admin": "babel-node src/scripts/setAdminRole.js",
     "delete-contract": "babel-node src/scripts/deleteContract.js",
     "clean-legacy-contracts": "babel-node src/scripts/cleanLegacyContracts.js",
     "clean-legacy-contracts:dry": "babel-node src/scripts/cleanLegacyContracts.js --dry-run",

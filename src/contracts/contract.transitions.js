@@ -18,9 +18,14 @@ export const TRANSITIONS = Object.freeze({
   [contractStatus.underManualReview]: [
     contractStatus.canceled,
     contractStatus.completed,
+    // Dismiss-to-resume targets: the full disputable set (flag is reversible).
+    contractStatus.readyToShip,
+    contractStatus.inboundShipped,
+    contractStatus.arrivedAtMember,
     contractStatus.workInProgress,
     contractStatus.readyForReturn,
     contractStatus.returnShipped,
+    contractStatus.deliveredToUser,
   ],
   [contractStatus.canceled]: [],
   [contractStatus.completed]: [],

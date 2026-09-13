@@ -89,7 +89,10 @@ const contractTypeDefs = gql`
     platformFee: Float
     payoutEligibleAt: String
     paidAt: String
+    preDisputeStatus: String
+    preDisputePayoutStatus: String
     selectedServiceMenuItem: SelectedServiceMenuItem
+    pnl: ContractPnL
     createdAt: String
     updatedAt: String
   }
@@ -301,6 +304,85 @@ const contractTypeDefs = gql`
     createdAt: String!
   }
 
+  type ContractPnL {
+    grossCollected: Float!
+    servicePrice: Float!
+    shippingFee: Float!
+    insuranceFee: Float!
+    taxFee: Float!
+    payoutAmount: Float!
+    platformFee: Float!
+    actualLabelCost: Float!
+    actualInsurancePremium: Float!
+    estimatedStripeFee: Float!
+    salesTaxRemittance: Float!
+    totalOutflows: Float!
+    netPlatformProfit: Float!
+    netPlatformMarginPercent: Float!
+    shippingSpread: Float!
+    insuranceSpread: Float!
+  }
+
+  type DisputeQueueItem {
+    id: ID!
+    orderRef: String!
+    status: StageType!
+    clientName: String!
+    clientId: ID!
+    memberName: String!
+    memberId: ID!
+    servicePrice: Float
+    declaredMarketValue: Float
+    disputeOpenedAt: String
+    disputeOpenedBy: String
+    disputeOpenReason: String
+    clientPriorDisputes: Int
+    memberPriorDisputes: Int
+    createdAt: String!
+    severityScore: Float
+  }
+
+  type DisputeQueueResponse {
+    items: [DisputeQueueItem!]!
+    total: Int!
+  }
+
+  type MemberLedgerEntry {
+    id: ID!
+    memberId: ID!
+    contractId: ID!
+    orderRef: String
+    type: String!
+    amountCents: Int!
+    settledCents: Int!
+    reason: String
+    createdBy: String
+    status: String!
+    createdAt: String
+  }
+
+  type DisputeDetail {
+    contract: Contract!
+    chatMessages: [Message!]!
+    pnl: ContractPnL!
+  }
+
+  type AdminContractsMetrics {
+    totalVolume: Float!
+    totalPayouts: Float!
+    totalNetProfit: Float!
+    avgMarginPercent: Float!
+    completedCount: Int!
+    inFlightCount: Int!
+    disputeCount: Int!
+  }
+
+  type AdminContractsResponse {
+    items: [Contract!]!
+    total: Int!
+    metrics: AdminContractsMetrics!
+  }
+
   type Query {
     contracts: [Contract!]!
     contractById(id: ID): Contract!
@@ -308,6 +390,11 @@ const contractTypeDefs = gql`
     shippingRateOptions(orderRef: String!, preset: String, withInsurance: Boolean, withSignature: Boolean): ShippingRateQuote!
     memberContractStatus: MemberContractStatus!
     getContractList: [ContractListItem!]!
+    adminDisputeQueue(limit: Int, offset: Int): DisputeQueueResponse!
+    adminDisputeDetail(orderRef: String!): DisputeDetail!
+    adminContracts(status: String, search: String, limit: Int, offset: Int): AdminContractsResponse!
+    memberOutstandingDebt(memberId: ID!): Float!
+    memberLedgerEntries(memberId: ID!): [MemberLedgerEntry!]!
   }
 
   type Mutation {
@@ -327,6 +414,12 @@ const contractTypeDefs = gql`
     uploadReturnPackagingPhotos(contractId: ID!, keys: [String!]!): Boolean!
     flagContract(contractId: ID!, reason: String): Boolean!
     confirmReceipt(contractId: ID!): Boolean!
+    resolveDisputeForUser(contractId: ID!, banMember: Boolean, banUser: Boolean, reason: String): Boolean!
+    resolveDisputeForMember(contractId: ID!, banUser: Boolean, banMember: Boolean, reason: String): Boolean!
+    resolveDisputeInconclusive(contractId: ID!, refundCents: Int!, payoutCents: Int!, banBoth: Boolean, banUser: Boolean, banMember: Boolean, reason: String): Boolean!
+    chargeMemberDebt(memberId: ID!, contractId: ID!, type: String, amountCents: Int!, reason: String): ID!
+    writeOffMemberDebt(entryId: ID!, reason: String): Boolean!
+    dismissDispute(contractId: ID!, resumeStatus: String, banUser: Boolean, banMember: Boolean, reason: String): Boolean!
   }
 `;
 
