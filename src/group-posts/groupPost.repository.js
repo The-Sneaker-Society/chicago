@@ -26,13 +26,11 @@ export const groupPostRepository = {
     return await GroupPostModel.countDocuments({ groupId });
   },
 
-  async findPageByGroup(groupId, { offset, limit }) {
+  async findPageByGroup(groupId) {
     return await GroupPostModel.find({ groupId })
       .populate("author")
       .populate("likes")
-      .sort({ createdAt: -1 })
-      .skip(offset)
-      .limit(limit);
+      .sort({ createdAt: -1 });
   },
 
   async create(data) {

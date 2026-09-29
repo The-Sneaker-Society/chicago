@@ -79,9 +79,35 @@ export const groupPostService = {
   //   it BEFORE buildPage so totalCount stays honest (current line 44
   //   filters after counting — totalCount/hasMore lie).
   async listByGroup(memberId, { groupId, limit, offset }) {
-    throw new Error(
-      "TODO(listByGroup): port from src/resolvers/groupPost.js:21",
+    const group = await groupRepository.findById(groupId);
+
+    if (!group) {
+      throw new Error(groupPostErrors.groupNotFound);
+    }
+
+    groupService.assertGroupMember(group, memberId);
+
+    const normalizedLimit = normalizeLimit(
+      limit,
+      DEFAULT_POST_LIMIT,
+      MAX_POST_LIMIT,
     );
+    const normalizedOffset = normalizeOffset(offset);
+
+    const posts = await groupPostRepository.findPageByGroup(groupId);
+
+    const validPosts = posts.filter((post) => Boolean(post.author));
+
+    const items = validPosts.slice(
+      normalizedOffset,
+      normalizedOffset + normalizedLimit,
+    );
+
+    return buildPage({
+      items,
+      totalCount: validPosts.length,
+      offset: normalizedOffset,
+    });
   },
 
   // TODO(exercise 2): port updatePost (src/resolvers/groupPost.js:104).
@@ -115,4 +141,10 @@ export const groupPostService = {
 
 // Re-export pagination passthrough so learners see the intended import
 // shape; resolvers keep importing limits from utils/pagination directly.
-export { DEFAULT_POST_LIMIT, MAX_POST_LIMIT, normalizeLimit, normalizeOffset, buildPage };
+export {
+  DEFAULT_POST_LIMIT,
+  MAX_POST_LIMIT,
+  normalizeLimit,
+  normalizeOffset,
+  buildPage,
+};
