@@ -116,9 +116,35 @@ export const groupPostService = {
   //   groupRepository.findById(post.groupId) -> assertGroupMember; mutate +
   //   save via repo; return populated.
   async updatePost(memberId, { postId, content, images }) {
-    throw new Error(
-      "TODO(updatePost): port from src/resolvers/groupPost.js:104",
-    );
+    if (!content?.trim()) {
+      throw new Error(groupPostErrors.contentRequired);
+    }
+
+    const post = await groupPostRepository.findById(postId);
+    if (!post) {
+      throw new Error(groupPostErrors.notFound);
+    }
+
+    if (String(post.author) !== String(memberId)) {
+      throw new Error(groupPostErrors.forbidden);
+    }
+
+    const group = await groupRepository.findById(post.groupId);
+    if (!group) {
+      throw new Error(groupPostErrors.groupNotFound);
+    }
+
+    groupService.assertGroupMember(group, memberId);
+
+    post.content = content.trim();
+
+    if (images !== undefined) {
+      post.images = images;
+    }
+
+    await groupPostRepository.save(post);
+
+    return await groupPostRepository.findByIdPopulated(post._id);
   },
 
   // TODO(exercise 2): port deletePost (src/resolvers/groupPost.js:134).
@@ -126,16 +152,52 @@ export const groupPostService = {
   //   groupService.assertGroupAdmin OR author-check — mind the difference
   //   between member-authZ (assert) and author-ownership (String compare).
   async deletePost(memberId, postId) {
-    throw new Error(
-      "TODO(deletePost): port from src/resolvers/groupPost.js:134",
-    );
+    const post = await groupPostRepository.findById(postId);
+    if (!post) {
+      throw new Error(groupPostErrors.notFound);
+    }
+
+    const group = await groupRepository.findById(post.groupId);
+    if (!group) {
+      throw new Error(groupPostErrors.groupNotFound);
+    }
+
+    const isAuthor = String(post.author) === String(memberId);
+
+    if (!isAuthor) {
+      groupService.assertGroupAdmin(group, memberId);
+    }
+
+    const deleted = await groupPostRepository.deleteById(postId);
+
+    return Boolean(deleted);
   },
 
   // TODO(exercise 2): port likePost toggle (src/resolvers/groupPost.js:151).
   async toggleLike(memberId, postId) {
-    throw new Error(
-      "TODO(toggleLike): port from src/resolvers/groupPost.js:151",
+    const post = await groupPostRepository.findById(postId);
+    if (!post) {
+      throw new Error(groupPostErrors.notFound);
+    }
+
+    const group = await groupRepository.findById(post.groupId);
+    if (!group) {
+      throw new Error(groupPostErrors.groupNotFound);
+    }
+
+    groupService.assertGroupMember(group, memberId);
+
+    const alreadyLiked = (post.likes || []).some(
+      (id) => String(id) === String(memberId),
     );
+
+    post.likes = alreadyLiked
+      ? post.likes.filter((id) => String(id) !== String(memberId))
+      : [...post.likes, memberId];
+
+    await groupPostRepository.save(post);
+
+    return await groupPostRepository.findByIdPopulated(post._id);
   },
 };
 

@@ -18,10 +18,13 @@ export const groupPostRepository = {
     return await GroupPostModel.findById(postId);
   },
 
+  async save(post) {
+    return await post.save();
+  },
+
   async findByIdPopulated(postId) {
     return await _populated(GroupPostModel.findById(postId));
   },
-
   async countByGroup(groupId) {
     return await GroupPostModel.countDocuments({ groupId });
   },
