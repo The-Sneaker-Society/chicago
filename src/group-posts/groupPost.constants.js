@@ -7,4 +7,6 @@ export const groupPostErrors = Object.freeze({
   groupNotFound: "GROUP_NOT_FOUND",
   forbidden: "FORBIDDEN",
   contentRequired: "POST_CONTENT_REQUIRED",
+  commentNotFound: "COMMENT_NOT_FOUND",
+  commentContentRequired: "COMMENT_CONTENT_REQUIRED",
 });
