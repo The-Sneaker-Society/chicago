@@ -2,6 +2,13 @@ import { groupPostRepository } from "../group-posts/groupPost.repository.js";
 import { groupPostErrors } from "../group-posts/groupPost.constants.js";
 import { groupRepository } from "../groups/group.repository.js";
 import { groupService } from "../groups/group.service.js";
+import {
+  DEFAULT_COMMENT_LIMIT,
+  MAX_COMMENT_LIMIT,
+  normalizeLimit,
+  normalizeOffset,
+  buildPage,
+} from "../utils/pagination.js";
 
 /**
  * Comments are embedded in the GroupPost document, so persistence goes
@@ -125,5 +132,29 @@ export const groupCommentService = {
     await groupPostRepository.save(post);
 
     return true;
+  },
+  async commentsPage(post, { limit = DEFAULT_COMMENT_LIMIT, offset = 0 }) {
+    const normalizedLimit = normalizeLimit(
+      limit,
+      DEFAULT_COMMENT_LIMIT,
+      MAX_COMMENT_LIMIT,
+    );
+    const normalizedOffset = normalizeOffset(offset);
+
+    const allComments = post.comments || [];
+    const totalCount = allComments.length;
+
+    const slice = allComments.slice(
+      normalizedOffset,
+      normalizedOffset + normalizedLimit,
+    );
+
+    await groupPostRepository.populateCommentAuthors(slice);
+
+    return buildPage({
+      items: slice.filter((comment) => Boolean(comment.author)),
+      totalCount,
+      offset: normalizedOffset,
+    });
   },
 };

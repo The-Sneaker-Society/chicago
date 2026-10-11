@@ -36,6 +36,10 @@ export const groupPostRepository = {
       .sort({ createdAt: -1 });
   },
 
+  async populateCommentAuthors(comments) {
+    return await GroupPostModel.populate(comments, { path: "author" });
+  },
+
   async create(data) {
     const created = await GroupPostModel.create(data);
     return await this.findByIdPopulated(created._id);

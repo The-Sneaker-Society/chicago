@@ -23,6 +23,10 @@ export const groupRepository = {
     return await _populated(GroupsModel.findById(id));
   },
 
+  async findAll() {
+    return await _populated(GroupsModel.find({}));
+  },
+
   async findByMemberId(userId) {
     return await _populated(GroupsModel.find({ members: userId }));
   },

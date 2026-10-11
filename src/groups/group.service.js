@@ -1,5 +1,6 @@
 import { groupRepository } from "./group.repository.js";
 import { groupErrors } from "./group.constants.js";
+import { groupPostRepository } from "../group-posts/groupPost.repository.js";
 
 /**
  * SCAFFOLD — teaching example, not wired to any resolver yet.
@@ -55,12 +56,103 @@ export const groupService = {
     return await groupRepository.findByIdPopulated(id);
   },
 
-  // --------------------------------------------------------------- mutations
-  // TODO(exercise 4): port src/resolvers/group.js:102 joinGroup here.
-  //   Signature: async joinGroup(memberId, groupId)
-  //   Steps: findById -> GROUP_NOT_FOUND; $addToSet via repo.addMember.
-  //   Keep the open-join comment as a TODO stub for the future join-policy.
-  // --------------------------------------------------------------- mutations
+  async getGroups() {
+    return await groupRepository.findAll();
+  },
+
+  async getGroupsForUser(userId) {
+    return await groupRepository.findByMemberId(userId);
+  },
+
+  // ------------------------------------------------------- group lifecycle
+  async createGroup(memberId, { name, description, avatar, memberIds = [] }) {
+    if (!name?.trim()) {
+      throw new Error(groupErrors.nameRequired);
+    }
+
+    const creatorMemberId = String(memberId);
+    const members = [...new Set([creatorMemberId, ...memberIds.map(String)])];
+
+    return await groupRepository.create({
+      name: name.trim(),
+      description,
+      avatar,
+      members,
+      createdBy: creatorMemberId,
+      admins: [creatorMemberId],
+    });
+  },
+
+  async updateGroup(memberId, { id, name, description, avatar, memberIds }) {
+    const existingGroup = await groupRepository.findById(id);
+
+    if (!existingGroup) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    groupService.assertGroupAdmin(existingGroup, memberId);
+
+    const updates = {};
+
+    if (name !== undefined) {
+      if (!name.trim()) {
+        throw new Error(groupErrors.nameEmpty);
+      }
+
+      updates.name = name.trim();
+    }
+
+    if (description !== undefined) {
+      updates.description = description;
+    }
+
+    if (avatar !== undefined) {
+      updates.avatar = avatar;
+    }
+
+    if (memberIds !== undefined) {
+      const nextMembers = [...new Set(memberIds.map(String))];
+      const creatorId = String(existingGroup.createdBy);
+
+      if (!nextMembers.includes(creatorId)) {
+        throw new Error(groupErrors.creatorMustRemainMember);
+      }
+
+      updates.members = nextMembers;
+    }
+
+    const updatedGroup = await groupRepository.updateById(id, updates);
+
+    if (!updatedGroup) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    return updatedGroup;
+  },
+
+  async deleteGroup(memberId, id) {
+    const group = await groupRepository.findById(id);
+
+    if (!group) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    groupService.assertGroupAdmin(group, memberId);
+
+    const deletedGroup = await groupRepository.deleteById(group._id);
+
+    if (!deletedGroup) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    // Cross-domain data access goes through the post repository,
+    // not the post service or its Mongoose model.
+    await groupPostRepository.deleteByGroupId(group._id);
+
+    return true;
+  },
+
+  // ------------------------------------------------ membership and admins
   async joinGroup(memberId, groupId) {
     const group = await groupRepository.findById(groupId);
 
