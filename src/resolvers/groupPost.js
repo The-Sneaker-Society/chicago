@@ -1,21 +1,71 @@
-import GroupPostModel from "../models/GroupPost.model";
+import { getAuthenticatedMemberId } from "../auth/getAuthenticatedMemberId.js";
+import { groupPostService } from "../group-posts/groupPost.service.js";
+import { groupPostErrors } from "../group-posts/groupPost.constants.js";
+import { groupCommentService } from "../group-comments/groupComment.service.js";
 import {
   DEFAULT_POST_LIMIT,
-  MAX_POST_LIMIT,
   DEFAULT_COMMENT_LIMIT,
-  MAX_COMMENT_LIMIT,
-  normalizeLimit,
-  normalizeOffset,
-  buildPage,
-} from "../utils/pagination";
-import {
-  getAuthenticatedMemberId,
-  isGroupAdmin,
-  isGroupCreator,
-  isGroupMember,
-  requireGroupMembership,
-} from "../utils/groupPermissions";
-import { getPostAndGroup, getPopulatedPost } from "../utils/groupQueries";
+} from "../utils/pagination.js";
+
+const translatePostError = (error, operation) => {
+  switch (error.message) {
+    case groupPostErrors.notFound:
+      return new Error("Post not found");
+
+    case groupPostErrors.groupNotFound:
+      return new Error("Group not found");
+
+    case groupPostErrors.contentRequired:
+      return new Error("Post content is required.");
+
+    case groupPostErrors.forbidden:
+      switch (operation) {
+        case "listByGroup":
+          return new Error(
+            "You must be a member of this group to perform this action.",
+          );
+
+        case "createPost":
+          return new Error(
+            "You must be a member of this group to perform this action.",
+          );
+
+        case "updatePost":
+          // FORBIDDEN may mean either non-ownership or non-membership.
+          return new Error(
+            "Only the post author who is a current group member can edit this post.",
+          );
+
+        case "deletePost":
+          return new Error(
+            "Only the post author or a group admin can delete this post.",
+          );
+
+        case "toggleLike":
+          return new Error(
+            "You must be a member of this group to like a post.",
+          );
+
+        default:
+          return new Error(
+            "You do not have permission to perform this action.",
+          );
+      }
+
+    default:
+      return error;
+  }
+};
+
+// Authentication and error translation remain in the resolver layer.
+const runPostOperation = async (ctx, operation, execute) => {
+  try {
+    const memberId = getAuthenticatedMemberId(ctx);
+    return await execute(memberId);
+  } catch (error) {
+    throw translatePostError(error, operation);
+  }
+};
 
 const Query = {
   async getPostsByGroup(
@@ -23,31 +73,13 @@ const Query = {
     { groupId, limit = DEFAULT_POST_LIMIT, offset = 0 },
     ctx,
   ) {
-    await requireGroupMembership(groupId, ctx);
-
-    const normalizedLimit = normalizeLimit(
-      limit,
-      DEFAULT_POST_LIMIT,
-      MAX_POST_LIMIT,
+    return await runPostOperation(ctx, "listByGroup", (memberId) =>
+      groupPostService.listByGroup(memberId, {
+        groupId,
+        limit,
+        offset,
+      }),
     );
-    const normalizedOffset = normalizeOffset(offset);
-
-    const totalCount = await GroupPostModel.countDocuments({ groupId });
-
-    const rawItems = await GroupPostModel.find({ groupId })
-      .populate("author")
-      .populate("likes")
-      .sort({ createdAt: -1 })
-      .skip(normalizedOffset)
-      .limit(normalizedLimit);
-
-    const items = rawItems.filter((post) => Boolean(post.author));
-
-    return buildPage({
-      items,
-      totalCount,
-      offset: normalizedOffset,
-    });
   },
 };
 
@@ -57,116 +89,44 @@ const GroupPost = {
   },
 
   async commentsPage(parent, { limit = DEFAULT_COMMENT_LIMIT, offset = 0 }) {
-    const normalizedLimit = normalizeLimit(
+    return await groupCommentService.commentsPage(parent, {
       limit,
-      DEFAULT_COMMENT_LIMIT,
-      MAX_COMMENT_LIMIT,
-    );
-    const normalizedOffset = normalizeOffset(offset);
-    const allComments = parent.comments || [];
-    const totalCount = allComments.length;
-    const slice = allComments.slice(
-      normalizedOffset,
-      normalizedOffset + normalizedLimit,
-    );
-
-    await GroupPostModel.populate(slice, { path: "author" });
-
-    return buildPage({
-      items: slice.filter((comment) => Boolean(comment.author)),
-      totalCount,
-      offset: normalizedOffset,
+      offset,
     });
   },
 };
 
 const Mutation = {
   async createPost(parent, { groupId, content, images = [] }, ctx) {
-    const { memberId } = await requireGroupMembership(groupId, ctx);
-
-    if (!content?.trim()) {
-      throw new Error("Post content is required.");
-    }
-
-    const post = new GroupPostModel({
-      groupId,
-      author: memberId,
-      content: content.trim(),
-      images,
-      likes: [],
-      comments: [],
-    });
-
-    const saved = await post.save();
-    return getPopulatedPost(saved._id);
+    return await runPostOperation(ctx, "createPost", (memberId) =>
+      groupPostService.createPost(memberId, {
+        groupId,
+        content,
+        images,
+      }),
+    );
   },
 
   async updatePost(parent, { postId, content, images }, ctx) {
-    const memberId = getAuthenticatedMemberId(ctx);
-
-    if (!content?.trim()) {
-      throw new Error("Post content is required.");
-    }
-
-    const { post, group } = await getPostAndGroup(postId);
-
-    if (String(post.author) !== memberId) {
-      throw new Error("Only the post author can edit this post.");
-    }
-
-    const isMember = isGroupMember(group, memberId);
-
-    if (!isMember) {
-      throw new Error("You must be a member of this group to edit a post.");
-    }
-
-    post.content = content.trim();
-
-    if (images !== undefined) {
-      post.images = images;
-    }
-
-    await post.save();
-
-    return getPopulatedPost(post._id);
+    return await runPostOperation(ctx, "updatePost", (memberId) =>
+      groupPostService.updatePost(memberId, {
+        postId,
+        content,
+        images,
+      }),
+    );
   },
 
   async deletePost(parent, { postId }, ctx) {
-    const memberId = getAuthenticatedMemberId(ctx);
-    const { post, group } = await getPostAndGroup(postId);
-    const isAuthor = String(post.author) === memberId;
-    const canManage =
-      isGroupCreator(group, memberId) || isGroupAdmin(group, memberId);
-
-    if (!isAuthor && !canManage) {
-      throw new Error(
-        "Only the post author or a group admin can delete this post.",
-      );
-    }
-
-    const result = await GroupPostModel.findByIdAndDelete(postId);
-    return Boolean(result);
+    return await runPostOperation(ctx, "deletePost", (memberId) =>
+      groupPostService.deletePost(memberId, postId),
+    );
   },
 
   async likePost(parent, { postId }, ctx) {
-    const memberId = getAuthenticatedMemberId(ctx);
-    const { post, group } = await getPostAndGroup(postId);
-    const isMember = isGroupMember(group, memberId);
-
-    if (!isMember) {
-      throw new Error("You must be a member of this group to like a post.");
-    }
-
-    const alreadyLiked = (post.likes || []).some(
-      (id) => String(id) === memberId,
+    return await runPostOperation(ctx, "toggleLike", (memberId) =>
+      groupPostService.toggleLike(memberId, postId),
     );
-
-    post.likes = alreadyLiked
-      ? post.likes.filter((id) => String(id) !== memberId)
-      : [...post.likes, memberId];
-
-    await post.save();
-    return getPopulatedPost(post._id);
   },
 };
 
