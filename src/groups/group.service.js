@@ -60,26 +60,144 @@ export const groupService = {
   //   Signature: async joinGroup(memberId, groupId)
   //   Steps: findById -> GROUP_NOT_FOUND; $addToSet via repo.addMember.
   //   Keep the open-join comment as a TODO stub for the future join-policy.
+  // --------------------------------------------------------------- mutations
   async joinGroup(memberId, groupId) {
-    throw new Error("TODO(joinGroup): port from src/resolvers/group.js:102");
+    const group = await groupRepository.findById(groupId);
+
+    if (!group) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    // Intentional: groups are open in the current product phase.
+    // TODO: add a visibility/join-policy guard when private groups arrive.
+    const updatedGroup = await groupRepository.addMember(
+      groupId,
+      String(memberId),
+    );
+
+    if (!updatedGroup) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    return updatedGroup;
   },
 
-  // TODO(exercise 4): port src/resolvers/group.js:120 leaveGroup here.
-  //   Signature: async leaveGroup(memberId, groupId)
-  //   Watch out: current code calls undefined requireAuthenticatedMember
-  //   (line 121) — that ReferenceError is why this is exercise material.
-  //   Rules: GROUP_NOT_FOUND, creator cannot leave (CREATOR_CANNOT_LEAVE),
-  //   then repo.pullMember (strips admin too).
   async leaveGroup(memberId, groupId) {
-    throw new Error("TODO(leaveGroup): port from src/resolvers/group.js:120");
+    const group = await groupRepository.findById(groupId);
+
+    if (!group) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    if (String(group.createdBy) === String(memberId)) {
+      throw new Error(groupErrors.creatorCannotLeave);
+    }
+
+    const updatedGroup = await groupRepository.pullMember(
+      groupId,
+      String(memberId),
+    );
+
+    if (!updatedGroup) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    return updatedGroup;
   },
 
-  // TODO(exercise 4): port addGroupAdmin / removeGroupAdmin /
-  //   removeGroupMember (src/resolvers/group.js:141-207) here following the
-  //   same shape: fetch via repo -> assert via this.assertGroup* ->
-  //   mutate via repo -> throw groupErrors codes.
-  //   Cascade note: deleteGroup must also remove the group's posts. Do that
-  //   via groupPostRepository.deleteByGroupId (repo import), NOT by
-  //   importing a post *service* — see SCAFFOLD-README.md "Can services
-  //   call services?".
+  async addGroupAdmin(actingMemberId, { groupId, memberId }) {
+    const group = await groupRepository.findById(groupId);
+
+    if (!group) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    groupService.assertGroupCreator(group, actingMemberId);
+
+    const normalizedMemberId = String(memberId);
+    const isMember = (group.members || []).some(
+      (id) => String(id) === normalizedMemberId,
+    );
+
+    if (!isMember) {
+      throw new Error(groupErrors.notAMember);
+    }
+
+    const updatedGroup = await groupRepository.addAdmin(
+      groupId,
+      normalizedMemberId,
+    );
+
+    if (!updatedGroup) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    return updatedGroup;
+  },
+
+  async removeGroupAdmin(actingMemberId, { groupId, memberId }) {
+    const group = await groupRepository.findById(groupId);
+
+    if (!group) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    groupService.assertGroupCreator(group, actingMemberId);
+
+    const normalizedMemberId = String(memberId);
+
+    if (normalizedMemberId === String(actingMemberId)) {
+      throw new Error(groupErrors.creatorCannotRemoveSelfAsAdmin);
+    }
+
+    if (String(group.createdBy) === normalizedMemberId) {
+      throw new Error(groupErrors.creatorMustRemainAdmin);
+    }
+
+    const updatedGroup = await groupRepository.pullAdmin(
+      groupId,
+      normalizedMemberId,
+    );
+
+    if (!updatedGroup) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    return updatedGroup;
+  },
+
+  async removeGroupMember(actingMemberId, { groupId, memberId }) {
+    const group = await groupRepository.findById(groupId);
+
+    if (!group) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    groupService.assertGroupAdmin(group, actingMemberId);
+
+    const normalizedMemberId = String(memberId);
+
+    if (String(group.createdBy) === normalizedMemberId) {
+      throw new Error(groupErrors.creatorCannotBeRemoved);
+    }
+
+    const isMember = (group.members || []).some(
+      (id) => String(id) === normalizedMemberId,
+    );
+
+    if (!isMember) {
+      throw new Error(groupErrors.notAMember);
+    }
+
+    const updatedGroup = await groupRepository.pullMember(
+      groupId,
+      normalizedMemberId,
+    );
+
+    if (!updatedGroup) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    return updatedGroup;
+  },
 };

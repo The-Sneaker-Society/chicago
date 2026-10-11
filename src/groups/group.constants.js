@@ -1,9 +1,7 @@
 /**
  * SCAFFOLD — teaching example, not wired to any resolver yet.
  *
- * Frozen vocabularies for the groups domain. Services throw these codes,
- * resolvers translate them to human sentences. Never change a persisted
- * string value without a data migration.
+ * Services throw these codes; resolvers translate them to human sentences.
  */
 
 export const groupErrors = Object.freeze({
@@ -15,4 +13,7 @@ export const groupErrors = Object.freeze({
   creatorCannotLeave: "CREATOR_CANNOT_LEAVE",
   notAMember: "NOT_A_MEMBER",
   alreadyMember: "ALREADY_A_MEMBER",
+  creatorCannotRemoveSelfAsAdmin: "CREATOR_CANNOT_REMOVE_SELF_AS_ADMIN",
+  creatorMustRemainAdmin: "CREATOR_MUST_REMAIN_ADMIN",
+  creatorCannotBeRemoved: "CREATOR_CANNOT_BE_REMOVED",
 });
