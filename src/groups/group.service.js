@@ -1,3 +1,5 @@
+import { groupPostRepository } from "../group-posts/groupPost.repository.js";
+import { groupErrors } from "./group.constants.js";
 import { groupRepository } from "./group.repository.js";
 
 export const groupService = {
@@ -103,14 +105,185 @@ export const groupService = {
    * Returns whether a document was removed. Domain errors:
    * GROUP_NOT_FOUND / FORBIDDEN.
    */
-  async deleteGroup(requesterMemberId, id) {
-    const existingGroup = await groupRepository.findById(id);
-    if (!existingGroup) {
-      throw new Error("GROUP_NOT_FOUND");
-    }
-    this.assertGroupAdmin(existingGroup, requesterMemberId);
+  async deleteGroup(memberId, id) {
+    const group = await groupRepository.findById(id);
 
-    const result = await groupRepository.deleteById(id);
-    return !!result;
+    if (!group) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    groupService.assertGroupAdmin(group, memberId);
+
+    const deletedGroup = await groupRepository.deleteById(group._id);
+
+    if (!deletedGroup) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    // Cross-domain data access goes through the post repository,
+    // not the post service or its Mongoose model.
+    await groupPostRepository.deleteByGroupId(group._id);
+
+    return true;
+  },
+
+  assertGroupMember(group, memberId) {
+    // Replaces: isGroupMember(group, memberId) + manual `if (!isMember) throw`
+    // in src/resolvers/groupPost.js:117-121, :154-158 and
+    // src/services/getPostComment.service.js:20-24.
+    const isMember = (group.members || []).some(
+      (id) => String(id) === String(memberId),
+    );
+    if (!isMember) {
+      throw new Error(groupErrors.forbidden);
+    }
+  },
+
+  assertGroupCreator(group, memberId) {
+    // Replaces: isGroupCreator checks in src/resolvers/group.js:142, :160
+    // (addGroupAdmin / removeGroupAdmin).
+    if (String(group.createdBy) !== String(memberId)) {
+      throw new Error(groupErrors.forbidden);
+    }
+  },
+
+  async joinGroup(memberId, groupId) {
+    const group = await groupRepository.findById(groupId);
+
+    if (!group) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    // Intentional: groups are open in the current product phase.
+    // TODO: add a visibility/join-policy guard when private groups arrive.
+    const updatedGroup = await groupRepository.addMember(
+      groupId,
+      String(memberId),
+    );
+
+    if (!updatedGroup) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    return updatedGroup;
+  },
+
+  async leaveGroup(memberId, groupId) {
+    const group = await groupRepository.findById(groupId);
+
+    if (!group) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    if (String(group.createdBy) === String(memberId)) {
+      throw new Error(groupErrors.creatorCannotLeave);
+    }
+
+    const updatedGroup = await groupRepository.pullMember(
+      groupId,
+      String(memberId),
+    );
+
+    if (!updatedGroup) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    return updatedGroup;
+  },
+
+  async addGroupAdmin(actingMemberId, { groupId, memberId }) {
+    const group = await groupRepository.findById(groupId);
+
+    if (!group) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    groupService.assertGroupCreator(group, actingMemberId);
+
+    const normalizedMemberId = String(memberId);
+    const isMember = (group.members || []).some(
+      (id) => String(id) === normalizedMemberId,
+    );
+
+    if (!isMember) {
+      throw new Error(groupErrors.notAMember);
+    }
+
+    const updatedGroup = await groupRepository.addAdmin(
+      groupId,
+      normalizedMemberId,
+    );
+
+    if (!updatedGroup) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    return updatedGroup;
+  },
+
+  async removeGroupAdmin(actingMemberId, { groupId, memberId }) {
+    const group = await groupRepository.findById(groupId);
+
+    if (!group) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    groupService.assertGroupCreator(group, actingMemberId);
+
+    const normalizedMemberId = String(memberId);
+
+    if (normalizedMemberId === String(actingMemberId)) {
+      throw new Error(groupErrors.creatorCannotRemoveSelfAsAdmin);
+    }
+
+    if (String(group.createdBy) === normalizedMemberId) {
+      throw new Error(groupErrors.creatorMustRemainAdmin);
+    }
+
+    const updatedGroup = await groupRepository.pullAdmin(
+      groupId,
+      normalizedMemberId,
+    );
+
+    if (!updatedGroup) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    return updatedGroup;
+  },
+
+  async removeGroupMember(actingMemberId, { groupId, memberId }) {
+    const group = await groupRepository.findById(groupId);
+
+    if (!group) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    groupService.assertGroupAdmin(group, actingMemberId);
+
+    const normalizedMemberId = String(memberId);
+
+    if (String(group.createdBy) === normalizedMemberId) {
+      throw new Error(groupErrors.creatorCannotBeRemoved);
+    }
+
+    const isMember = (group.members || []).some(
+      (id) => String(id) === normalizedMemberId,
+    );
+
+    if (!isMember) {
+      throw new Error(groupErrors.notAMember);
+    }
+
+    const updatedGroup = await groupRepository.pullMember(
+      groupId,
+      normalizedMemberId,
+    );
+
+    if (!updatedGroup) {
+      throw new Error(groupErrors.notFound);
+    }
+
+    return updatedGroup;
   },
 };
