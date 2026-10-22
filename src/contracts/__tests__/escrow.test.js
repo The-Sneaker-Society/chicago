@@ -19,6 +19,7 @@ jest.mock("../../models/Contract.model.js", () => ({
   default: { find: jest.fn(), findById: jest.fn(), findByIdAndUpdate: jest.fn() },
 }));
 jest.mock("../../members/member.repository.js");
+jest.mock("../../member-ledger/member-ledger.repository.js");
 jest.mock("../../users/user.repository.js", () => ({ userRepository: { findById: jest.fn() } }));
 jest.mock("../../chat/chat.repository.js", () => ({
   chatRepository: { findPendingProposals: jest.fn(), saveMessage: jest.fn() },
