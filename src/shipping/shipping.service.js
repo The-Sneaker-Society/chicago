@@ -408,6 +408,7 @@ export const shippingService = {
       trackingNumber: txn.trackingNumber || txn.tracking_number,
       carrier: txn.rate?.provider || txn.rate?.carrier || fallbackCarrier,
       labelUrl: txn.labelUrl || txn.label_url || null,
+      amount: parseFloat(txn.amount || txn.rate?.amount || 0),
     };
   },
 

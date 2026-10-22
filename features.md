@@ -19,7 +19,7 @@ This document translates the Smart Contract Lifecycle into actionable technical 
 | 8 | Notification System (Email + In-App) | ⬜ Todo | `features.md:8` — SendGrid/Resend + badges |
 | 9 | Platform Fee Refactor $12 → 15% | ✅ Done | chicago #77 + web #174 (`feature/platform-fee` → `main@1ada125`/`94ba91d`) — `platformFee 15%` + `PricePreviewModal`, tests |
 | 10 | Contract Cancellation Flow | ✅ Done | `plan-cancellation.md` — chicago #83 + web #180 — `assertTransition`, `transitionTo`, `cancelContract`, `refundContractPayment`, `updateContract` denylist, tests, web `CancelContractModal` |
-| 11 | Admin Dashboard (Manual Review) | ⬜ Todo | `plan-admin-dashboard.md` — `UNDER_MANUAL_REVIEW` queue + side-by-side evidence viewer + dispute resolution (`resolveForUser`, `resolveForMember`, `resolveInconclusive`) |
+| 11 | Admin Dashboard (Manual Review) | ✅ Done (code) · 🚧 PR pending | `member-debt-ledger-plan.md` — branch `feature/admin-dispute-dashboard` (chicago + web) — severity/age dispute queue + repeat-offender counts, evidence viewer, `resolveForUser` / `resolveForMember` / `resolveInconclusive` / `dismissDispute`, member debt ledger with payout netting. Carrier scan weights deferred (not stored by Shippo integration). |
 | 12 | Sales Tax Collection & Remittance | ✅ Done (code) · 🔒 dashboard | `plan-taxes.md` — chicago #82 + web #179 — `automatic_tax` + per-line tax codes, prefilled customer, tax-excluded payout, `taxFee` receipt rows; needs Stripe Dashboard tax registrations (§4) before prod |
 | 13 | PII Audit, Scoping & Dashboard Refinements | ✅ Done | `plan-pii-audit.md` — chicago #85 + web #182 — `publicMemberById`, counterparty PII redaction on `Contract`, ID comparison guards, sidebar cleanup, dynamic chat unread badge, payout widget "Paid today" badge |
 | P2-1 | Digital Authentication (CheckCheck) | ⬜ Todo | `features.md: P2-1` |
@@ -93,11 +93,13 @@ This document translates the Smart Contract Lifecycle into actionable technical 
 *   **Mid-Flight Partial Work:** If work started (`WORK_IN_PROGRESS`), admin mediates split payout for materials/labor and partial refund to client.
 *   **Done:** `plan-cancellation.md` — chicago #83 + web #180 — `assertTransition`, `transitionTo`, `cancelContract`, `refundContractPayment`, `updateContract` denylist, tests, web `CancelContractModal`.
 
-### 11. Admin Dashboard (Manual Review & Dispute Resolution) — ⬜ Todo
-*   **Feature:** Build an internal, admin-only web panel for the founding team to manage disputes and platform operations.
-*   **Dispute Queue:** View all contracts in `UNDER_MANUAL_REVIEW` status, sorted by severity and age.
-*   **Evidence Viewer:** For each disputed contract, display the User's intake photos, the Member's unboxing photos, the full chat transcript, and the EasyPost carrier scan weights (drop-off vs. delivery) side-by-side.
-*   **Resolution Actions:** Admin can click "Rule for User" (refund + ban Member), "Rule for Member" (release payout + ban User), or "Inconclusive" (refund both from the Shrinkage budget + ban both accounts).
+### 11. Admin Dashboard (Manual Review & Dispute Resolution) — ✅ Done (code) · 🚧 PR pending
+*   **Feature:** Internal, admin-only web panel for the founding team to manage disputes and platform operations.
+*   **Dispute Queue:** All contracts in `UNDER_MANUAL_REVIEW`, sorted by severity score then age, with prior-dispute counts per party and dispute-origin details.
+*   **Evidence Viewer:** Side-by-side intake / packaging / unboxing / return / completion photos plus the full chat transcript, shoe specs, contract P&L, and party contact details.
+*   **Resolution Actions:** "Rule for Customer" (full refund + optional ban), "Rule for Restorer" (release payout + optional ban), "Inconclusive" (custom split + optional bans), and "No action needed / Dismiss" (restore the pre-dispute status). Member debt can be charged during adjudication and is netted from future payouts (`member-debt-ledger-plan.md`).
+*   **Deferred:** EasyPost carrier scan weights (drop-off vs. delivery). Shippo's integration currently stores only carrier + tracking number, so there is no weight data to display.
+*   **Branch:** `feature/admin-dispute-dashboard` (chicago + sneaker-web).
 
 ### 12. Sales Tax Collection & Remittance — ✅ Done (code) / 🔒 dashboard
 *   **Checkout:** Stripe Tax `automatic_tax` with per-line tax codes (service/shipping/insurance) + US address collection — chicago #82.

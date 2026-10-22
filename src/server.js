@@ -10,7 +10,7 @@ import { clearkAuthorizeUser } from "./utils/auth/auth";
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { WebSocketServer } from "ws";
 import { useServer } from "graphql-ws/lib/use/ws";
-import { clerkMiddleware, requireAuth } from "@clerk/express";
+import { clerkMiddleware } from "@clerk/express";
 import redis from "./config/redis";
 import { handleStripeWebhook } from "./stripe/stripeWebhookHandler";
 import { handleShippoWebhook } from "./shipping/shipping.webhook";
@@ -52,7 +52,16 @@ async function startApolloServer() {
     }),
   );
 
-  app.use(clerkMiddleware());
+  const clerk = clerkMiddleware({ enableHandshake: false });
+  app.use((req, res, next) =>
+    clerk(req, res, (err) => {
+      if (err) {
+        console.error("Clerk middleware error:", err.message);
+        return res.status(401).json({ errors: [{ message: "Unauthorized" }] });
+      }
+      next();
+    })
+  );
 
   // DEV: allow impersonation via header or env for local testing only
   if (process.env.NODE_ENV !== 'production') {
@@ -71,7 +80,10 @@ async function startApolloServer() {
     if (req.path === "/webhook" || req.path.startsWith("/webhook/")) {
       return next();
     }
-    return requireAuth()(req, res, next);
+    if (!req.auth()?.userId) {
+      return res.status(401).json({ errors: [{ message: "Unauthorized" }] });
+    }
+    next();
   });
 
   app.get("/", (req, res) => {

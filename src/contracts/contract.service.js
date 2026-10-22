@@ -5,6 +5,12 @@ import { contractRepository } from "./contract.repository.js";
 import { memberRepository } from "../members/member.repository.js";
 import { userRepository } from "../users/user.repository.js";
 import { chatRepository } from "../chat/chat.repository.js";
+import { memberLedgerRepository } from "../member-ledger/member-ledger.repository.js";
+import {
+  ledgerEntryType,
+  ledgerEntryStatus,
+  ledgerErrors,
+} from "../member-ledger/member-ledger.constants.js";
 import {
   shippingPreset,
   shippingSpeed,
@@ -22,6 +28,7 @@ import {
   statusToKey,
   contractErrors,
   platformFee,
+  disputableStatuses,
   UNBOXING_MIN_PHOTOS,
 } from "./contract.constants.js";
 
@@ -64,7 +71,7 @@ const buildShoeProductName = (shoeDetails) => {
 
 export const contractService = {
   async getContractsForContext(dbUser, role) {
-    if (!dbUser) {
+    if (!dbUser && role !== "admin") {
       return [];
     }
 
@@ -76,6 +83,72 @@ export const contractService = {
     }
 
     return await contractRepository.findAll(filter);
+  },
+
+  async getAdminContracts({ status, search, limit = 50, offset = 0 } = {}) {
+    let contracts = await contractRepository.findAll({});
+    // Sort newest first
+    contracts.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    // Calculate portfolio-wide metrics across all contracts
+    let totalVolume = 0;
+    let totalPayouts = 0;
+    let totalNetProfit = 0;
+    let completedCount = 0;
+    let inFlightCount = 0;
+    let disputeCount = 0;
+
+    for (const c of contracts) {
+      const pnl = computeContractPnL(c);
+      if (pnl) {
+        totalVolume += pnl.grossCollected;
+        totalPayouts += pnl.payoutAmount;
+        totalNetProfit += pnl.netPlatformProfit;
+      }
+      if (c.status === "COMPLETED") completedCount += 1;
+      else if (c.status === "UNDER_MANUAL_REVIEW") disputeCount += 1;
+      else if (c.status !== "CANCELED") inFlightCount += 1;
+    }
+
+    totalVolume = Math.round(totalVolume * 100) / 100;
+    totalPayouts = Math.round(totalPayouts * 100) / 100;
+    totalNetProfit = Math.round(totalNetProfit * 100) / 100;
+    const avgMarginPercent = totalVolume > 0
+      ? Math.round((totalNetProfit / totalVolume) * 1000) / 10
+      : 0;
+
+    // Filter by status if requested
+    if (status && status !== "ALL") {
+      contracts = contracts.filter((c) => c.status === status);
+    }
+
+    // Filter by search term if requested
+    if (search && search.trim()) {
+      const q = search.trim().toLowerCase();
+      contracts = contracts.filter((c) => {
+        const orderRef = (c.orderRef || "").toLowerCase();
+        const model = (c.shoeDetails?.model || "").toLowerCase();
+        const brand = (c.shoeDetails?.brand || "").toLowerCase();
+        return orderRef.includes(q) || model.includes(q) || brand.includes(q);
+      });
+    }
+
+    const total = contracts.length;
+    const items = contracts.slice(offset, offset + limit);
+
+    return {
+      items,
+      total,
+      metrics: {
+        totalVolume,
+        totalPayouts,
+        totalNetProfit,
+        avgMarginPercent,
+        completedCount,
+        inFlightCount,
+        disputeCount,
+      },
+    };
   },
 
   /**
@@ -644,21 +717,234 @@ export const contractService = {
     }
 
     const amountCents = Math.round(contract.payoutAmount * 100);
-    const transfer = await releasePayoutToMember(
-      member.stripeConnectAccountId,
-      amountCents,
-      contractId
-    );
-
-    await contractRepository.updateById(contractId, {
-      payoutStatus: payoutStatus.paid,
-      stripeTransferId: transfer.id,
-      paidAt: new Date(),
-      status: contractStatus.completed,
-      $push: { timeline: { event: contractEvent.payoutReleased, date: new Date() } },
+    if (!Number.isFinite(amountCents) || amountCents <= 0) {
+      throw new Error(contractErrors.INVALID_PAYOUT_AMOUNT);
+    }
+    const { netCents, plan } = await this.planDebtNetting(contract.memberId, amountCents);
+    let transfer = null;
+    if (netCents > 0) {
+      transfer = await releasePayoutToMember(
+        member.stripeConnectAccountId,
+        netCents,
+        contractId
+      );
+    }
+    const withheldCents = amountCents - netCents;
+    const timelineEvents = [
+      { event: contractEvent.payoutReleased, date: new Date() },
+    ];
+    if (withheldCents > 0) {
+      timelineEvents.push({
+        event: contractEvent.payoutWithheldForDebt,
+        date: new Date(),
+        reason: `Withheld $${(withheldCents / 100).toFixed(2)} of $${(amountCents / 100).toFixed(2)} payout against member debt`,
+        actor: "admin",
+      });
+    }
+    await this.settleAndMarkPaid({
+      plan,
+      contractId,
+      update: {
+        payoutStatus: payoutStatus.paid,
+        ...(transfer?.id ? { stripeTransferId: transfer.id } : {}),
+        paidAt: new Date(),
+        status: contractStatus.completed,
+        $push: { timeline: { $each: timelineEvents } },
+      },
+      payingOrderRef: contract.orderRef || contractId.toString(),
+      transferId: transfer?.id,
     });
 
     return true;
+  },
+
+  /**
+   * Member debt ledger (Option B): records platform-fronted costs (return
+   * labels, sunk outbound shipping) as member debt at dispute resolution.
+   * Debts net against future payouts via applyDebtNetting — never negative.
+   */
+  async chargeMemberDebt({ memberId, contractId, type, amountCents, reason, adminActor } = {}) {
+    const member = memberId ? await memberRepository.findById(memberId) : null;
+    if (!member) {
+      throw new Error(ledgerErrors.MEMBER_NOT_FOUND);
+    }
+    const contract = contractId ? await contractRepository.findById(contractId) : null;
+    if (!contract) {
+      throw new Error(ledgerErrors.CONTRACT_NOT_FOUND);
+    }
+    if (!Number.isInteger(amountCents) || amountCents <= 0) {
+      throw new Error(ledgerErrors.INVALID_AMOUNT);
+    }
+    const entry = await memberLedgerRepository.create({
+      memberId: member._id,
+      contractId: contract._id,
+      orderRef: contract.orderRef || undefined,
+      type: Object.values(ledgerEntryType).includes(type) ? type : ledgerEntryType.other,
+      amountCents,
+      settledCents: 0,
+      reason: reason || "",
+      createdBy: adminActor || "admin",
+      status: ledgerEntryStatus.outstanding,
+    });
+    const now = new Date();
+    await contractRepository.updateById(contract._id, {
+      $push: {
+        timeline: {
+          event: contractEvent.returnShipmentChargedToMember,
+          date: now,
+          reason: reason || `Charged ${amountCents / 100} to member`,
+          actor: adminActor || "admin",
+        },
+      },
+    });
+    return entry._id.toString();
+  },
+
+  async memberOutstandingDebt(memberId) {
+    if (!memberId) return 0;
+    return await memberLedgerRepository.outstandingBalanceCents(memberId);
+  },
+
+  async writeOffMemberDebt(entryId, { reason, adminActor } = {}) {
+    const entry = entryId ? await memberLedgerRepository.findById(entryId) : null;
+    if (!entry) {
+      throw new Error(ledgerErrors.ENTRY_NOT_FOUND);
+    }
+    await memberLedgerRepository.writeOff(entryId);
+    try {
+      const origin = entry.orderRef
+        ? await contractRepository.findByOrderRef(entry.orderRef)
+        : null;
+      if (origin) {
+        await contractRepository.updateById(origin._id, {
+          $push: {
+            timeline: {
+              event: contractEvent.payoutWithheldForDebt,
+              date: new Date(),
+              reason: `Member debt written off: $${(Number(entry.amountCents) / 100).toFixed(2)} (${reason || "no reason given"})`,
+              actor: adminActor || "admin",
+            },
+          },
+        });
+      }
+    } catch (e) {
+      console.error("Failed to note debt write-off on origin:", e?.message || e);
+    }
+    return true;
+  },
+
+  async memberLedgerEntries(memberId) {
+    if (!memberId) return [];
+    const all = await memberLedgerRepository.findAllByMember(memberId);
+    return (all || []).map((e) => ({
+      id: e._id.toString(),
+      memberId: e.memberId ? e.memberId.toString() : "",
+      contractId: e.contractId ? e.contractId.toString() : "",
+      orderRef: e.orderRef || null,
+      type: e.type,
+      amountCents: e.amountCents,
+      settledCents: e.settledCents || 0,
+      reason: e.reason || null,
+      createdBy: e.createdBy || null,
+      status: e.status,
+      createdAt: e.createdAt ? new Date(e.createdAt).toISOString() : null,
+    }));
+  },
+
+  /**
+   * Two-phase debt netting (read plan → transfer → commit). The plan is
+   * read-only so a failed Stripe transfer leaves nothing persisted and a
+   * retry recomputes the identical plan — replaying the same idempotent
+   * transfer instead of double-paying. Floor zero: remainder carries forward.
+   */
+  async planDebtNetting(memberId, grossCents) {
+    if (!Number.isFinite(grossCents) || grossCents < 0) {
+      throw new Error(ledgerErrors.INVALID_AMOUNT);
+    }
+    const outstanding = await memberLedgerRepository.findOutstandingByMember(memberId);
+    let remaining = grossCents;
+    const plan = [];
+    for (const entry of outstanding || []) {
+      if (remaining <= 0) break;
+      const settledSoFar = Number(entry.settledCents) || 0;
+      const owed = (Number(entry.amountCents) || 0) - settledSoFar;
+      if (owed <= 0) continue;
+      const take = Math.min(owed, remaining);
+      const newSettled = settledSoFar + take;
+      remaining -= take;
+      plan.push({
+        entryId: entry._id.toString(),
+        orderRef: entry.orderRef || "",
+        contractId: entry.contractId ? entry.contractId.toString() : null,
+        takeCents: take,
+        expectedSettledCents: settledSoFar,
+        newSettledCents: newSettled,
+        willSettle: newSettled >= (Number(entry.amountCents) || 0),
+      });
+    }
+    return { netCents: Math.max(0, remaining), plan };
+  },
+
+  async commitDebtSettlement(plan) {
+    const applied = [];
+    for (const p of plan || []) {
+      const ok = p.willSettle
+        ? await memberLedgerRepository.settleIfExpected(p.entryId, p.expectedSettledCents, p.newSettledCents)
+        : await memberLedgerRepository.partialIfExpected(p.entryId, p.expectedSettledCents, p.newSettledCents);
+      if (!ok) {
+        throw new Error(contractErrors.LEDGER_CONCURRENT_MODIFICATION);
+      }
+      applied.push({ entryId: p.entryId, orderRef: p.orderRef, amountCents: p.takeCents });
+    }
+    return applied;
+  },
+
+  // Post-transfer persistence (settlements + contract update). Money has
+  // already moved when this runs: on failure we log the transfer id and throw
+  // PAYOUT_SETTLEMENT_FAILED (never silently) so an admin reconciles instead
+  // of retrying blindly. True atomicity needs replica-set transactions (follow-up).
+  async settleAndMarkPaid({ plan, contractId, update, payingOrderRef, adminActor, transferId }) {
+    let applied = [];
+    try {
+      applied = await this.commitDebtSettlement(plan);
+      await contractRepository.updateById(contractId, update);
+    } catch (e) {
+      if (e?.message === contractErrors.LEDGER_CONCURRENT_MODIFICATION) throw e;
+      console.error(
+        `[PAYOUT_SETTLEMENT] transfer ${transferId || "none"} moved money but persistence failed:`,
+        e?.message || e
+      );
+      throw new Error(
+        `${contractErrors.PAYOUT_SETTLEMENT_FAILED}: transfer ${transferId || "none"} moved money but the ledger/contract update did not persist — reconcile before retrying (cause: ${e?.message || e})`
+      );
+    }
+    await this.noteDebtSettlementOnOrigins(applied, payingOrderRef, adminActor);
+    return applied;
+  },
+
+  // Best-effort cross-links on origin dispute contracts. Never throws — a
+  // failed note must not fail a payout that already moved money.
+  async noteDebtSettlementOnOrigins(applied, payingOrderRef, adminActor) {
+    for (const a of applied || []) {
+      try {
+        const origin = a.orderRef
+          ? await contractRepository.findByOrderRef(a.orderRef)
+          : null;
+        if (!origin) continue;
+        await contractRepository.updateById(origin._id, {
+          $push: {
+            timeline: {
+              event: contractEvent.payoutWithheldForDebt,
+              date: new Date(),
+              reason: `Settled $${(a.amountCents / 100).toFixed(2)} of member debt via payout on ${payingOrderRef}`,
+              actor: adminActor || "admin",
+            },
+          },
+        });
+      } catch (e) {
+        console.error("Failed to note debt settlement on origin:", e?.message || e);
+      }
+    }
   },
 
   /**
@@ -776,15 +1062,7 @@ export const contractService = {
     if (!contract) {
       throw new Error(contractErrors.CONTRACT_NOT_FOUND);
     }
-    const flaggable = [
-      contractStatus.readyToShip,
-      contractStatus.inboundShipped,
-      contractStatus.arrivedAtMember,
-      contractStatus.workInProgress,
-      contractStatus.readyForReturn,
-      contractStatus.returnShipped,
-      contractStatus.deliveredToUser,
-    ];
+    const flaggable = [...disputableStatuses];
     if (!flaggable.includes(contract.status)) {
       throw new Error(contractErrors.BAD_TRANSITION);
     }
@@ -794,7 +1072,11 @@ export const contractService = {
     // so await for effect and return true (reaching here means success).
     await this.transitionTo(contractId, contractStatus.underManualReview, {
       timelinePayload: { event: contractEvent.disputeOpened, reason, actor },
-      extraUpdates: { payoutStatus: payoutStatus.frozen },
+      extraUpdates: {
+        payoutStatus: payoutStatus.frozen,
+        preDisputeStatus: contract.status,
+        preDisputePayoutStatus: contract.payoutStatus || payoutStatus.pending,
+      },
     });
     return true;
   },
@@ -1119,4 +1401,516 @@ export const contractService = {
   async getContractClient(clientId) {
     return await userRepository.findById(clientId);
   },
+
+  computeContractPnL(contract) {
+    return computeContractPnL(contract);
+  },
+
+  async getDisputeQueue({ limit = 20, offset = 0 } = {}) {
+    const contracts = await contractRepository.findFlagged();
+    const uniqIds = (ids) => [...new Set(ids.filter(Boolean).map(String))];
+    const [clientDisputeCounts, memberDisputeCounts] = await Promise.all([
+      contractRepository.countDisputedByClients(uniqIds((contracts || []).map((c) => c.clientId))),
+      contractRepository.countDisputedByMembers(uniqIds((contracts || []).map((c) => c.memberId))),
+    ]);
+    const enriched = await Promise.all(
+      contracts.map(async (c) => {
+        const [member, client] = await Promise.all([
+          memberRepository.findById(c.memberId),
+          userRepository.findById(c.clientId),
+        ]);
+        const clientName = client
+          ? `${client.firstName || ""} ${client.lastName || ""}`.trim() || client.email || "Unknown"
+          : "Unknown";
+        const memberName = member
+          ? `${member.firstName || ""} ${member.lastName || ""}`.trim() || member.businessName || "Unknown"
+          : "Unknown";
+        const price = Number(c.price || 0);
+        const declared = Number(c.declaredMarketValue || 0);
+        const ratio = price > 0 ? declared / price : declared;
+        const severityScore = Math.round((ratio * 10 + declared) * 10) / 10;
+
+        const disputeTimeline = (c.timeline || []).find(
+          (t) => t.event === contractEvent.disputeOpened
+        );
+        const disputeOpenedAt = disputeTimeline?.date ? new Date(disputeTimeline.date).toISOString() : null;
+
+        return {
+          id: c._id.toString(),
+          orderRef: c.orderRef || c._id.toString(),
+          status: c.status,
+          clientName,
+          clientId: c.clientId ? c.clientId.toString() : "",
+          memberName,
+          memberId: c.memberId ? c.memberId.toString() : "",
+          servicePrice: price,
+          declaredMarketValue: declared,
+          disputeOpenedAt,
+          disputeOpenedBy: disputeTimeline?.actor || null,
+          disputeOpenReason: disputeTimeline?.reason || null,
+          // Prior disputes EXCLUDING this one (current contract is in the counts).
+          clientPriorDisputes: Math.max(0, (clientDisputeCounts[String(c.clientId)] || 0) - 1),
+          memberPriorDisputes: Math.max(0, (memberDisputeCounts[String(c.memberId)] || 0) - 1),
+          createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(),
+          severityScore,
+        };
+      })
+    );
+
+    enriched.sort((a, b) => {
+      if (b.severityScore !== a.severityScore) {
+        return b.severityScore - a.severityScore;
+      }
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+
+    const total = enriched.length;
+    const items = enriched.slice(offset, offset + limit);
+    return { items, total };
+  },
+
+  async getDisputeDetail(orderRef) {
+    if (!orderRef) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    const contract = await contractRepository.findByOrderRef(orderRef);
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+
+    let chatMessages = [];
+    if (contract.chatId) {
+      const messages = await chatRepository.findMessagesByChatId(contract.chatId);
+      chatMessages = (messages || []).map((m) => ({
+        id: m._id.toString(),
+        chatId: m.chatId,
+        content: m.content || "",
+        senderId: m.senderId ? m.senderId.toString() : "",
+        createdAt: m.createdAt ? new Date(m.createdAt).toISOString() : new Date().toISOString(),
+        senderType: m.senderType || "USER",
+        type: m.type,
+        metadata: m.metadata,
+      }));
+    }
+
+    const pnl = computeContractPnL(contract);
+    return {
+      contract,
+      chatMessages,
+      pnl,
+    };
+  },
+
+  async resolveDisputeForUser(contractId, { banMember, banUser, reason, adminActor } = {}) {
+    const contract = await contractRepository.findById(contractId);
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    if (contract.status !== contractStatus.underManualReview) {
+      throw new Error(contractErrors.DISPUTE_NOT_OPEN);
+    }
+
+    if (contract.stripePaymentIntentId) {
+      await refundContractPayment({
+        paymentIntentId: contract.stripePaymentIntentId,
+        reason: "dispute_resolved_customer",
+        contractId: contract._id,
+        idempotencyKey: `dispute_refund_user_${contract._id}`,
+      });
+    }
+
+    const now = new Date();
+    await contractRepository.updateById(contract._id, {
+      status: contractStatus.canceled,
+      payoutStatus: payoutStatus.canceled,
+      preDisputeStatus: null,
+      preDisputePayoutStatus: null,
+      $push: {
+        timeline: {
+          $each: [
+            {
+              event: contractEvent.adminRuledForUser,
+              date: now,
+              reason: reason || "Admin ruled in favor of customer",
+              actor: adminActor || "admin",
+            },
+            {
+              event: contractEvent.disputeResolved,
+              date: now,
+              actor: adminActor || "admin",
+            },
+          ],
+        },
+      },
+    });
+
+    if (banMember && contract.memberId) {
+      await memberRepository.updateById(contract.memberId, {
+        isActive: false,
+        deletedAt: new Date(),
+      });
+    }
+
+    if (banUser && contract.clientId) {
+      await userRepository.updateUserById(contract.clientId, {
+        isActive: false,
+        deletedAt: new Date(),
+      });
+    }
+
+    return true;
+  },
+
+  async resolveDisputeForMember(contractId, { banUser, banMember, reason, adminActor } = {}) {
+    const contract = await contractRepository.findById(contractId);
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    if (contract.status !== contractStatus.underManualReview) {
+      throw new Error(contractErrors.DISPUTE_NOT_OPEN);
+    }
+
+    const member = await memberRepository.findById(contract.memberId);
+    if (!member?.stripeConnectAccountId) {
+      throw new Error(contractErrors.MEMBER_STRIPE_NOT_CONNECTED);
+    }
+
+    const amountCents = Math.round((contract.payoutAmount || 0) * 100);
+    if (!Number.isFinite(amountCents) || amountCents <= 0) {
+      throw new Error(contractErrors.INVALID_PAYOUT_AMOUNT);
+    }
+    const { netCents, plan } = await this.planDebtNetting(contract.memberId, amountCents);
+    let transfer = null;
+    if (netCents > 0) {
+      transfer = await releasePayoutToMember(
+        member.stripeConnectAccountId,
+        netCents,
+        contractId.toString()
+      );
+    }
+    const now = new Date();
+    const withheldCents = amountCents - netCents;
+    const resolutionEvents = [
+      {
+        event: contractEvent.adminRuledForMember,
+        date: now,
+        reason: reason || "Admin ruled in favor of restorer",
+        actor: adminActor || "admin",
+      },
+      {
+        event: contractEvent.disputeResolved,
+        date: now,
+        actor: adminActor || "admin",
+      },
+    ];
+    if (withheldCents > 0) {
+      resolutionEvents.push({
+        event: contractEvent.payoutWithheldForDebt,
+        date: now,
+        reason: `Withheld $${(withheldCents / 100).toFixed(2)} of $${(amountCents / 100).toFixed(2)} payout against member debt`,
+        actor: adminActor || "admin",
+      });
+    }
+    await this.settleAndMarkPaid({
+      plan,
+      contractId: contract._id,
+      update: {
+        status: contractStatus.completed,
+        payoutStatus: payoutStatus.paid,
+        preDisputeStatus: null,
+        preDisputePayoutStatus: null,
+        ...(transfer?.id ? { stripeTransferId: transfer.id } : {}),
+        paidAt: now,
+        $push: {
+          timeline: {
+            $each: resolutionEvents,
+          },
+        },
+      },
+      payingOrderRef: contract.orderRef || contractId.toString(),
+      adminActor,
+      transferId: transfer?.id,
+    });
+
+    if (banUser && contract.clientId) {
+      await userRepository.updateUserById(contract.clientId, {
+        isActive: false,
+        deletedAt: new Date(),
+      });
+    }
+
+    if (banMember && contract.memberId) {
+      await memberRepository.updateById(contract.memberId, {
+        isActive: false,
+        deletedAt: new Date(),
+      });
+    }
+
+    return true;
+  },
+
+  async resolveDisputeInconclusive(
+    contractId,
+    { refundCents = 0, payoutCents = 0, banBoth, banUser, banMember, reason, adminActor } = {}
+  ) {
+    const contract = await contractRepository.findById(contractId);
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    if (contract.status !== contractStatus.underManualReview) {
+      throw new Error(contractErrors.DISPUTE_NOT_OPEN);
+    }
+
+    const totalCapturedDollars =
+      (contract.price || 0) +
+      (contract.shippingFee || 0) +
+      (contract.insuranceFee || 0) +
+      (contract.taxFee || 0);
+    const totalCapturedCents = Math.round(totalCapturedDollars * 100);
+
+    if (
+      refundCents < 0 ||
+      payoutCents < 0 ||
+      refundCents + payoutCents > totalCapturedCents
+    ) {
+      throw new Error(contractErrors.INVALID_SPLIT_AMOUNT);
+    }
+
+    if (refundCents > 0 && contract.stripePaymentIntentId) {
+      await refundContractPayment({
+        paymentIntentId: contract.stripePaymentIntentId,
+        amountCents: refundCents,
+        reason: "dispute_inconclusive",
+        contractId: contract._id,
+        idempotencyKey: `dispute_refund_split_${contract._id}_${refundCents}`,
+      });
+    }
+
+    let transfer = null;
+    let nettingPlan = [];
+    let netPayoutCents = payoutCents;
+    if (payoutCents > 0) {
+      const member = await memberRepository.findById(contract.memberId);
+      if (!member?.stripeConnectAccountId) {
+        throw new Error(contractErrors.MEMBER_STRIPE_NOT_CONNECTED);
+      }
+      const netting = await this.planDebtNetting(contract.memberId, payoutCents);
+      netPayoutCents = netting.netCents;
+      nettingPlan = netting.plan;
+      if (netPayoutCents > 0) {
+        transfer = await releasePayoutToMember(
+          member.stripeConnectAccountId,
+          netPayoutCents,
+          contractId.toString()
+        );
+      }
+    }
+
+    const now = new Date();
+    const extraUpdates = {
+      status: contractStatus.canceled,
+      payoutStatus: payoutCents > 0 ? payoutStatus.paid : payoutStatus.canceled,
+      preDisputeStatus: null,
+      preDisputePayoutStatus: null,
+    };
+    if (transfer?.id) {
+      extraUpdates.stripeTransferId = transfer.id;
+    }
+    if (payoutCents > 0) {
+      // paidAt marks adjudication even when the whole payout was withheld for debt
+      extraUpdates.paidAt = now;
+    }
+
+    const withheldCents = payoutCents - netPayoutCents;
+    const inconclusiveEvents = [
+      {
+        event: contractEvent.adminRuledInconclusive,
+        date: now,
+        reason: reason || "Admin resolved dispute inconclusive",
+        actor: adminActor || "admin",
+        refundCents,
+      },
+      {
+        event: contractEvent.disputeResolved,
+        date: now,
+        actor: adminActor || "admin",
+      },
+    ];
+    if (withheldCents > 0) {
+      inconclusiveEvents.push({
+        event: contractEvent.payoutWithheldForDebt,
+        date: now,
+        reason: `Withheld $${(withheldCents / 100).toFixed(2)} of $${(payoutCents / 100).toFixed(2)} payout against member debt`,
+        actor: adminActor || "admin",
+      });
+    }
+
+    await this.settleAndMarkPaid({
+      plan: nettingPlan,
+      contractId: contract._id,
+      update: {
+        ...extraUpdates,
+        $push: {
+          timeline: {
+            $each: inconclusiveEvents,
+          },
+        },
+      },
+      payingOrderRef: contract.orderRef || contractId.toString(),
+      adminActor,
+      transferId: transfer?.id,
+    });
+
+    if (banBoth || banMember) {
+      if (contract.memberId) {
+        await memberRepository.updateById(contract.memberId, {
+          isActive: false,
+          deletedAt: new Date(),
+        });
+      }
+    }
+    if (banBoth || banUser) {
+      if (contract.clientId) {
+        await userRepository.updateUserById(contract.clientId, {
+          isActive: false,
+          deletedAt: new Date(),
+        });
+      }
+    }
+
+    return true;
+  },
+
+  /**
+   * False-alarm dismissal ("no action needed"): restores the pre-dispute
+   * status + payout state captured at flag time and unfreezes the contract.
+   * Older disputes predate the snapshot — pass resumeStatus explicitly.
+   * No money moves.
+   */
+  async dismissDispute(contractId, { resumeStatus, banUser, banMember, reason, adminActor } = {}) {
+    const contract = await contractRepository.findById(contractId);
+    if (!contract) {
+      throw new Error(contractErrors.CONTRACT_NOT_FOUND);
+    }
+    if (contract.status !== contractStatus.underManualReview) {
+      throw new Error(contractErrors.DISPUTE_NOT_OPEN);
+    }
+    const target = resumeStatus || contract.preDisputeStatus;
+    if (!target || !disputableStatuses.includes(target)) {
+      throw new Error(contractErrors.RESUME_STATUS_UNKNOWN);
+    }
+    const now = new Date();
+    await this.transitionTo(contractId, target, {
+      timelinePayload: {
+        event: contractEvent.disputeDismissed,
+        reason: reason || "Admin dismissed dispute — no action needed",
+        actor: adminActor || "admin",
+      },
+      extraUpdates: {
+        payoutStatus: contract.preDisputePayoutStatus || payoutStatus.pending,
+        preDisputeStatus: null,
+        preDisputePayoutStatus: null,
+      },
+    });
+
+    if (banMember && contract.memberId) {
+      await memberRepository.updateById(contract.memberId, {
+        isActive: false,
+        deletedAt: new Date(),
+      });
+    }
+    if (banUser && contract.clientId) {
+      await userRepository.updateUserById(contract.clientId, {
+        isActive: false,
+        deletedAt: new Date(),
+      });
+    }
+
+    return true;
+  },
 };
+
+export function computeContractPnL(contract) {
+  if (!contract) return null;
+  const servicePrice = Number(contract.price != null ? contract.price : contract.proposedPrice || 0);
+  const shippingFee = Number(contract.shippingFee || 0);
+  const insuranceFee = Number(contract.insuranceFee || 0);
+  const taxFee = Number(contract.taxFee || 0);
+  const grossCollected = Math.round((servicePrice + shippingFee + insuranceFee + taxFee) * 100) / 100;
+
+  const platformFeeEarned = Number(
+    contract.platformFee != null
+      ? contract.platformFee
+      : Math.round(servicePrice * platformFee.rate * 100) / 100
+  );
+  const payoutAmount = Number(
+    contract.payoutAmount != null
+      ? contract.payoutAmount
+      : Math.max(0, Math.round((servicePrice - platformFeeEarned) * 100) / 100)
+  );
+
+  const hasLabels = Boolean(
+    contract.inboundLabelUrl ||
+    contract.outboundLabelUrl ||
+    contract.inboundTracking?.trackingNumber ||
+    contract.outboundTracking?.trackingNumber
+  );
+
+  // If labelCostActual was recorded, use it. If labels exist but actual cost wasn't recorded,
+  // fall back to shippingFee so shipping is treated as pass-through at cost, rather than assuming labels were free ($0 cost).
+  const actualLabelCost = Number(
+    contract.labelCostActual != null && contract.labelCostActual > 0
+      ? contract.labelCostActual
+      : hasLabels
+        ? shippingFee
+        : 0
+  );
+
+  // Similarly for insurance: if premium was recorded, use it; otherwise if insurance was charged,
+  // fall back to insuranceFee as pass-through cost rather than assuming insurance was free.
+  const hasInsurance = insuranceFee > 0 && !contract.insuranceDeclined;
+  const actualInsurancePremium = Number(
+    contract.insurancePremiumActual != null && contract.insurancePremiumActual > 0
+      ? contract.insurancePremiumActual
+      : hasInsurance
+        ? insuranceFee
+        : 0
+  );
+
+  const estimatedStripeFee = grossCollected > 0
+    ? Math.round((grossCollected * 0.029 + 0.30) * 100) / 100
+    : 0;
+
+  const salesTaxRemittance = taxFee;
+
+  const totalOutflows = Math.round(
+    (payoutAmount + actualLabelCost + actualInsurancePremium + estimatedStripeFee + salesTaxRemittance) * 100
+  ) / 100;
+
+  const netPlatformProfit = Math.round((grossCollected - totalOutflows) * 100) / 100;
+  const netPlatformMarginPercent = grossCollected > 0
+    ? Math.round((netPlatformProfit / grossCollected) * 1000) / 10
+    : 0;
+
+  const shippingSpread = Math.round((shippingFee - actualLabelCost) * 100) / 100;
+  const insuranceSpread = Math.round((insuranceFee - actualInsurancePremium) * 100) / 100;
+
+  return {
+    grossCollected,
+    servicePrice,
+    shippingFee,
+    insuranceFee,
+    taxFee,
+    payoutAmount,
+    platformFee: platformFeeEarned,
+    actualLabelCost,
+    actualInsurancePremium,
+    estimatedStripeFee,
+    salesTaxRemittance,
+    totalOutflows,
+    netPlatformProfit,
+    netPlatformMarginPercent,
+    shippingSpread,
+    insuranceSpread,
+  };
+}

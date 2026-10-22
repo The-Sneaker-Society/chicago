@@ -1,4 +1,12 @@
+import mongoose from "mongoose";
 import ContractModel from "../models/Contract.model";
+
+// Aggregation pipelines do NOT cast query values, so string ids must be
+// converted explicitly or `$in` silently matches nothing.
+const toObjectIds = (ids) =>
+  (Array.isArray(ids) ? ids : [])
+    .filter((id) => mongoose.isValidObjectId(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
 
 export const contractRepository = {
   async findAll(filter = {}) {
@@ -125,6 +133,29 @@ export const contractRepository = {
    */
   async findFlagged() {
     return await ContractModel.find({ status: "UNDER_MANUAL_REVIEW" });
+  },
+
+  // Prior-dispute counts per party (contracts with a DISPUTE_OPENED timeline
+  // entry). Batched via aggregation — call once per queue load, not per row.
+  // Returns { [partyIdString]: count }.
+  async countDisputedByClients(clientIds) {
+    const ids = toObjectIds(clientIds);
+    if (!ids.length) return {};
+    const rows = await ContractModel.aggregate([
+      { $match: { clientId: { $in: ids }, "timeline.event": "DISPUTE_OPENED" } },
+      { $group: { _id: "$clientId", count: { $sum: 1 } } },
+    ]);
+    return Object.fromEntries((rows || []).map((r) => [String(r._id), r.count]));
+  },
+
+  async countDisputedByMembers(memberIds) {
+    const ids = toObjectIds(memberIds);
+    if (!ids.length) return {};
+    const rows = await ContractModel.aggregate([
+      { $match: { memberId: { $in: ids }, "timeline.event": "DISPUTE_OPENED" } },
+      { $group: { _id: "$memberId", count: { $sum: 1 } } },
+    ]);
+    return Object.fromEntries((rows || []).map((r) => [String(r._id), r.count]));
   },
 
   /**

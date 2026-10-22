@@ -112,8 +112,16 @@ const ContractSchema = new mongoose.Schema(
     },
     payoutAmount: { type: Number },
     platformFee: { type: Number },
+    labelCostActual: { type: Number, default: 0 },
+    insurancePremiumActual: { type: Number, default: 0 },
     payoutEligibleAt: { type: Date },
     paidAt: { type: Date },
+    // Pre-dispute snapshot for false-alarm dismissals: where the contract was
+    // (and its payout state) when flagged into UNDER_MANUAL_REVIEW. Cleared on
+    // every resolution/dismissal. Older disputes predate this and fall back to
+    // an admin-picked resume status.
+    preDisputeStatus: { type: String, default: null },
+    preDisputePayoutStatus: { type: String, default: null },
     timeline: [
       {
         event: { type: String },
