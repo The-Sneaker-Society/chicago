@@ -2,6 +2,7 @@ import dotenv from "dotenv";
 import { ForbiddenError, UserInputError } from "apollo-server-core";
 import { memberService } from "../members/member.service.js";
 import { requireAdmin, requireAuth, requireMember } from "../auth/guards.js";
+import { vaultRepository } from "../vault/vault.repository";
 
 dotenv.config({ path: "config.env" });
 
@@ -351,6 +352,10 @@ const Member = {
   },
   contractsDisabled(parent) {
     return Boolean(parent.contractsDisabled);
+  },
+  // Cross-domain read via the Vault's owning repository (data, not behavior).
+  vaultSubmissions(parent) {
+    return vaultRepository.findByMember(parent._id);
   },
 };
 

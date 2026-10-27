@@ -61,6 +61,7 @@ const memberTypeDefs = gql`
     stripeConnectAccountId: String
     stripeCustomerId: String
     updatedAt: String!
+    vaultSubmissions: [Vault!]!
     zipcode: String
   }
 
