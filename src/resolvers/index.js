@@ -6,6 +6,7 @@ import chatResolvers from "./chat/chat";
 import imageResolvers from "../photo-upload-service/image.resolvers";
 import groupResolvers from "./group";
 import clientResolvers from "./clients";
+import vaultResolvers from "./vault";
 
 module.exports = {
   Query: {
@@ -17,6 +18,7 @@ module.exports = {
     ...imageResolvers.Query,
     ...groupResolvers.Query,
     ...clientResolvers.Query,
+    ...vaultResolvers.Query,
   },
   Mutation: {
     ...memberResolvers.Mutation,
@@ -27,6 +29,7 @@ module.exports = {
     ...imageResolvers.Mutation,
     ...groupResolvers.Mutation,
     ...clientResolvers.Mutation,
+    ...vaultResolvers.Mutation,
   },
   Member: {
     ...memberResolvers.Member,
@@ -51,5 +54,8 @@ module.exports = {
   },
   Group: {
     ...groupResolvers.Group,
+  },
+  Vault: {
+    ...vaultResolvers.Vault,
   },
 };
