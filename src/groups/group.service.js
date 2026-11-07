@@ -77,7 +77,8 @@ export const groupService = {
       update.name = updates.name.trim();
     }
 
-    if (updates.description !== undefined) update.description = updates.description;
+    if (updates.description !== undefined)
+      update.description = updates.description;
     if (updates.avatar !== undefined) update.avatar = updates.avatar;
 
     if (updates.memberIds !== undefined) {
@@ -114,15 +115,14 @@ export const groupService = {
 
     groupService.assertGroupAdmin(group, memberId);
 
+    // Delete posts first so a failed cascade does not remove the group.
+    await groupPostRepository.deleteByGroupId(group._id);
+
     const deletedGroup = await groupRepository.deleteById(group._id);
 
     if (!deletedGroup) {
       throw new Error(groupErrors.notFound);
     }
-
-    // Cross-domain data access goes through the post repository,
-    // not the post service or its Mongoose model.
-    await groupPostRepository.deleteByGroupId(group._id);
 
     return true;
   },

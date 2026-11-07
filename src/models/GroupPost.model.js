@@ -22,7 +22,6 @@ const GroupPostSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Group",
       required: true,
-      index: true,
     },
     author: {
       type: mongoose.Schema.Types.ObjectId,
