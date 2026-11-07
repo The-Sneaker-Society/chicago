@@ -3,10 +3,6 @@ import { groupErrors } from "./group.constants.js";
 import { groupRepository } from "./group.repository.js";
 
 export const groupService = {
-  /**
-   * Preserves the original resolver behavior: a missing id resolves to null
-   * rather than throwing, keeping the Query return shape unchanged.
-   */
   async getGroup(id) {
     return await groupRepository.findByIdPopulated(id);
   },
@@ -19,16 +15,11 @@ export const groupService = {
     return await groupRepository.findByMemberId(userId);
   },
 
-  /**
-   * Creates a group with the caller as creator/first admin.
-   * The creator is deduped into members; name must be non-empty.
-   * Throws domain errors GROUP_NAME_REQUIRED.
-   */
   async createGroup(creatorMemberId, input) {
     const { name, description, avatar, memberIds = [] } = input;
 
     if (!name || !name.trim()) {
-      throw new Error("GROUP_NAME_REQUIRED");
+      throw new Error(groupErrors.nameRequired);
     }
 
     const members = [...new Set([creatorMemberId, ...memberIds.map(String)])];
@@ -43,28 +34,19 @@ export const groupService = {
     });
   },
 
-  /**
-   * Asserts the member is the group creator or an admin.
-   * Throws domain error FORBIDDEN for resolvers to translate.
-   */
   assertGroupAdmin(group, memberId) {
     const isCreator = String(group.createdBy) === memberId;
     const isAdmin = (group.admins || []).some((id) => String(id) === memberId);
 
     if (!isCreator && !isAdmin) {
-      throw new Error("FORBIDDEN");
+      throw new Error(groupErrors.forbidden);
     }
   },
 
-  /**
-   * Updates a group after verifying admin access.
-   * Enforces that the creator always remains a member (domain errors
-   * FORBIDDEN / GROUP_NAME_EMPTY / CREATOR_MUST_REMAIN_MEMBER).
-   */
   async updateGroup(requesterMemberId, id, updates) {
     const existingGroup = await groupRepository.findById(id);
     if (!existingGroup) {
-      throw new Error("GROUP_NOT_FOUND");
+      throw new Error(groupErrors.notFound);
     }
     this.assertGroupAdmin(existingGroup, requesterMemberId);
 
@@ -72,7 +54,7 @@ export const groupService = {
 
     if (updates.name !== undefined) {
       if (!updates.name.trim()) {
-        throw new Error("GROUP_NAME_EMPTY");
+        throw new Error(groupErrors.nameEmpty);
       }
       update.name = updates.name.trim();
     }
@@ -86,7 +68,7 @@ export const groupService = {
       const creatorId = String(existingGroup.createdBy);
 
       if (!nextMembers.includes(creatorId)) {
-        throw new Error("CREATOR_MUST_REMAIN_MEMBER");
+        throw new Error(groupErrors.creatorMustRemainMember);
       }
 
       update.members = nextMembers;
@@ -95,17 +77,12 @@ export const groupService = {
     const group = await groupRepository.updateById(id, update);
 
     if (!group) {
-      throw new Error("GROUP_NOT_FOUND");
+      throw new Error(groupErrors.notFound);
     }
 
     return group;
   },
 
-  /**
-   * Deletes a group after verifying admin access.
-   * Returns whether a document was removed. Domain errors:
-   * GROUP_NOT_FOUND / FORBIDDEN.
-   */
   async deleteGroup(memberId, id) {
     const group = await groupRepository.findById(id);
 
@@ -115,7 +92,6 @@ export const groupService = {
 
     groupService.assertGroupAdmin(group, memberId);
 
-    // Delete posts first so a failed cascade does not remove the group.
     await groupPostRepository.deleteByGroupId(group._id);
 
     const deletedGroup = await groupRepository.deleteById(group._id);
@@ -128,9 +104,6 @@ export const groupService = {
   },
 
   assertGroupMember(group, memberId) {
-    // Replaces: isGroupMember(group, memberId) + manual `if (!isMember) throw`
-    // in src/resolvers/groupPost.js:117-121, :154-158 and
-    // src/services/getPostComment.service.js:20-24.
     const isMember = (group.members || []).some(
       (id) => String(id) === String(memberId),
     );
@@ -140,8 +113,6 @@ export const groupService = {
   },
 
   assertGroupCreator(group, memberId) {
-    // Replaces: isGroupCreator checks in src/resolvers/group.js:142, :160
-    // (addGroupAdmin / removeGroupAdmin).
     if (String(group.createdBy) !== String(memberId)) {
       throw new Error(groupErrors.forbidden);
     }
@@ -154,8 +125,6 @@ export const groupService = {
       throw new Error(groupErrors.notFound);
     }
 
-    // Intentional: groups are open in the current product phase.
-    // TODO: add a visibility/join-policy guard when private groups arrive.
     const updatedGroup = await groupRepository.addMember(
       groupId,
       String(memberId),

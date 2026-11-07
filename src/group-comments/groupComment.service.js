@@ -10,17 +10,6 @@ import {
   buildPage,
 } from "../utils/pagination.js";
 
-/**
- * Comments are embedded in the GroupPost document, so persistence goes
- * through groupPostRepository.
- *
- * Cross-domain service direction: groupCommentService -> groupService,
- * used only for group authorization assertions.
- *
- * Authentication remains in the resolver. This service takes memberId,
- * never raw ctx, and throws domain error codes.
- */
-
 const getPostWithGroupAccess = async (postId, memberId) => {
   const post = await groupPostRepository.findById(postId);
 
@@ -117,8 +106,6 @@ export const groupCommentService = {
 
     const isAuthor = String(comment.author) === String(memberId);
 
-    // Authors may delete their own comments without an admin role.
-    // For other callers, preserve unexpected errors from the assertion.
     try {
       groupService.assertGroupAdmin(group, memberId);
     } catch (error) {
@@ -133,6 +120,7 @@ export const groupCommentService = {
 
     return true;
   },
+
   async commentsPage(post, { limit = DEFAULT_COMMENT_LIMIT, offset = 0 }) {
     const normalizedLimit = normalizeLimit(
       limit,
@@ -142,18 +130,22 @@ export const groupCommentService = {
     const normalizedOffset = normalizeOffset(offset);
 
     const allComments = post.comments || [];
-    const totalCount = allComments.length;
 
-    const slice = allComments.slice(
+    const populatedComments =
+      await groupPostRepository.populateCommentAuthors(allComments);
+
+    const validComments = populatedComments.filter((comment) =>
+      Boolean(comment.author),
+    );
+
+    const items = validComments.slice(
       normalizedOffset,
       normalizedOffset + normalizedLimit,
     );
 
-    await groupPostRepository.populateCommentAuthors(slice);
-
     return buildPage({
-      items: slice.filter((comment) => Boolean(comment.author)),
-      totalCount,
+      items,
+      totalCount: validComments.length,
       offset: normalizedOffset,
     });
   },
