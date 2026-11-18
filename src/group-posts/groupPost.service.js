@@ -1,3 +1,4 @@
+import { assertCanDeleteGroupContent } from "./groupPost.authorization.js";
 import { groupPostRepository } from "./groupPost.repository.js";
 import { groupPostErrors } from "./groupPost.constants.js";
 import { groupRepository } from "../groups/group.repository.js";
@@ -99,20 +100,18 @@ export const groupPostService = {
 
   async deletePost(memberId, postId) {
     const post = await groupPostRepository.findById(postId);
+
     if (!post) {
       throw new Error(groupPostErrors.notFound);
     }
 
     const group = await groupRepository.findById(post.groupId);
+
     if (!group) {
       throw new Error(groupPostErrors.groupNotFound);
     }
 
-    const isAuthor = String(post.author) === String(memberId);
-
-    if (!isAuthor) {
-      groupService.assertGroupAdmin(group, memberId);
-    }
+    assertCanDeleteGroupContent(group, post.author, memberId);
 
     const deleted = await groupPostRepository.deleteById(postId);
 
@@ -121,11 +120,13 @@ export const groupPostService = {
 
   async toggleLike(memberId, postId) {
     const post = await groupPostRepository.findById(postId);
+
     if (!post) {
       throw new Error(groupPostErrors.notFound);
     }
 
     const group = await groupRepository.findById(post.groupId);
+
     if (!group) {
       throw new Error(groupPostErrors.groupNotFound);
     }
@@ -136,12 +137,14 @@ export const groupPostService = {
       (id) => String(id) === String(memberId),
     );
 
-    post.likes = alreadyLiked
-      ? post.likes.filter((id) => String(id) !== String(memberId))
-      : [...post.likes, memberId];
+    const updatedPost = alreadyLiked
+      ? await groupPostRepository.removeLike(post._id, memberId)
+      : await groupPostRepository.addLike(post._id, memberId);
 
-    await groupPostRepository.save(post);
+    if (!updatedPost) {
+      throw new Error(groupPostErrors.notFound);
+    }
 
-    return await groupPostRepository.findByIdPopulated(post._id);
+    return updatedPost;
   },
 };

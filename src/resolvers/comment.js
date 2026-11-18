@@ -3,6 +3,15 @@ import { groupCommentService } from "../group-comments/groupComment.service.js";
 import { groupPostErrors } from "../group-posts/groupPost.constants.js";
 
 const translateCommentError = (error, action) => {
+  if (error.name === "CastError" && error.kind === "ObjectId") {
+    const inputError = new Error("Invalid ID format.");
+
+    inputError.extensions = {
+      code: "BAD_USER_INPUT",
+    };
+
+    return inputError;
+  }
   switch (error.message) {
     case groupPostErrors.notFound:
       return new Error("Post not found");
@@ -42,19 +51,21 @@ const Mutation = {
     }
   }),
 
-  updateComment: requireMember(async (parent, { postId, commentId, content }, ctx) => {
-    try {
-      const memberId = String(ctx.dbUser._id);
+  updateComment: requireMember(
+    async (parent, { postId, commentId, content }, ctx) => {
+      try {
+        const memberId = String(ctx.dbUser._id);
 
-      return await groupCommentService.updateComment(memberId, {
-        postId,
-        commentId,
-        content,
-      });
-    } catch (error) {
-      throw translateCommentError(error, "edit");
-    }
-  }),
+        return await groupCommentService.updateComment(memberId, {
+          postId,
+          commentId,
+          content,
+        });
+      } catch (error) {
+        throw translateCommentError(error, "edit");
+      }
+    },
+  ),
 
   deleteComment: requireMember(async (parent, { postId, commentId }, ctx) => {
     try {

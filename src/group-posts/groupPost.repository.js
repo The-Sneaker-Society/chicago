@@ -39,4 +39,62 @@ export const groupPostRepository = {
   async deleteByGroupId(groupId) {
     return await GroupPostModel.deleteMany({ groupId });
   },
+
+  async addLike(postId, memberId) {
+    return await _populated(
+      GroupPostModel.findByIdAndUpdate(
+        postId,
+        { $addToSet: { likes: memberId } },
+        { new: true, runValidators: true },
+      ),
+    );
+  },
+
+  async removeLike(postId, memberId) {
+    return await _populated(
+      GroupPostModel.findByIdAndUpdate(
+        postId,
+        { $pull: { likes: memberId } },
+        { new: true, runValidators: true },
+      ),
+    );
+  },
+
+  async addComment(postId, comment) {
+    return await _populated(
+      GroupPostModel.findByIdAndUpdate(
+        postId,
+        { $push: { comments: comment } },
+        { new: true, runValidators: true },
+      ),
+    );
+  },
+
+  async updateComment(postId, commentId, content) {
+    return await _populated(
+      GroupPostModel.findOneAndUpdate(
+        {
+          _id: postId,
+          "comments._id": commentId,
+        },
+        {
+          $set: { "comments.$.content": content },
+        },
+        { new: true, runValidators: true },
+      ),
+    );
+  },
+
+  async deleteComment(postId, commentId) {
+    return await GroupPostModel.findOneAndUpdate(
+      {
+        _id: postId,
+        "comments._id": commentId,
+      },
+      {
+        $pull: { comments: { _id: commentId } },
+      },
+      { new: true, runValidators: true },
+    );
+  },
 };

@@ -1,5 +1,7 @@
+import mongoose from "mongoose";
 import { groupPostRepository } from "../group-posts/groupPost.repository.js";
 import { groupPostErrors } from "../group-posts/groupPost.constants.js";
+import { assertCanDeleteGroupContent } from "../group-posts/groupPost.authorization.js";
 import { groupRepository } from "../groups/group.repository.js";
 import { groupService } from "../groups/group.service.js";
 import {
@@ -10,7 +12,7 @@ import {
   buildPage,
 } from "../utils/pagination.js";
 
-const getPostWithGroupAccess = async (postId, memberId) => {
+const getPostWithGroup = async (postId) => {
   const post = await groupPostRepository.findById(postId);
 
   if (!post) {
@@ -23,9 +25,25 @@ const getPostWithGroupAccess = async (postId, memberId) => {
     throw new Error(groupPostErrors.groupNotFound);
   }
 
+  return { post, group };
+};
+
+const getPostWithGroupAccess = async (postId, memberId) => {
+  const { post, group } = await getPostWithGroup(postId);
+
   groupService.assertGroupMember(group, memberId);
 
   return { post, group };
+};
+
+const throwMissingCommentOrPost = async (postId) => {
+  const post = await groupPostRepository.findById(postId);
+
+  if (!post) {
+    throw new Error(groupPostErrors.notFound);
+  }
+
+  throw new Error(groupPostErrors.commentNotFound);
 };
 
 export const groupCommentService = {
@@ -35,18 +53,13 @@ export const groupCommentService = {
     }
 
     const { post } = await getPostWithGroupAccess(postId, memberId);
+    const commentId = new mongoose.Types.ObjectId();
 
-    post.comments.push({
+    const updatedPost = await groupPostRepository.addComment(post._id, {
+      _id: commentId,
       author: memberId,
       content: content.trim(),
     });
-
-    const addedComment = post.comments[post.comments.length - 1];
-    const commentId = addedComment._id;
-
-    await groupPostRepository.save(post);
-
-    const updatedPost = await groupPostRepository.findByIdPopulated(post._id);
 
     if (!updatedPost) {
       throw new Error(groupPostErrors.notFound);
@@ -77,14 +90,14 @@ export const groupCommentService = {
       throw new Error(groupPostErrors.forbidden);
     }
 
-    comment.content = content.trim();
-
-    await groupPostRepository.save(post);
-
-    const updatedPost = await groupPostRepository.findByIdPopulated(post._id);
+    const updatedPost = await groupPostRepository.updateComment(
+      post._id,
+      commentId,
+      content.trim(),
+    );
 
     if (!updatedPost) {
-      throw new Error(groupPostErrors.notFound);
+      await throwMissingCommentOrPost(post._id);
     }
 
     const updatedComment = updatedPost.comments.id(commentId);
@@ -97,28 +110,39 @@ export const groupCommentService = {
   },
 
   async deleteComment(memberId, { postId, commentId }) {
-    const { post, group } = await getPostWithGroupAccess(postId, memberId);
+    const { post, group } = await getPostWithGroup(postId);
     const comment = post.comments.id(commentId);
 
     if (!comment) {
       throw new Error(groupPostErrors.commentNotFound);
     }
 
-    const isAuthor = String(comment.author) === String(memberId);
+    assertCanDeleteGroupContent(group, comment.author, memberId);
 
-    try {
-      groupService.assertGroupAdmin(group, memberId);
-    } catch (error) {
-      if (error.message !== groupPostErrors.forbidden || !isAuthor) {
-        throw error;
-      }
+    const updatedPost = await groupPostRepository.deleteComment(
+      post._id,
+      commentId,
+    );
+
+    if (!updatedPost) {
+      await throwMissingCommentOrPost(post._id);
     }
 
-    comment.deleteOne();
-
-    await groupPostRepository.save(post);
-
     return true;
+  },
+
+  async getValidComments(post) {
+    const populatedComments = await groupPostRepository.populateCommentAuthors(
+      post.comments || [],
+    );
+
+    return populatedComments.filter((comment) => Boolean(comment.author));
+  },
+
+  async commentCount(post) {
+    const validComments = await groupCommentService.getValidComments(post);
+
+    return validComments.length;
   },
 
   async commentsPage(post, { limit = DEFAULT_COMMENT_LIMIT, offset = 0 }) {
@@ -129,14 +153,7 @@ export const groupCommentService = {
     );
     const normalizedOffset = normalizeOffset(offset);
 
-    const allComments = post.comments || [];
-
-    const populatedComments =
-      await groupPostRepository.populateCommentAuthors(allComments);
-
-    const validComments = populatedComments.filter((comment) =>
-      Boolean(comment.author),
-    );
+    const validComments = await groupCommentService.getValidComments(post);
 
     const items = validComments.slice(
       normalizedOffset,

@@ -5,14 +5,28 @@ export const MAX_COMMENT_LIMIT = 50;
 
 export const normalizeLimit = (value, fallback, max) => {
   const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return Math.min(parsed, max);
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return fallback;
+  }
+
+  const normalized = Math.floor(parsed);
+
+  if (normalized < 1) {
+    return fallback;
+  }
+
+  return Math.min(normalized, max);
 };
 
 export const normalizeOffset = (value) => {
   const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) return 0;
-  return parsed;
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return 0;
+  }
+
+  return Math.floor(parsed);
 };
 
 export const buildPage = ({ items, totalCount, offset }) => {

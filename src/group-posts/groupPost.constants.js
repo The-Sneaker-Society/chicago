@@ -1,3 +1,11 @@
+/**
+ * Post/comment deletion policy:
+ * - Authors may delete their own content without current group membership.
+ * - Non-authors must be the group creator or an admin.
+ * - The parent group must still exist.
+ *
+ * Creating, editing, and liking content still require current membership.
+ */
 export const groupPostErrors = Object.freeze({
   notFound: "POST_NOT_FOUND",
   groupNotFound: "GROUP_NOT_FOUND",

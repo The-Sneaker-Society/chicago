@@ -35,8 +35,11 @@ export const groupService = {
   },
 
   assertGroupAdmin(group, memberId) {
-    const isCreator = String(group.createdBy) === memberId;
-    const isAdmin = (group.admins || []).some((id) => String(id) === memberId);
+    const normalizedMemberId = String(memberId);
+    const isCreator = String(group.createdBy) === normalizedMemberId;
+    const isAdmin = (group.admins || []).some(
+      (id) => String(id) === normalizedMemberId,
+    );
 
     if (!isCreator && !isAdmin) {
       throw new Error(groupErrors.forbidden);
@@ -72,6 +75,9 @@ export const groupService = {
       }
 
       update.members = nextMembers;
+      update.admins = (existingGroup.admins || [])
+        .map(String)
+        .filter((adminId) => nextMembers.includes(adminId));
     }
 
     const group = await groupRepository.updateById(id, update);

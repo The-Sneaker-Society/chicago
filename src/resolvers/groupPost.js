@@ -8,6 +8,15 @@ import {
 } from "../utils/pagination.js";
 
 const translatePostError = (error, operation) => {
+  if (error.name === "CastError" && error.kind === "ObjectId") {
+    const inputError = new Error("Invalid ID format.");
+
+    inputError.extensions = {
+      code: "BAD_USER_INPUT",
+    };
+
+    return inputError;
+  }
   switch (error.message) {
     case groupPostErrors.notFound:
       return new Error("Post not found");
@@ -68,24 +77,26 @@ const runPostOperation = async (ctx, operation, execute) => {
 };
 
 const Query = {
-  getPostsByGroup: requireMember(async (
-    parent,
-    { groupId, limit = DEFAULT_POST_LIMIT, offset = 0 },
-    ctx,
-  ) => {
-    return await runPostOperation(ctx, "listByGroup", (memberId) =>
-      groupPostService.listByGroup(memberId, {
-        groupId,
-        limit,
-        offset,
-      }),
-    );
-  }),
+  getPostsByGroup: requireMember(
+    async (
+      parent,
+      { groupId, limit = DEFAULT_POST_LIMIT, offset = 0 },
+      ctx,
+    ) => {
+      return await runPostOperation(ctx, "listByGroup", (memberId) =>
+        groupPostService.listByGroup(memberId, {
+          groupId,
+          limit,
+          offset,
+        }),
+      );
+    },
+  ),
 };
 
 const GroupPost = {
-  commentCount(parent) {
-    return parent.comments?.length || 0;
+  async commentCount(parent) {
+    return await groupCommentService.commentCount(parent);
   },
 
   async commentsPage(parent, { limit = DEFAULT_COMMENT_LIMIT, offset = 0 }) {
@@ -97,25 +108,29 @@ const GroupPost = {
 };
 
 const Mutation = {
-  createPost: requireMember(async (parent, { groupId, content, images = [] }, ctx) => {
-    return await runPostOperation(ctx, "createPost", (memberId) =>
-      groupPostService.createPost(memberId, {
-        groupId,
-        content,
-        images,
-      }),
-    );
-  }),
+  createPost: requireMember(
+    async (parent, { groupId, content, images = [] }, ctx) => {
+      return await runPostOperation(ctx, "createPost", (memberId) =>
+        groupPostService.createPost(memberId, {
+          groupId,
+          content,
+          images,
+        }),
+      );
+    },
+  ),
 
-  updatePost: requireMember(async (parent, { postId, content, images }, ctx) => {
-    return await runPostOperation(ctx, "updatePost", (memberId) =>
-      groupPostService.updatePost(memberId, {
-        postId,
-        content,
-        images,
-      }),
-    );
-  }),
+  updatePost: requireMember(
+    async (parent, { postId, content, images }, ctx) => {
+      return await runPostOperation(ctx, "updatePost", (memberId) =>
+        groupPostService.updatePost(memberId, {
+          postId,
+          content,
+          images,
+        }),
+      );
+    },
+  ),
 
   deletePost: requireMember(async (parent, { postId }, ctx) => {
     return await runPostOperation(ctx, "deletePost", (memberId) =>
