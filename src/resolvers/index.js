@@ -1,3 +1,5 @@
+import groupPostResolvers from "./groupPost";
+import commentResolvers from "./comment";
 import memberResolvers from "./members.resolver";
 import contractResolvers from "./contracts";
 import productResovers from "./products";
@@ -16,6 +18,7 @@ module.exports = {
     ...chatResolvers.Query,
     ...imageResolvers.Query,
     ...groupResolvers.Query,
+    ...groupPostResolvers.Query,
     ...clientResolvers.Query,
   },
   Mutation: {
@@ -26,6 +29,8 @@ module.exports = {
     ...chatResolvers.Mutation,
     ...imageResolvers.Mutation,
     ...groupResolvers.Mutation,
+    ...groupPostResolvers.Mutation,
+    ...commentResolvers.Mutation,
     ...clientResolvers.Mutation,
   },
   Member: {
@@ -51,5 +56,8 @@ module.exports = {
   },
   Group: {
     ...groupResolvers.Group,
+  },
+  GroupPost: {
+    ...groupPostResolvers.GroupPost,
   },
 };

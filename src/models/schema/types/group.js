@@ -42,6 +42,12 @@ const groupTypeDefs = gql`
     ): Group
 
     deleteGroup(id: ID!): Boolean
+    joinGroup(groupId: ID!): Group
+    leaveGroup(groupId: ID!): Group
+
+    addGroupAdmin(groupId: ID!, memberId: ID!): Group
+    removeGroupAdmin(groupId: ID!, memberId: ID!): Group
+    removeGroupMember(groupId: ID!, memberId: ID!): Group
   }
 `;
 
